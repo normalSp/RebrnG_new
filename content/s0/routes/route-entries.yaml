@@ -1,0 +1,41 @@
+routes:
+  - id: moonlight_entry
+    label: 月光路线入口
+    route: moonlight
+    entry_action_ids: [cultivate_moonlight, move_moonlight_corner]
+    stage: s0
+    tags: [route, moonlight, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: merit_entry
+    label: 功绩路线入口
+    route: merit
+    entry_action_ids: [check_merit_notice]
+    stage: s0
+    tags: [route, merit, clan]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: infirmary_entry
+    label: 药堂半主路线入口
+    route: infirmary
+    entry_action_ids: [move_infirmary_lane, seek_treatment_debt]
+    stage: s0
+    tags: [route, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: blackmarket_entry
+    label: 黑市路线入口
+    route: blackmarket
+    entry_action_ids: [probe_blackmarket_hint]
+    stage: s0
+    tags: [route, blackmarket, hidden]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: inheritance_entry
+    label: 传承残线入口
+    route: inheritance
+    entry_action_ids: [chase_inheritance_rumor]
+    stage: s0
+    tags: [route, inheritance, rumor]
+    evidence: gameplay_extrapolated
+    modes: [sandbox_if]

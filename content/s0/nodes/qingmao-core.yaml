@@ -1,0 +1,36 @@
+nodes:
+  - id: moonlight_corner
+    title: 学堂月光角
+    safety: conditional
+    stage: s0
+    tags: [node, academy, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: merit_notice
+    title: 家族功绩告示处
+    safety: low
+    stage: s0
+    tags: [node, clan, merit]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: infirmary_lane
+    title: 药堂侧巷
+    safety: conditional
+    stage: s0
+    tags: [node, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: blackmarket_hint
+    title: 黑市风声暗口
+    safety: hidden
+    stage: s0
+    tags: [node, blackmarket, hidden]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: inheritance_rumor
+    title: 传承残线传闻
+    safety: dangerous
+    stage: s0
+    tags: [node, inheritance, rumor]
+    evidence: gameplay_extrapolated
+    modes: [sandbox_if]

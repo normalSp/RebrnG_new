@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
@@ -289,9 +290,36 @@ pub struct ContentManifest {
     pub content_id: String,
     pub version: String,
     pub title: String,
+    pub stage: String,
     pub entry_scene_id: String,
     pub node_count: usize,
     pub action_count: usize,
+    pub route_count: usize,
+    pub window_count: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceLevel {
+    CanonExplicit,
+    CanonInferred,
+    GameplayExtrapolated,
+    SandboxIf,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ModePermit {
+    CanonStrict,
+    SandboxIf,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentImportance {
+    Critical,
+    Standard,
+    Flavor,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -299,6 +327,10 @@ pub struct ContentNode {
     pub id: String,
     pub title: String,
     pub safety: String,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -307,6 +339,36 @@ pub struct ContentAction {
     pub label: String,
     pub intent: ActionIntent,
     pub target: Option<String>,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+    pub importance: ContentImportance,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentRouteEntry {
+    pub id: String,
+    pub label: String,
+    pub route: String,
+    pub entry_action_ids: Vec<String>,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentWindow {
+    pub id: String,
+    pub day: u8,
+    pub period: String,
+    pub window_type: WindowType,
+    pub default_ap: u8,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -314,11 +376,33 @@ pub struct ContentSource {
     pub content_id: String,
     pub version: String,
     pub title: String,
+    pub stage: String,
     pub entry_scene_id: String,
     #[serde(default)]
     pub nodes: Vec<ContentNode>,
     #[serde(default)]
     pub actions: Vec<ContentAction>,
+    #[serde(default)]
+    pub routes: Vec<ContentRouteEntry>,
+    #[serde(default)]
+    pub windows: Vec<ContentWindow>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentSourceFragment {
+    pub content_id: Option<String>,
+    pub version: Option<String>,
+    pub title: Option<String>,
+    pub stage: Option<String>,
+    pub entry_scene_id: Option<String>,
+    #[serde(default)]
+    pub nodes: Vec<ContentNode>,
+    #[serde(default)]
+    pub actions: Vec<ContentAction>,
+    #[serde(default)]
+    pub routes: Vec<ContentRouteEntry>,
+    #[serde(default)]
+    pub windows: Vec<ContentWindow>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -326,6 +410,24 @@ pub struct ContentBundle {
     pub manifest: ContentManifest,
     pub nodes: Vec<ContentNode>,
     pub actions: Vec<ContentAction>,
+    pub routes: Vec<ContentRouteEntry>,
+    pub windows: Vec<ContentWindow>,
+    pub indexes: ContentIndexes,
+    pub diagnostics: ContentBuildDiagnostics,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentIndexes {
+    pub node_ids: BTreeMap<String, usize>,
+    pub action_ids: BTreeMap<String, usize>,
+    pub route_ids: BTreeMap<String, usize>,
+    pub window_ids: BTreeMap<String, usize>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentBuildDiagnostics {
+    pub summary: String,
+    pub warnings: Vec<String>,
 }
 
 impl ContentBundle {
@@ -344,11 +446,20 @@ impl ContentBundle {
             ));
         }
 
-        if !source
-            .nodes
-            .iter()
-            .any(|node| node.id == source.entry_scene_id)
-        {
+        if source.title.trim().is_empty() {
+            return Err(CommandError::content("内容包缺少 title", "title is empty"));
+        }
+
+        if source.stage.trim().is_empty() {
+            return Err(CommandError::content("内容包缺少 stage", "stage is empty"));
+        }
+
+        let node_ids = build_index("node", source.nodes.iter().map(|node| &node.id))?;
+        let action_ids = build_index("action", source.actions.iter().map(|action| &action.id))?;
+        let route_ids = build_index("route", source.routes.iter().map(|route| &route.id))?;
+        let window_ids = build_index("window", source.windows.iter().map(|window| &window.id))?;
+
+        if !node_ids.contains_key(&source.entry_scene_id) {
             return Err(CommandError::content(
                 "入口节点不存在",
                 format!(
@@ -358,19 +469,298 @@ impl ContentBundle {
             ));
         }
 
+        for node in &source.nodes {
+            validate_common_content(
+                "node",
+                &node.id,
+                &node.stage,
+                &node.tags,
+                &node.evidence,
+                &node.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty("node", &node.id, "title", &node.title)?;
+            require_non_empty("node", &node.id, "safety", &node.safety)?;
+        }
+
+        for action in &source.actions {
+            validate_common_content(
+                "action",
+                &action.id,
+                &action.stage,
+                &action.tags,
+                &action.evidence,
+                &action.modes,
+                action.importance.clone(),
+            )?;
+            require_non_empty("action", &action.id, "label", &action.label)?;
+
+            if let Some(target) = &action.target {
+                if !node_ids.contains_key(target) {
+                    return Err(CommandError::content(
+                        "行动目标节点不存在",
+                        format!("action '{}' target node '{}' not found", action.id, target),
+                    ));
+                }
+            }
+        }
+
+        for route in &source.routes {
+            validate_common_content(
+                "route",
+                &route.id,
+                &route.stage,
+                &route.tags,
+                &route.evidence,
+                &route.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty("route", &route.id, "label", &route.label)?;
+            require_non_empty("route", &route.id, "route", &route.route)?;
+
+            if route.entry_action_ids.is_empty() {
+                return Err(CommandError::content(
+                    "路线入口缺少行动引用",
+                    format!("route '{}' entry_action_ids is empty", route.id),
+                ));
+            }
+
+            for action_id in &route.entry_action_ids {
+                if !action_ids.contains_key(action_id) {
+                    return Err(CommandError::content(
+                        "路线入口行动不存在",
+                        format!("route '{}' action '{}' not found", route.id, action_id),
+                    ));
+                }
+            }
+        }
+
+        for window in &source.windows {
+            validate_common_content(
+                "window",
+                &window.id,
+                &window.stage,
+                &window.tags,
+                &window.evidence,
+                &window.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty("window", &window.id, "period", &window.period)?;
+
+            if !(1..=3).contains(&window.default_ap) {
+                return Err(CommandError::content(
+                    "窗口 AP 超出 Sprint 0 范围",
+                    format!("window '{}' default_ap must be 1..=3", window.id),
+                ));
+            }
+        }
+
+        let node_count = source.nodes.len();
+        let action_count = source.actions.len();
+        let route_count = source.routes.len();
+        let window_count = source.windows.len();
+
         Ok(Self {
             manifest: ContentManifest {
                 content_id: source.content_id,
                 version: source.version,
                 title: source.title,
+                stage: source.stage,
                 entry_scene_id: source.entry_scene_id,
-                node_count: source.nodes.len(),
-                action_count: source.actions.len(),
+                node_count,
+                action_count,
+                route_count,
+                window_count,
             },
             nodes: source.nodes,
             actions: source.actions,
+            routes: source.routes,
+            windows: source.windows,
+            indexes: ContentIndexes {
+                node_ids,
+                action_ids,
+                route_ids,
+                window_ids,
+            },
+            diagnostics: ContentBuildDiagnostics {
+                summary: format!(
+                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows"
+                ),
+                warnings: Vec::new(),
+            },
         })
     }
+}
+
+impl ContentSource {
+    pub fn from_fragments(
+        fragments: impl IntoIterator<Item = ContentSourceFragment>,
+    ) -> Result<Self, CommandError> {
+        let mut content_id = None;
+        let mut version = None;
+        let mut title = None;
+        let mut stage = None;
+        let mut entry_scene_id = None;
+        let mut nodes = Vec::new();
+        let mut actions = Vec::new();
+        let mut routes = Vec::new();
+        let mut windows = Vec::new();
+
+        for fragment in fragments {
+            merge_metadata("content_id", &mut content_id, fragment.content_id)?;
+            merge_metadata("version", &mut version, fragment.version)?;
+            merge_metadata("title", &mut title, fragment.title)?;
+            merge_metadata("stage", &mut stage, fragment.stage)?;
+            merge_metadata(
+                "entry_scene_id",
+                &mut entry_scene_id,
+                fragment.entry_scene_id,
+            )?;
+            nodes.extend(fragment.nodes);
+            actions.extend(fragment.actions);
+            routes.extend(fragment.routes);
+            windows.extend(fragment.windows);
+        }
+
+        Ok(Self {
+            content_id: content_id.ok_or_else(|| {
+                CommandError::content("内容源缺少 content_id", "content_id metadata missing")
+            })?,
+            version: version.ok_or_else(|| {
+                CommandError::content("内容源缺少 version", "version metadata missing")
+            })?,
+            title: title.ok_or_else(|| {
+                CommandError::content("内容源缺少 title", "title metadata missing")
+            })?,
+            stage: stage.ok_or_else(|| {
+                CommandError::content("内容源缺少 stage", "stage metadata missing")
+            })?,
+            entry_scene_id: entry_scene_id.ok_or_else(|| {
+                CommandError::content(
+                    "内容源缺少 entry_scene_id",
+                    "entry_scene_id metadata missing",
+                )
+            })?,
+            nodes,
+            actions,
+            routes,
+            windows,
+        })
+    }
+}
+
+fn build_index<'a>(
+    kind: &str,
+    ids: impl IntoIterator<Item = &'a String>,
+) -> Result<BTreeMap<String, usize>, CommandError> {
+    let mut index = BTreeMap::new();
+
+    for (position, id) in ids.into_iter().enumerate() {
+        if id.trim().is_empty() {
+            return Err(CommandError::content(
+                "内容 id 为空",
+                format!("{kind} id is empty"),
+            ));
+        }
+
+        if index.insert(id.clone(), position).is_some() {
+            return Err(CommandError::content(
+                "内容 id 重复",
+                format!("duplicate {kind} id '{}'", id),
+            ));
+        }
+    }
+
+    Ok(index)
+}
+
+fn validate_common_content(
+    kind: &str,
+    id: &str,
+    stage: &str,
+    tags: &[String],
+    evidence: &EvidenceLevel,
+    modes: &[ModePermit],
+    importance: ContentImportance,
+) -> Result<(), CommandError> {
+    require_non_empty(kind, id, "stage", stage)?;
+
+    if tags.is_empty() || tags.iter().any(|tag| tag.trim().is_empty()) {
+        return Err(CommandError::content(
+            "内容缺少标签",
+            format!("{kind} '{id}' tags must be non-empty"),
+        ));
+    }
+
+    if modes.is_empty() {
+        return Err(CommandError::content(
+            "内容缺少模式许可",
+            format!("{kind} '{id}' modes must be non-empty"),
+        ));
+    }
+
+    if modes.contains(&ModePermit::CanonStrict)
+        && importance == ContentImportance::Critical
+        && !matches!(
+            evidence,
+            EvidenceLevel::CanonExplicit | EvidenceLevel::CanonInferred
+        )
+    {
+        return Err(CommandError::content(
+            "canon_strict 关键内容证据不足",
+            format!("{kind} '{id}' canon_strict critical content requires canon evidence"),
+        ));
+    }
+
+    if evidence == &EvidenceLevel::SandboxIf && !modes.contains(&ModePermit::SandboxIf) {
+        return Err(CommandError::content(
+            "sandbox_if 内容缺少模式许可",
+            format!("{kind} '{id}' sandbox_if content requires sandbox_if mode"),
+        ));
+    }
+
+    Ok(())
+}
+
+fn require_non_empty(kind: &str, id: &str, field: &str, value: &str) -> Result<(), CommandError> {
+    if value.trim().is_empty() {
+        return Err(CommandError::content(
+            "内容字段为空",
+            format!("{kind} '{id}' field '{field}' is empty"),
+        ));
+    }
+
+    Ok(())
+}
+
+fn merge_metadata(
+    field: &str,
+    current: &mut Option<String>,
+    candidate: Option<String>,
+) -> Result<(), CommandError> {
+    let Some(candidate) = candidate else {
+        return Ok(());
+    };
+
+    if candidate.trim().is_empty() {
+        return Err(CommandError::content(
+            "内容源元数据为空",
+            format!("{field} metadata is empty"),
+        ));
+    }
+
+    if let Some(existing) = current {
+        if existing != &candidate {
+            return Err(CommandError::content(
+                "内容源元数据冲突",
+                format!("{field} metadata conflict: '{existing}' vs '{candidate}'"),
+            ));
+        }
+    } else {
+        *current = Some(candidate);
+    }
+
+    Ok(())
 }
 
 pub fn starter_content_manifest() -> ContentManifest {
@@ -378,9 +768,12 @@ pub fn starter_content_manifest() -> ContentManifest {
         content_id: "s0.qingmao.foundation".to_string(),
         version: STARTER_CONTENT_VERSION.to_string(),
         title: "青茅山 Sprint 0 内容骨架".to_string(),
+        stage: "s0".to_string(),
         entry_scene_id: "academy_gate".to_string(),
-        node_count: 3,
-        action_count: 4,
+        node_count: 6,
+        action_count: 8,
+        route_count: 5,
+        window_count: 8,
     }
 }
 
@@ -714,17 +1107,153 @@ mod tests {
             content_id: "s0.test".to_string(),
             version: "0.1.0".to_string(),
             title: "test".to_string(),
+            stage: "s0".to_string(),
             entry_scene_id: "missing".to_string(),
             nodes: vec![ContentNode {
                 id: "academy_gate".to_string(),
                 title: "学堂门前".to_string(),
                 safety: "low".to_string(),
+                stage: "s0".to_string(),
+                tags: vec!["node".to_string()],
+                evidence: EvidenceLevel::CanonInferred,
+                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
             }],
             actions: Vec::new(),
+            routes: Vec::new(),
+            windows: Vec::new(),
         };
 
         let error = ContentBundle::from_source(source).expect_err("missing entry should fail");
         assert_eq!(error.kind, CommandErrorKind::Content);
+    }
+
+    #[test]
+    fn content_bundle_builds_indexes_for_s0_sources() {
+        let source = valid_content_source();
+        let bundle = ContentBundle::from_source(source).expect("valid bundle should build");
+
+        assert_eq!(bundle.manifest.node_count, 1);
+        assert_eq!(bundle.manifest.action_count, 1);
+        assert_eq!(bundle.manifest.route_count, 1);
+        assert_eq!(bundle.manifest.window_count, 1);
+        assert_eq!(bundle.indexes.node_ids["academy_gate"], 0);
+        assert_eq!(bundle.indexes.action_ids["scout_academy"], 0);
+        assert_eq!(bundle.indexes.route_ids["moonlight_entry"], 0);
+        assert_eq!(bundle.indexes.window_ids["day1_morning_free"], 0);
+        assert!(bundle.diagnostics.summary.contains("indexed 1 nodes"));
+        assert!(bundle.diagnostics.warnings.is_empty());
+    }
+
+    #[test]
+    fn content_bundle_rejects_duplicate_ids() {
+        let mut source = valid_content_source();
+        source.nodes.push(source.nodes[0].clone());
+
+        let error = ContentBundle::from_source(source).expect_err("duplicate node should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("duplicate node id"));
+    }
+
+    #[test]
+    fn content_bundle_rejects_action_target_outside_node_index() {
+        let mut source = valid_content_source();
+        source.actions[0].target = Some("missing_node".to_string());
+
+        let error = ContentBundle::from_source(source).expect_err("missing target should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("target node 'missing_node' not found"));
+    }
+
+    #[test]
+    fn canon_strict_critical_content_requires_canon_evidence() {
+        let mut source = valid_content_source();
+        source.actions[0].importance = ContentImportance::Critical;
+        source.actions[0].evidence = EvidenceLevel::GameplayExtrapolated;
+        source.actions[0].modes = vec![ModePermit::CanonStrict];
+
+        let error =
+            ContentBundle::from_source(source).expect_err("weak canon evidence should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("canon_strict critical content requires canon evidence"));
+    }
+
+    #[test]
+    fn sandbox_if_content_requires_explicit_sandbox_mode() {
+        let mut source = valid_content_source();
+        source.actions[0].evidence = EvidenceLevel::SandboxIf;
+        source.actions[0].modes = vec![ModePermit::CanonStrict];
+
+        let error =
+            ContentBundle::from_source(source).expect_err("sandbox_if content should be gated");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("sandbox_if content requires sandbox_if mode"));
+    }
+
+    fn valid_content_source() -> ContentSource {
+        ContentSource {
+            content_id: "s0.qingmao.foundation".to_string(),
+            version: STARTER_CONTENT_VERSION.to_string(),
+            title: "青茅山 Sprint 0 内容骨架".to_string(),
+            stage: "s0".to_string(),
+            entry_scene_id: "academy_gate".to_string(),
+            nodes: vec![ContentNode {
+                id: "academy_gate".to_string(),
+                title: "学堂门前".to_string(),
+                safety: "low".to_string(),
+                stage: "s0".to_string(),
+                tags: vec!["node".to_string(), "academy".to_string()],
+                evidence: EvidenceLevel::CanonInferred,
+                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
+            }],
+            actions: vec![ContentAction {
+                id: "scout_academy".to_string(),
+                label: "观察学堂风声".to_string(),
+                intent: ActionIntent::Scout,
+                target: Some("academy_gate".to_string()),
+                stage: "s0".to_string(),
+                tags: vec!["action".to_string(), "scout".to_string()],
+                evidence: EvidenceLevel::CanonInferred,
+                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
+                importance: ContentImportance::Standard,
+            }],
+            routes: vec![ContentRouteEntry {
+                id: "moonlight_entry".to_string(),
+                label: "月光修行入口".to_string(),
+                route: "moonlight".to_string(),
+                entry_action_ids: vec!["scout_academy".to_string()],
+                stage: "s0".to_string(),
+                tags: vec!["route".to_string(), "moonlight".to_string()],
+                evidence: EvidenceLevel::CanonInferred,
+                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
+            }],
+            windows: vec![ContentWindow {
+                id: "day1_morning_free".to_string(),
+                day: 1,
+                period: "清晨".to_string(),
+                window_type: WindowType::Free,
+                default_ap: 2,
+                stage: "s0".to_string(),
+                tags: vec!["window".to_string(), "opening".to_string()],
+                evidence: EvidenceLevel::CanonInferred,
+                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
+            }],
+        }
     }
 
     #[test]

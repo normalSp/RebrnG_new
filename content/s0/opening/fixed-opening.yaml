@@ -1,0 +1,27 @@
+nodes:
+  - id: academy_gate
+    title: 学堂门前
+    safety: low
+    stage: s0
+    tags: [node, academy, opening]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+actions:
+  - id: scout_academy
+    label: 观察学堂风声
+    intent: scout
+    target: academy_gate
+    stage: s0
+    tags: [action, scout, academy, opening]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: cultivate_moonlight
+    label: 月光修行
+    intent: cultivate
+    target: academy_gate
+    stage: s0
+    tags: [action, cultivate, moonlight, opening]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: critical

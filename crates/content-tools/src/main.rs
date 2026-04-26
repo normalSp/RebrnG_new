@@ -1,4 +1,4 @@
-use rebrng_game_core::{CommandError, ContentBundle, ContentSource};
+use rebrng_game_core::{CommandError, ContentBundle, ContentSource, ContentSourceFragment};
 use std::env;
 use std::fmt;
 use std::fs;
@@ -113,9 +113,7 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<BuildArgs, ToolE
 }
 
 fn build_s0(input: &Path, output: &Path) -> Result<(), ToolError> {
-    let manifest_path = input.join("manifest.yaml");
-    let source_text = fs::read_to_string(&manifest_path)?;
-    let source: ContentSource = serde_yaml::from_str(&source_text)?;
+    let source = load_s0_source(input)?;
     let bundle = ContentBundle::from_source(source)?;
     let bundle_json = serde_json::to_string_pretty(&bundle)?;
 
@@ -133,9 +131,53 @@ fn build_s0(input: &Path, output: &Path) -> Result<(), ToolError> {
     Ok(())
 }
 
+fn load_s0_source(input: &Path) -> Result<ContentSource, ToolError> {
+    let mut yaml_files = Vec::new();
+    collect_yaml_files(input, &mut yaml_files)?;
+    yaml_files.sort();
+
+    if yaml_files.is_empty() {
+        return Err(ToolError::Usage(format!(
+            "no YAML content files found under {}",
+            input.display()
+        )));
+    }
+
+    let mut fragments = Vec::with_capacity(yaml_files.len());
+    for yaml_file in yaml_files {
+        let source_text = fs::read_to_string(&yaml_file)?;
+        let fragment: ContentSourceFragment = serde_yaml::from_str(&source_text)?;
+        fragments.push(fragment);
+    }
+
+    Ok(ContentSource::from_fragments(fragments)?)
+}
+
+fn collect_yaml_files(input: &Path, yaml_files: &mut Vec<PathBuf>) -> Result<(), ToolError> {
+    for entry in fs::read_dir(input)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_yaml_files(&path, yaml_files)?;
+            continue;
+        }
+
+        if path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| matches!(extension, "yaml" | "yml"))
+        {
+            yaml_files.push(path);
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn parse_build_s0_args() {
@@ -155,5 +197,105 @@ mod tests {
                 output: PathBuf::from("target/rebrng-content/s0.bundle.json"),
             }
         );
+    }
+
+    #[test]
+    fn load_s0_source_reads_split_yaml_fragments() {
+        let root = unique_temp_dir();
+        fs::create_dir_all(root.join("nodes")).expect("nodes dir");
+        fs::create_dir_all(root.join("actions")).expect("actions dir");
+        fs::create_dir_all(root.join("routes")).expect("routes dir");
+        fs::create_dir_all(root.join("windows")).expect("windows dir");
+
+        fs::write(
+            root.join("manifest.yaml"),
+            r#"
+content_id: s0.qingmao.foundation
+version: s0.0.1
+title: 青茅山 Sprint 0 内容骨架
+stage: s0
+entry_scene_id: academy_gate
+"#,
+        )
+        .expect("write manifest");
+        fs::write(
+            root.join("nodes/academy.yaml"),
+            r#"
+nodes:
+  - id: academy_gate
+    title: 学堂门前
+    safety: low
+    stage: s0
+    tags: [node, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+"#,
+        )
+        .expect("write nodes");
+        fs::write(
+            root.join("actions/core.yaml"),
+            r#"
+actions:
+  - id: scout_academy
+    label: 观察学堂风声
+    intent: scout
+    target: academy_gate
+    stage: s0
+    tags: [action, scout]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+"#,
+        )
+        .expect("write actions");
+        fs::write(
+            root.join("routes/routes.yaml"),
+            r#"
+routes:
+  - id: moonlight_entry
+    label: 月光修行入口
+    route: moonlight
+    entry_action_ids: [scout_academy]
+    stage: s0
+    tags: [route, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+"#,
+        )
+        .expect("write routes");
+        fs::write(
+            root.join("windows/windows.yaml"),
+            r#"
+windows:
+  - id: day1_morning_free
+    day: 1
+    period: 清晨
+    window_type: free
+    default_ap: 2
+    stage: s0
+    tags: [window, opening]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+"#,
+        )
+        .expect("write windows");
+
+        let source = load_s0_source(&root).expect("split source should load");
+
+        assert_eq!(source.nodes.len(), 1);
+        assert_eq!(source.actions.len(), 1);
+        assert_eq!(source.routes.len(), 1);
+        assert_eq!(source.windows.len(), 1);
+        assert_eq!(source.entry_scene_id, "academy_gate");
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    fn unique_temp_dir() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        std::env::temp_dir().join(format!("rebrng-content-tools-test-{nanos}"))
     }
 }

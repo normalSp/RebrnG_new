@@ -1,0 +1,73 @@
+windows:
+  - id: day1_morning_free
+    day: 1
+    period: 清晨
+    window_type: free
+    default_ap: 2
+    stage: s0
+    tags: [window, free, opening]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day1_midday_free
+    day: 1
+    period: 日中
+    window_type: free
+    default_ap: 2
+    stage: s0
+    tags: [window, free, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day1_evening_free
+    day: 1
+    period: 傍晚
+    window_type: free
+    default_ap: 2
+    stage: s0
+    tags: [window, free, risk]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day1_deep_night_free
+    day: 1
+    period: 深夜
+    window_type: free
+    default_ap: 1
+    stage: s0
+    tags: [window, free, night]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day2_morning_free
+    day: 2
+    period: 清晨
+    window_type: free
+    default_ap: 2
+    stage: s0
+    tags: [window, free, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day2_midday_free
+    day: 2
+    period: 日中
+    window_type: free
+    default_ap: 3
+    stage: s0
+    tags: [window, free, opportunity]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day2_evening_free
+    day: 2
+    period: 傍晚
+    window_type: free
+    default_ap: 2
+    stage: s0
+    tags: [window, free, risk]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: day2_deep_night_free
+    day: 2
+    period: 深夜
+    window_type: free
+    default_ap: 1
+    stage: s0
+    tags: [window, free, night]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
