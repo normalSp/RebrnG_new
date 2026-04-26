@@ -1,0 +1,14 @@
+{
+  "name": "rebrng-new",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "pnpm -r build",
+    "content:build": "cargo run -p rebrng-content-tools -- build-s0 --input content/s0 --output target/rebrng-content/s0.bundle.json",
+    "desktop:build": "pnpm --filter @rebrng/desktop tauri build",
+    "desktop:dev": "pnpm --filter @rebrng/desktop tauri dev",
+    "check": "pnpm -r build && cargo test --workspace"
+  }
+}

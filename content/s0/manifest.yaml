@@ -1,0 +1,31 @@
+content_id: s0.qingmao.foundation
+version: s0.0.1
+title: 青茅山 Sprint 0 内容骨架
+entry_scene_id: academy_gate
+nodes:
+  - id: academy_gate
+    title: 学堂门前
+    safety: low
+  - id: infirmary_lane
+    title: 药堂侧巷
+    safety: conditional
+  - id: blackmarket_hint
+    title: 黑市风声暗口
+    safety: hidden
+actions:
+  - id: scout_academy
+    label: 观察学堂风声
+    intent: scout
+    target: academy_gate
+  - id: cultivate_moonlight
+    label: 月光修行
+    intent: cultivate
+    target: academy_gate
+  - id: move_infirmary_lane
+    label: 去药堂侧巷
+    intent: move
+    target: infirmary_lane
+  - id: probe_blackmarket_hint
+    label: 试探黑市暗口
+    intent: trade
+    target: blackmarket_hint
