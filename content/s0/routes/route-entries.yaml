@@ -10,7 +10,7 @@ routes:
   - id: merit_entry
     label: 功绩路线入口
     route: merit
-    entry_action_ids: [check_merit_notice]
+    entry_action_ids: [move_merit_notice, check_merit_notice]
     stage: s0
     tags: [route, merit, clan]
     evidence: canon_inferred
@@ -26,10 +26,10 @@ routes:
   - id: blackmarket_entry
     label: 黑市路线入口
     route: blackmarket
-    entry_action_ids: [probe_blackmarket_hint]
+    entry_action_ids: [move_blackmarket_hint, probe_blackmarket_hint]
     stage: s0
     tags: [route, blackmarket, hidden]
-    evidence: canon_inferred
+    evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
   - id: inheritance_entry
     label: 传承残线入口
@@ -37,5 +37,5 @@ routes:
     entry_action_ids: [chase_inheritance_rumor]
     stage: s0
     tags: [route, inheritance, rumor]
-    evidence: gameplay_extrapolated
+    evidence: sandbox_if
     modes: [sandbox_if]

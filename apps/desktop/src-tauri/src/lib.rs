@@ -1,8 +1,8 @@
 use rebrng_game_core::{
     build_projection as core_build_projection, create_run as core_create_run,
-    resolve_action as core_resolve_action, starter_content_manifest, ActionCommand, ActionResponse,
-    CommandError, ContentManifest, GameState, LedgerViewModel, PerformanceMetrics, RunMode,
-    SaveEnvelope, SaveWriteResult, STARTER_CONTENT_VERSION,
+    resolve_action as core_resolve_action, starter_content_bundle, ActionCommand, ActionResponse,
+    CommandError, ContentBundle, ContentManifest, GameState, LedgerViewModel, PerformanceMetrics,
+    RunMode, SaveEnvelope, SaveWriteResult,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,9 +10,18 @@ use std::sync::Mutex;
 use std::time::Instant;
 use tauri::Manager;
 
-#[derive(Default)]
 struct ActiveRunState {
     active_run: Mutex<Option<GameState>>,
+    content_bundle: ContentBundle,
+}
+
+impl Default for ActiveRunState {
+    fn default() -> Self {
+        Self {
+            active_run: Mutex::new(None),
+            content_bundle: starter_content_bundle(),
+        }
+    }
 }
 
 #[tauri::command]
@@ -21,8 +30,7 @@ fn create_run(
     runtime: tauri::State<'_, ActiveRunState>,
 ) -> Result<ActionResponse, CommandError> {
     let run_mode = parse_mode(mode)?;
-    let manifest = starter_content_manifest();
-    let state = core_create_run(run_mode, manifest.version);
+    let state = core_create_run(run_mode, runtime.content_bundle.manifest.version.clone());
     let response = response_from_state(&state, PerformanceMetrics::default())?;
 
     let mut active_run = runtime.active_run.lock().map_err(|error| {
@@ -51,7 +59,7 @@ fn resolve_action(
     let current = active_run
         .clone()
         .ok_or_else(|| CommandError::validation("当前没有 active run，请先新建单局"))?;
-    let result = core_resolve_action(current, command)?;
+    let result = core_resolve_action(current, command, &runtime.content_bundle)?;
     *active_run = Some(result.state);
 
     Ok(result.response)
@@ -78,8 +86,8 @@ fn build_projection(
 }
 
 #[tauri::command]
-fn get_content_manifest() -> ContentManifest {
-    starter_content_manifest()
+fn get_content_manifest(runtime: tauri::State<'_, ActiveRunState>) -> ContentManifest {
+    runtime.content_bundle.manifest.clone()
 }
 
 #[tauri::command]
@@ -113,7 +121,7 @@ fn load_save(
 ) -> Result<ActionResponse, CommandError> {
     let started = Instant::now();
     let root = save_root_from_app(&app_handle)?;
-    let envelope = load_save_from_root(&root, &slot_id, STARTER_CONTENT_VERSION)?;
+    let envelope = load_save_from_root(&root, &slot_id, &runtime.content_bundle.manifest.version)?;
     let state = envelope.snapshot;
     let performance = PerformanceMetrics {
         save_load_ms: started.elapsed().as_millis() as u64,
@@ -282,6 +290,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rebrng_game_core::STARTER_CONTENT_VERSION;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};

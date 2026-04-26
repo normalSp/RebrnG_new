@@ -1,0 +1,103 @@
+movements:
+  - id: academy_to_moonlight
+    from: academy_gate
+    to: moonlight_corner
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 0
+    stage: s0
+    tags: [movement, near, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: moonlight_to_academy
+    from: moonlight_corner
+    to: academy_gate
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 0
+    stage: s0
+    tags: [movement, near, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: academy_to_merit_notice
+    from: academy_gate
+    to: merit_notice
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 1
+    stage: s0
+    tags: [movement, watched, merit]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: merit_notice_to_academy
+    from: merit_notice
+    to: academy_gate
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 0
+    stage: s0
+    tags: [movement, watched, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: academy_to_infirmary_lane
+    from: academy_gate
+    to: infirmary_lane
+    ap_cost: 0
+    arrival_ap_penalty: 1
+    exposure_delta: 1
+    stage: s0
+    tags: [movement, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: infirmary_lane_to_academy
+    from: infirmary_lane
+    to: academy_gate
+    ap_cost: 0
+    arrival_ap_penalty: 1
+    exposure_delta: 1
+    stage: s0
+    tags: [movement, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: academy_to_blackmarket_hint
+    from: academy_gate
+    to: blackmarket_hint
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 2
+    required_period: 深夜
+    stage: s0
+    tags: [movement, blackmarket, hidden]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+  - id: blackmarket_hint_to_academy
+    from: blackmarket_hint
+    to: academy_gate
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 1
+    required_period: 深夜
+    stage: s0
+    tags: [movement, blackmarket, hidden]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+  - id: academy_to_inheritance_rumor
+    from: academy_gate
+    to: inheritance_rumor
+    ap_cost: 1
+    arrival_ap_penalty: 0
+    exposure_delta: 3
+    stage: s0
+    tags: [movement, inheritance, sandbox-if]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+  - id: inheritance_rumor_to_academy
+    from: inheritance_rumor
+    to: academy_gate
+    ap_cost: 1
+    arrival_ap_penalty: 0
+    exposure_delta: 2
+    stage: s0
+    tags: [movement, inheritance, sandbox-if]
+    evidence: sandbox_if
+    modes: [sandbox_if]

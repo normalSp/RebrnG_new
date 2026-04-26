@@ -8,6 +8,15 @@ actions:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: move_merit_notice
+    label: 靠近功绩告示
+    intent: move
+    target: merit_notice
+    stage: s0
+    tags: [action, move, merit]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: check_merit_notice
     label: 查看功绩告示
     intent: scout
@@ -35,21 +44,30 @@ actions:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: move_blackmarket_hint
+    label: 摸向黑市暗口
+    intent: move
+    target: blackmarket_hint
+    stage: s0
+    tags: [action, move, blackmarket, hidden]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: probe_blackmarket_hint
-    label: 试探黑市暗口
+    label: 黑市换料
     intent: trade
     target: blackmarket_hint
     stage: s0
     tags: [action, trade, blackmarket, hidden]
-    evidence: canon_inferred
+    evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
     importance: standard
   - id: chase_inheritance_rumor
     label: 追一截传承残线
-    intent: scout
+    intent: move
     target: inheritance_rumor
     stage: s0
-    tags: [action, scout, inheritance, rumor]
-    evidence: gameplay_extrapolated
+    tags: [action, move, inheritance, rumor]
+    evidence: sandbox_if
     modes: [sandbox_if]
     importance: standard

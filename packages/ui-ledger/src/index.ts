@@ -39,10 +39,15 @@ export interface ActionCommand {
 
 export interface LedgerViewModel {
   scene_text: string;
+  current_day: number;
   current_period: string;
+  window_id: string;
   window_type: WindowType;
   available_ap: number;
   current_node_id: string;
+  primeval_stones: number;
+  materials: number;
+  merit: number;
   exposure: number;
   debt_pressure: number;
   build_summary: string;

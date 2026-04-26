@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
-pub const RULES_VERSION: &str = "sprint0-rules-v1";
+pub const RULES_VERSION: &str = "sprint0-rules-v2";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -48,6 +48,9 @@ pub enum PipelineStep {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TimeState {
+    pub window_id: String,
+    pub window_index: usize,
+    pub free_rounds_elapsed: u8,
     pub chapter_day: u8,
     pub period: String,
     pub window_type: WindowType,
@@ -58,6 +61,9 @@ pub struct TimeState {
 impl Default for TimeState {
     fn default() -> Self {
         Self {
+            window_id: "day1_morning_free".to_string(),
+            window_index: 0,
+            free_rounds_elapsed: 0,
             chapter_day: 1,
             period: "清晨".to_string(),
             window_type: WindowType::Free,
@@ -85,18 +91,37 @@ impl Default for WorldSpaceState {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResourceState {
     pub primeval_stones: i32,
-    pub debt_pressure: i32,
-    pub exposure: i32,
+    pub materials: i32,
+    pub merit: i32,
 }
 
 impl Default for ResourceState {
     fn default() -> Self {
         Self {
             primeval_stones: 3,
-            debt_pressure: 0,
-            exposure: 0,
+            materials: 0,
+            merit: 0,
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct DebtAndCreditState {
+    pub infirmary_debt: i32,
+    pub favor_debt: i32,
+    pub organization_debt: i32,
+    pub trading_credit: i32,
+}
+
+impl DebtAndCreditState {
+    pub fn pressure(&self) -> i32 {
+        self.infirmary_debt + self.favor_debt + self.organization_debt
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct RiskState {
+    pub exposure: i32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -133,6 +158,8 @@ pub struct GameState {
     pub time: TimeState,
     pub world: WorldSpaceState,
     pub resources: ResourceState,
+    pub debts_and_credit: DebtAndCreditState,
+    pub risk: RiskState,
     pub build: BuildState,
     pub ledger: Vec<LedgerEntry>,
 }
@@ -227,22 +254,16 @@ impl SaveEnvelope {
             ));
         }
 
-        if self.metadata.content_version != expected_content_version {
+        if self.metadata.content_version != expected_content_version
+            || self.snapshot.content_version != expected_content_version
+        {
             return Err(CommandError::save(
-                "内容包版本不匹配",
+                "内容版本不匹配",
                 format!(
-                    "expected content_version '{}', found '{}'",
-                    expected_content_version, self.metadata.content_version
-                ),
-            ));
-        }
-
-        if self.snapshot.content_version != self.metadata.content_version {
-            return Err(CommandError::save(
-                "存档快照内容版本不一致",
-                format!(
-                    "metadata content_version '{}', snapshot content_version '{}'",
-                    self.metadata.content_version, self.snapshot.content_version
+                    "expected content_version '{}', metadata '{}', snapshot '{}'",
+                    expected_content_version,
+                    self.metadata.content_version,
+                    self.snapshot.content_version
                 ),
             ));
         }
@@ -331,10 +352,15 @@ pub struct PerformanceMetrics {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
+    pub current_day: u8,
     pub current_period: String,
+    pub window_id: String,
     pub window_type: WindowType,
     pub available_ap: u8,
     pub current_node_id: String,
+    pub primeval_stones: i32,
+    pub materials: i32,
+    pub merit: i32,
     pub exposure: i32,
     pub debt_pressure: i32,
     pub build_summary: String,
@@ -425,6 +451,7 @@ pub struct ContentManifest {
     pub action_count: usize,
     pub route_count: usize,
     pub window_count: usize,
+    pub movement_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -501,6 +528,22 @@ pub struct ContentWindow {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentMovementEdge {
+    pub id: String,
+    pub from: String,
+    pub to: String,
+    pub ap_cost: u8,
+    pub arrival_ap_penalty: u8,
+    pub exposure_delta: i32,
+    #[serde(default)]
+    pub required_period: Option<String>,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContentSource {
     pub content_id: String,
     pub version: String,
@@ -515,6 +558,8 @@ pub struct ContentSource {
     pub routes: Vec<ContentRouteEntry>,
     #[serde(default)]
     pub windows: Vec<ContentWindow>,
+    #[serde(default)]
+    pub movements: Vec<ContentMovementEdge>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -532,6 +577,8 @@ pub struct ContentSourceFragment {
     pub routes: Vec<ContentRouteEntry>,
     #[serde(default)]
     pub windows: Vec<ContentWindow>,
+    #[serde(default)]
+    pub movements: Vec<ContentMovementEdge>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -541,6 +588,7 @@ pub struct ContentBundle {
     pub actions: Vec<ContentAction>,
     pub routes: Vec<ContentRouteEntry>,
     pub windows: Vec<ContentWindow>,
+    pub movements: Vec<ContentMovementEdge>,
     pub indexes: ContentIndexes,
     pub diagnostics: ContentBuildDiagnostics,
 }
@@ -551,6 +599,7 @@ pub struct ContentIndexes {
     pub action_ids: BTreeMap<String, usize>,
     pub route_ids: BTreeMap<String, usize>,
     pub window_ids: BTreeMap<String, usize>,
+    pub movement_ids: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -561,32 +610,19 @@ pub struct ContentBuildDiagnostics {
 
 impl ContentBundle {
     pub fn from_source(source: ContentSource) -> Result<Self, CommandError> {
-        if source.content_id.trim().is_empty() {
-            return Err(CommandError::content(
-                "内容包缺少 content_id",
-                "content_id is empty",
-            ));
-        }
-
-        if source.version.trim().is_empty() {
-            return Err(CommandError::content(
-                "内容包缺少 version",
-                "version is empty",
-            ));
-        }
-
-        if source.title.trim().is_empty() {
-            return Err(CommandError::content("内容包缺少 title", "title is empty"));
-        }
-
-        if source.stage.trim().is_empty() {
-            return Err(CommandError::content("内容包缺少 stage", "stage is empty"));
-        }
+        require_non_empty("bundle", "root", "content_id", &source.content_id)?;
+        require_non_empty("bundle", "root", "version", &source.version)?;
+        require_non_empty("bundle", "root", "title", &source.title)?;
+        require_non_empty("bundle", "root", "stage", &source.stage)?;
 
         let node_ids = build_index("node", source.nodes.iter().map(|node| &node.id))?;
         let action_ids = build_index("action", source.actions.iter().map(|action| &action.id))?;
         let route_ids = build_index("route", source.routes.iter().map(|route| &route.id))?;
         let window_ids = build_index("window", source.windows.iter().map(|window| &window.id))?;
+        let movement_ids = build_index(
+            "movement",
+            source.movements.iter().map(|movement| &movement.id),
+        )?;
 
         if !node_ids.contains_key(&source.entry_scene_id) {
             return Err(CommandError::content(
@@ -623,7 +659,6 @@ impl ContentBundle {
                 action.importance.clone(),
             )?;
             require_non_empty("action", &action.id, "label", &action.label)?;
-
             if let Some(target) = &action.target {
                 if !node_ids.contains_key(target) {
                     return Err(CommandError::content(
@@ -646,14 +681,12 @@ impl ContentBundle {
             )?;
             require_non_empty("route", &route.id, "label", &route.label)?;
             require_non_empty("route", &route.id, "route", &route.route)?;
-
             if route.entry_action_ids.is_empty() {
                 return Err(CommandError::content(
                     "路线入口缺少行动引用",
                     format!("route '{}' entry_action_ids is empty", route.id),
                 ));
             }
-
             for action_id in &route.entry_action_ids {
                 if !action_ids.contains_key(action_id) {
                     return Err(CommandError::content(
@@ -675,7 +708,6 @@ impl ContentBundle {
                 ContentImportance::Standard,
             )?;
             require_non_empty("window", &window.id, "period", &window.period)?;
-
             if !(1..=3).contains(&window.default_ap) {
                 return Err(CommandError::content(
                     "窗口 AP 超出 Sprint 0 范围",
@@ -684,10 +716,62 @@ impl ContentBundle {
             }
         }
 
+        for movement in &source.movements {
+            validate_common_content(
+                "movement",
+                &movement.id,
+                &movement.stage,
+                &movement.tags,
+                &movement.evidence,
+                &movement.modes,
+                ContentImportance::Standard,
+            )?;
+            if !node_ids.contains_key(&movement.from) {
+                return Err(CommandError::content(
+                    "移动边起点不存在",
+                    format!(
+                        "movement '{}' from node '{}' not found",
+                        movement.id, movement.from
+                    ),
+                ));
+            }
+            if !node_ids.contains_key(&movement.to) {
+                return Err(CommandError::content(
+                    "移动边终点不存在",
+                    format!(
+                        "movement '{}' to node '{}' not found",
+                        movement.id, movement.to
+                    ),
+                ));
+            }
+            if movement.ap_cost > 3 {
+                return Err(CommandError::content(
+                    "移动 AP 成本超出 Sprint 0 范围",
+                    format!("movement '{}' ap_cost must be 0..=3", movement.id),
+                ));
+            }
+            if movement.arrival_ap_penalty > 3 {
+                return Err(CommandError::content(
+                    "移动到达 AP 压缩超出 Sprint 0 范围",
+                    format!(
+                        "movement '{}' arrival_ap_penalty must be 0..=3",
+                        movement.id
+                    ),
+                ));
+            }
+            if movement.exposure_delta < 0 {
+                return Err(CommandError::content(
+                    "移动暴露变化不能为负",
+                    format!("movement '{}' exposure_delta must be >= 0", movement.id),
+                ));
+            }
+        }
+
         let node_count = source.nodes.len();
         let action_count = source.actions.len();
         let route_count = source.routes.len();
         let window_count = source.windows.len();
+        let movement_count = source.movements.len();
 
         Ok(Self {
             manifest: ContentManifest {
@@ -700,20 +784,23 @@ impl ContentBundle {
                 action_count,
                 route_count,
                 window_count,
+                movement_count,
             },
             nodes: source.nodes,
             actions: source.actions,
             routes: source.routes,
             windows: source.windows,
+            movements: source.movements,
             indexes: ContentIndexes {
                 node_ids,
                 action_ids,
                 route_ids,
                 window_ids,
+                movement_ids,
             },
             diagnostics: ContentBuildDiagnostics {
                 summary: format!(
-                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows"
+                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements"
                 ),
                 warnings: Vec::new(),
             },
@@ -734,6 +821,7 @@ impl ContentSource {
         let mut actions = Vec::new();
         let mut routes = Vec::new();
         let mut windows = Vec::new();
+        let mut movements = Vec::new();
 
         for fragment in fragments {
             merge_metadata("content_id", &mut content_id, fragment.content_id)?;
@@ -749,6 +837,7 @@ impl ContentSource {
             actions.extend(fragment.actions);
             routes.extend(fragment.routes);
             windows.extend(fragment.windows);
+            movements.extend(fragment.movements);
         }
 
         Ok(Self {
@@ -774,6 +863,7 @@ impl ContentSource {
             actions,
             routes,
             windows,
+            movements,
         })
     }
 }
@@ -783,7 +873,6 @@ fn build_index<'a>(
     ids: impl IntoIterator<Item = &'a String>,
 ) -> Result<BTreeMap<String, usize>, CommandError> {
     let mut index = BTreeMap::new();
-
     for (position, id) in ids.into_iter().enumerate() {
         if id.trim().is_empty() {
             return Err(CommandError::content(
@@ -791,7 +880,6 @@ fn build_index<'a>(
                 format!("{kind} id is empty"),
             ));
         }
-
         if index.insert(id.clone(), position).is_some() {
             return Err(CommandError::content(
                 "内容 id 重复",
@@ -799,7 +887,6 @@ fn build_index<'a>(
             ));
         }
     }
-
     Ok(index)
 }
 
@@ -858,7 +945,6 @@ fn require_non_empty(kind: &str, id: &str, field: &str, value: &str) -> Result<(
             format!("{kind} '{id}' field '{field}' is empty"),
         ));
     }
-
     Ok(())
 }
 
@@ -893,16 +979,472 @@ fn merge_metadata(
 }
 
 pub fn starter_content_manifest() -> ContentManifest {
-    ContentManifest {
+    starter_content_bundle().manifest
+}
+
+pub fn starter_content_bundle() -> ContentBundle {
+    ContentBundle::from_source(starter_content_source())
+        .expect("starter S0 content bundle must validate")
+}
+
+pub fn starter_content_source() -> ContentSource {
+    ContentSource {
         content_id: "s0.qingmao.foundation".to_string(),
         version: STARTER_CONTENT_VERSION.to_string(),
         title: "青茅山 Sprint 0 内容骨架".to_string(),
         stage: "s0".to_string(),
         entry_scene_id: "academy_gate".to_string(),
-        node_count: 6,
-        action_count: 8,
-        route_count: 5,
-        window_count: 8,
+        nodes: starter_nodes(),
+        actions: starter_actions(),
+        routes: starter_routes(),
+        windows: starter_windows(),
+        movements: starter_movements(),
+    }
+}
+
+fn strings(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_string()).collect()
+}
+
+fn all_modes() -> Vec<ModePermit> {
+    vec![ModePermit::CanonStrict, ModePermit::SandboxIf]
+}
+
+fn sandbox_only() -> Vec<ModePermit> {
+    vec![ModePermit::SandboxIf]
+}
+
+fn starter_nodes() -> Vec<ContentNode> {
+    vec![
+        node(
+            "academy_gate",
+            "学堂门前",
+            "low",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["node", "academy"],
+        ),
+        node(
+            "moonlight_corner",
+            "月光修行角",
+            "low",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["node", "moonlight"],
+        ),
+        node(
+            "merit_notice",
+            "功绩告示旁",
+            "watched",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["node", "merit"],
+        ),
+        node(
+            "infirmary_lane",
+            "药堂侧巷",
+            "debt",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["node", "infirmary"],
+        ),
+        node(
+            "blackmarket_hint",
+            "黑市暗口",
+            "hidden-risk",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["node", "blackmarket", "hidden"],
+        ),
+        node(
+            "inheritance_rumor",
+            "传承残线",
+            "high-risk-if",
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["node", "inheritance", "sandbox-if"],
+        ),
+    ]
+}
+
+fn node(
+    id: &str,
+    title: &str,
+    safety: &str,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+    tags: &[&str],
+) -> ContentNode {
+    ContentNode {
+        id: id.to_string(),
+        title: title.to_string(),
+        safety: safety.to_string(),
+        stage: "s0".to_string(),
+        tags: strings(tags),
+        evidence,
+        modes,
+    }
+}
+
+fn starter_actions() -> Vec<ContentAction> {
+    vec![
+        action(
+            "scout_academy",
+            "观察学堂风声",
+            ActionIntent::Scout,
+            Some("academy_gate"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout"],
+        ),
+        action(
+            "cultivate_moonlight",
+            "月光修行",
+            ActionIntent::Cultivate,
+            Some("academy_gate"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "cultivate", "moonlight"],
+        ),
+        action(
+            "move_moonlight_corner",
+            "挪到月光修行角",
+            ActionIntent::Move,
+            Some("moonlight_corner"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "move"],
+        ),
+        action(
+            "move_merit_notice",
+            "靠近功绩告示",
+            ActionIntent::Move,
+            Some("merit_notice"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "move", "merit"],
+        ),
+        action(
+            "check_merit_notice",
+            "查功绩告示",
+            ActionIntent::Scout,
+            Some("merit_notice"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout", "merit"],
+        ),
+        action(
+            "move_infirmary_lane",
+            "去药堂侧巷",
+            ActionIntent::Move,
+            Some("infirmary_lane"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "move", "infirmary"],
+        ),
+        action(
+            "seek_treatment_debt",
+            "赊一口恢复",
+            ActionIntent::Recover,
+            Some("infirmary_lane"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "recover", "debt"],
+        ),
+        action(
+            "move_blackmarket_hint",
+            "摸向黑市暗口",
+            ActionIntent::Move,
+            Some("blackmarket_hint"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "move", "blackmarket"],
+        ),
+        action(
+            "probe_blackmarket_hint",
+            "黑市换料",
+            ActionIntent::Trade,
+            Some("blackmarket_hint"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "trade", "blackmarket"],
+        ),
+        action(
+            "chase_inheritance_rumor",
+            "追传承残线",
+            ActionIntent::Move,
+            Some("inheritance_rumor"),
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["action", "move", "inheritance"],
+        ),
+    ]
+}
+
+fn action(
+    id: &str,
+    label: &str,
+    intent: ActionIntent,
+    target: Option<&str>,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+    tags: &[&str],
+) -> ContentAction {
+    ContentAction {
+        id: id.to_string(),
+        label: label.to_string(),
+        intent,
+        target: target.map(str::to_string),
+        stage: "s0".to_string(),
+        tags: strings(tags),
+        evidence,
+        modes,
+        importance: ContentImportance::Standard,
+    }
+}
+
+fn starter_routes() -> Vec<ContentRouteEntry> {
+    vec![
+        route(
+            "moonlight_entry",
+            "月光路线入口",
+            "moonlight",
+            &["cultivate_moonlight"],
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        route(
+            "merit_entry",
+            "功绩路线入口",
+            "merit",
+            &["check_merit_notice"],
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        route(
+            "infirmary_entry",
+            "药堂半主路线入口",
+            "infirmary",
+            &["seek_treatment_debt"],
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        route(
+            "blackmarket_entry",
+            "黑市路线入口",
+            "blackmarket",
+            &["probe_blackmarket_hint"],
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+        ),
+        route(
+            "inheritance_entry",
+            "传承路线入口",
+            "inheritance",
+            &["chase_inheritance_rumor"],
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+        ),
+    ]
+}
+
+fn route(
+    id: &str,
+    label: &str,
+    route: &str,
+    entry_action_ids: &[&str],
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+) -> ContentRouteEntry {
+    ContentRouteEntry {
+        id: id.to_string(),
+        label: label.to_string(),
+        route: route.to_string(),
+        entry_action_ids: strings(entry_action_ids),
+        stage: "s0".to_string(),
+        tags: strings(&["route", route]),
+        evidence,
+        modes,
+    }
+}
+
+fn starter_windows() -> Vec<ContentWindow> {
+    vec![
+        window("day1_morning_free", 1, "清晨", 2),
+        window("day1_midday_free", 1, "日中", 2),
+        window("day1_evening_free", 1, "傍晚", 2),
+        window("day1_deep_night_free", 1, "深夜", 1),
+        window("day2_morning_free", 2, "清晨", 2),
+        window("day2_midday_free", 2, "日中", 3),
+        window("day2_evening_free", 2, "傍晚", 2),
+        window("day2_deep_night_free", 2, "深夜", 1),
+    ]
+}
+
+fn window(id: &str, day: u8, period: &str, default_ap: u8) -> ContentWindow {
+    ContentWindow {
+        id: id.to_string(),
+        day,
+        period: period.to_string(),
+        window_type: WindowType::Free,
+        default_ap,
+        stage: "s0".to_string(),
+        tags: strings(&["window", "free"]),
+        evidence: EvidenceLevel::CanonInferred,
+        modes: all_modes(),
+    }
+}
+
+fn starter_movements() -> Vec<ContentMovementEdge> {
+    vec![
+        movement(
+            "academy_to_moonlight",
+            "academy_gate",
+            "moonlight_corner",
+            0,
+            0,
+            0,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "near"],
+        ),
+        movement(
+            "moonlight_to_academy",
+            "moonlight_corner",
+            "academy_gate",
+            0,
+            0,
+            0,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "near"],
+        ),
+        movement(
+            "academy_to_merit_notice",
+            "academy_gate",
+            "merit_notice",
+            0,
+            0,
+            1,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "watched"],
+        ),
+        movement(
+            "merit_notice_to_academy",
+            "merit_notice",
+            "academy_gate",
+            0,
+            0,
+            0,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "watched"],
+        ),
+        movement(
+            "academy_to_infirmary_lane",
+            "academy_gate",
+            "infirmary_lane",
+            0,
+            1,
+            1,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "infirmary"],
+        ),
+        movement(
+            "infirmary_lane_to_academy",
+            "infirmary_lane",
+            "academy_gate",
+            0,
+            1,
+            1,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "infirmary"],
+        ),
+        movement(
+            "academy_to_blackmarket_hint",
+            "academy_gate",
+            "blackmarket_hint",
+            0,
+            0,
+            2,
+            Some("深夜"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["movement", "blackmarket", "hidden"],
+        ),
+        movement(
+            "blackmarket_hint_to_academy",
+            "blackmarket_hint",
+            "academy_gate",
+            0,
+            0,
+            1,
+            Some("深夜"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["movement", "blackmarket", "hidden"],
+        ),
+        movement(
+            "academy_to_inheritance_rumor",
+            "academy_gate",
+            "inheritance_rumor",
+            1,
+            0,
+            3,
+            None,
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["movement", "inheritance", "sandbox-if"],
+        ),
+        movement(
+            "inheritance_rumor_to_academy",
+            "inheritance_rumor",
+            "academy_gate",
+            1,
+            0,
+            2,
+            None,
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["movement", "inheritance", "sandbox-if"],
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn movement(
+    id: &str,
+    from: &str,
+    to: &str,
+    ap_cost: u8,
+    arrival_ap_penalty: u8,
+    exposure_delta: i32,
+    required_period: Option<&str>,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+    tags: &[&str],
+) -> ContentMovementEdge {
+    ContentMovementEdge {
+        id: id.to_string(),
+        from: from.to_string(),
+        to: to.to_string(),
+        ap_cost,
+        arrival_ap_penalty,
+        exposure_delta,
+        required_period: required_period.map(str::to_string),
+        stage: "s0".to_string(),
+        tags: strings(tags),
+        evidence,
+        modes,
     }
 }
 
@@ -915,10 +1457,12 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
         time: TimeState::default(),
         world: WorldSpaceState::default(),
         resources: ResourceState::default(),
+        debts_and_credit: DebtAndCreditState::default(),
+        risk: RiskState::default(),
         build: BuildState::default(),
         ledger: vec![LedgerEntry {
             kind: "scene".to_string(),
-            text: "你站在学堂门前，清晨的山雾压着木梁，点卯声还没有响。".to_string(),
+            text: "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。".to_string(),
         }],
     }
 }
@@ -930,12 +1474,17 @@ pub fn build_projection(state: &GameState) -> LedgerViewModel {
             .last()
             .map(|entry| entry.text.clone())
             .unwrap_or_else(|| "账本空白，局势尚未落笔。".to_string()),
+        current_day: state.time.chapter_day,
         current_period: state.time.period.clone(),
+        window_id: state.time.window_id.clone(),
         window_type: state.time.window_type.clone(),
         available_ap: state.time.ap,
         current_node_id: state.world.current_node_id.clone(),
-        exposure: state.resources.exposure,
-        debt_pressure: state.resources.debt_pressure,
+        primeval_stones: state.resources.primeval_stones,
+        materials: state.resources.materials,
+        merit: state.resources.merit,
+        exposure: state.risk.exposure,
+        debt_pressure: state.debts_and_credit.pressure(),
         build_summary: state.build.survival_route.clone(),
         ledger_entries: state.ledger.clone(),
         performance: PerformanceMetrics::default(),
@@ -945,23 +1494,24 @@ pub fn build_projection(state: &GameState) -> LedgerViewModel {
 pub fn resolve_action(
     mut state: GameState,
     command: ActionCommand,
+    content_bundle: &ContentBundle,
 ) -> Result<ActionResult, CommandError> {
     let started = Instant::now();
     let mut pipeline_trace = Vec::with_capacity(7);
 
-    availability_check(&state, &command)?;
+    availability_check(&state, &command, content_bundle)?;
     pipeline_trace.push(PipelineStep::AvailabilityCheck);
 
-    let reserved_cost = cost_reservation(&state, &command)?;
+    let reserved_cost = cost_reservation(&state, &command, content_bundle)?;
     pipeline_trace.push(PipelineStep::CostReservation);
 
-    let outcome = subsystem_resolution(&state, &command)?;
+    let outcome = subsystem_resolution(&state, &command, content_bundle)?;
     pipeline_trace.push(PipelineStep::SubsystemResolution);
 
     anchor_recalculation(&mut state, &outcome);
     pipeline_trace.push(PipelineStep::AnchorRecalculation);
 
-    effect_commit(&mut state, reserved_cost, &outcome);
+    effect_commit(&mut state, reserved_cost, &outcome, content_bundle);
     pipeline_trace.push(PipelineStep::EffectCommit);
 
     ledger_append(&mut state, &outcome);
@@ -994,7 +1544,7 @@ pub fn resolve_action(
 struct ReservedCost {
     ap: u8,
     primeval_stones: i32,
-    exposure_risk: i32,
+    consume_window: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1003,167 +1553,255 @@ struct SubsystemOutcome {
     ledger_text: String,
     target_node_id: Option<String>,
     survival_route: Option<String>,
-    debt_delta: i32,
+    materials_delta: i32,
+    merit_delta: i32,
+    infirmary_debt_delta: i32,
+    favor_debt_delta: i32,
+    organization_debt_delta: i32,
+    trading_credit_delta: i32,
     exposure_delta: i32,
+    arrival_ap_penalty: u8,
 }
 
-fn availability_check(state: &GameState, command: &ActionCommand) -> Result<(), CommandError> {
-    if command.actor != "player" {
-        return Err(CommandError::validation("Sprint 0 只允许 player 行动者"));
-    }
-
-    match command.intent {
-        ActionIntent::Move => {
-            if command
-                .target
-                .as_deref()
-                .unwrap_or_default()
-                .trim()
-                .is_empty()
-            {
-                return Err(CommandError::validation("移动行动缺少 target"));
-            }
+impl SubsystemOutcome {
+    fn new(kind: &str, text: impl Into<String>) -> Self {
+        Self {
+            ledger_kind: kind.to_string(),
+            ledger_text: text.into(),
+            target_node_id: None,
+            survival_route: None,
+            materials_delta: 0,
+            merit_delta: 0,
+            infirmary_debt_delta: 0,
+            favor_debt_delta: 0,
+            organization_debt_delta: 0,
+            trading_credit_delta: 0,
+            exposure_delta: 0,
+            arrival_ap_penalty: 0,
         }
-        ActionIntent::Cultivate
-        | ActionIntent::Scout
-        | ActionIntent::Recover
-        | ActionIntent::Trade
-        | ActionIntent::Retreat
-        | ActionIntent::Wait => {}
+    }
+}
+
+fn availability_check(
+    state: &GameState,
+    command: &ActionCommand,
+    content_bundle: &ContentBundle,
+) -> Result<(), CommandError> {
+    if command.actor != "player" {
+        return Err(CommandError::validation(
+            "Sprint 0 only accepts player actions",
+        ));
     }
 
     if state.time.window_type == WindowType::Anchor && command.intent != ActionIntent::Wait {
         return Err(CommandError::validation(
-            "锚点窗口暂不接受自由行动，请先处理剧情压力",
+            "anchor window is pending; free actions are closed",
         ));
     }
 
-    Ok(())
+    if command.intent == ActionIntent::Wait {
+        return Ok(());
+    }
+
+    let target = target_or_current(state, command)?;
+
+    if command.intent == ActionIntent::Move {
+        let edge = movement_edge(state, &target, content_bundle)?;
+        require_mode(&state.mode, &edge.modes, "movement", &edge.id)?;
+        if let Some(required_period) = &edge.required_period {
+            if required_period != &state.time.period {
+                return Err(CommandError::validation(format!(
+                    "movement '{}' requires period '{}'",
+                    edge.id, required_period
+                )));
+            }
+        }
+        let node = node_by_id(&target, content_bundle)?;
+        require_mode(&state.mode, &node.modes, "node", &node.id)?;
+        return Ok(());
+    }
+
+    let action = action_by_intent_target(command.intent.clone(), Some(&target), content_bundle)?;
+    require_mode(&state.mode, &action.modes, "action", &action.id)?;
+    let node = node_by_id(&target, content_bundle)?;
+    require_mode(&state.mode, &node.modes, "node", &node.id)?;
+
+    match command.intent {
+        ActionIntent::Recover if state.world.current_node_id != "infirmary_lane" => {
+            Err(CommandError::validation("recover requires infirmary_lane"))
+        }
+        ActionIntent::Trade
+            if state.world.current_node_id != "blackmarket_hint" || state.time.period != "深夜" =>
+        {
+            Err(CommandError::validation(
+                "blackmarket trade requires blackmarket_hint during 深夜",
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 fn cost_reservation(
     state: &GameState,
     command: &ActionCommand,
+    content_bundle: &ContentBundle,
 ) -> Result<ReservedCost, CommandError> {
-    if command.declared_cost.ap > state.time.ap {
+    if command.declared_cost.primeval_stones < 0 || command.declared_cost.exposure_risk < 0 {
+        return Err(CommandError::validation(
+            "declared_cost cannot contain negative values",
+        ));
+    }
+
+    let (ap, primeval_stones, consume_window) = match command.intent {
+        ActionIntent::Move => {
+            let target = target_or_current(state, command)?;
+            let edge = movement_edge(state, &target, content_bundle)?;
+            (edge.ap_cost, 0, false)
+        }
+        ActionIntent::Cultivate => (1, 1, false),
+        ActionIntent::Scout => (1, 0, false),
+        ActionIntent::Recover => (1, 0, false),
+        ActionIntent::Trade => (1, 1, false),
+        ActionIntent::Retreat => (1, 0, false),
+        ActionIntent::Wait => (state.time.ap, 0, true),
+    };
+
+    if ap > state.time.ap {
         return Err(CommandError::validation(format!(
-            "AP 不足：需要 {}，当前 {}",
-            command.declared_cost.ap, state.time.ap
+            "AP not enough: need {ap}, current {}",
+            state.time.ap
         )));
     }
 
-    if command.declared_cost.primeval_stones < 0 {
-        return Err(CommandError::validation("行动成本不能反向增加元石"));
-    }
-
-    if command.declared_cost.primeval_stones > state.resources.primeval_stones {
+    if primeval_stones > state.resources.primeval_stones {
         return Err(CommandError::validation(format!(
-            "元石不足：需要 {}，当前 {}",
-            command.declared_cost.primeval_stones, state.resources.primeval_stones
+            "primeval stones not enough: need {primeval_stones}, current {}",
+            state.resources.primeval_stones
         )));
-    }
-
-    if command.declared_cost.exposure_risk < 0 {
-        return Err(CommandError::validation("暴露风险成本不能为负"));
     }
 
     Ok(ReservedCost {
-        ap: command.declared_cost.ap,
-        primeval_stones: command.declared_cost.primeval_stones,
-        exposure_risk: command.declared_cost.exposure_risk,
+        ap,
+        primeval_stones,
+        consume_window,
     })
 }
 
 fn subsystem_resolution(
     state: &GameState,
     command: &ActionCommand,
+    content_bundle: &ContentBundle,
 ) -> Result<SubsystemOutcome, CommandError> {
     match command.intent {
         ActionIntent::Move => {
-            let target = command
-                .target
-                .clone()
-                .ok_or_else(|| CommandError::validation("移动行动缺少 target"))?;
-            Ok(SubsystemOutcome {
-                ledger_kind: "action".to_string(),
-                ledger_text: format!(
-                    "你压低脚步从 {} 转向 {target}，账本记下一笔移动代价。",
-                    state.world.current_node_id
+            let target = target_or_current(state, command)?;
+            let edge = movement_edge(state, &target, content_bundle)?;
+            let mut outcome = SubsystemOutcome::new(
+                "movement",
+                format!(
+                    "你从 {} 转向 {}，账本记下移动代价。",
+                    state.world.current_node_id, target
                 ),
-                target_node_id: Some(target),
-                survival_route: None,
-                debt_delta: 0,
-                exposure_delta: 0,
-            })
+            );
+            outcome.target_node_id = Some(target);
+            outcome.exposure_delta = edge.exposure_delta;
+            outcome.arrival_ap_penalty = edge.arrival_ap_penalty;
+            Ok(outcome)
         }
-        ActionIntent::Cultivate => Ok(SubsystemOutcome {
-            ledger_kind: "action".to_string(),
-            ledger_text: "你按下杂念运转真元，空窍的余波让清晨更冷。".to_string(),
-            target_node_id: None,
-            survival_route: Some("月光修行：制度内求稳".to_string()),
-            debt_delta: 0,
-            exposure_delta: 0,
-        }),
-        ActionIntent::Scout => Ok(SubsystemOutcome {
-            ledger_kind: "action".to_string(),
-            ledger_text: "你没有急着下注，先听风声、记人脸、看谁在看你。".to_string(),
-            target_node_id: None,
-            survival_route: None,
-            debt_delta: 0,
-            exposure_delta: 0,
-        }),
-        ActionIntent::Recover => Ok(SubsystemOutcome {
-            ledger_kind: "action".to_string(),
-            ledger_text: "你换来一口喘息，也把人情债写进了药堂账页。".to_string(),
-            target_node_id: None,
-            survival_route: None,
-            debt_delta: 1,
-            exposure_delta: 0,
-        }),
-        ActionIntent::Trade => Ok(SubsystemOutcome {
-            ledger_kind: "action".to_string(),
-            ledger_text: "你试探着问价，门路没有白来，风险也没有白涨。".to_string(),
-            target_node_id: None,
-            survival_route: None,
-            debt_delta: 0,
-            exposure_delta: 1,
-        }),
-        ActionIntent::Retreat => Ok(SubsystemOutcome {
-            ledger_kind: "action".to_string(),
-            ledger_text: "你没有逞强，撤退本身就是青茅山的生存技。".to_string(),
-            target_node_id: None,
-            survival_route: None,
-            debt_delta: 0,
-            exposure_delta: 0,
-        }),
-        ActionIntent::Wait => Ok(SubsystemOutcome {
-            ledger_kind: "action".to_string(),
-            ledger_text: "你把这个时段耗过去，什么也没拿到，也没有凭空安全。".to_string(),
-            target_node_id: None,
-            survival_route: None,
-            debt_delta: 0,
-            exposure_delta: 0,
-        }),
+        ActionIntent::Cultivate => {
+            let mut outcome =
+                SubsystemOutcome::new("action", "你按下杂念运转真元，月光修行痕迹更深。");
+            outcome.survival_route = Some("月光修行：制度内求稳".to_string());
+            Ok(outcome)
+        }
+        ActionIntent::Scout => {
+            let mut outcome = SubsystemOutcome::new("action", "你没有急着下注，先听风声、记人脸。");
+            if target_or_current(state, command)? == "merit_notice" {
+                outcome.merit_delta = 1;
+                outcome.ledger_text = "你在功绩告示旁核对机会，记下一点可用功绩。".to_string();
+            }
+            Ok(outcome)
+        }
+        ActionIntent::Recover => {
+            let mut outcome =
+                SubsystemOutcome::new("action", "你换来一口喘息，也把债写进药堂账页。");
+            outcome.infirmary_debt_delta = 1;
+            outcome.favor_debt_delta = 1;
+            Ok(outcome)
+        }
+        ActionIntent::Trade => {
+            let mut outcome =
+                SubsystemOutcome::new("action", "你在暗口换来材料，门路和风险一起上涨。");
+            outcome.materials_delta = 1;
+            outcome.exposure_delta = 2;
+            Ok(outcome)
+        }
+        ActionIntent::Retreat => Ok(SubsystemOutcome::new(
+            "action",
+            "你没有逞强，撤退本身就是生存技。",
+        )),
+        ActionIntent::Wait => Ok(SubsystemOutcome::new(
+            "action",
+            "你把这个时段耗过去，未用 AP 不会结转。",
+        )),
     }
 }
 
 fn anchor_recalculation(_state: &mut GameState, _outcome: &SubsystemOutcome) {
-    // Sprint 0 keeps hidden anchor variables out of the public response; the hook is fixed here
-    // so later systems do not bypass the unified action pipeline.
+    // Hidden anchor variables stay behind this hook so later systems do not bypass the pipeline.
 }
 
-fn effect_commit(state: &mut GameState, reserved_cost: ReservedCost, outcome: &SubsystemOutcome) {
-    state.time.ap -= reserved_cost.ap;
+fn effect_commit(
+    state: &mut GameState,
+    reserved_cost: ReservedCost,
+    outcome: &SubsystemOutcome,
+    content_bundle: &ContentBundle,
+) {
+    state.time.ap = state.time.ap.saturating_sub(reserved_cost.ap);
     state.resources.primeval_stones -= reserved_cost.primeval_stones;
-    state.resources.exposure += reserved_cost.exposure_risk + outcome.exposure_delta;
-    state.resources.debt_pressure += outcome.debt_delta;
+    state.resources.materials += outcome.materials_delta;
+    state.resources.merit += outcome.merit_delta;
+    state.debts_and_credit.infirmary_debt += outcome.infirmary_debt_delta;
+    state.debts_and_credit.favor_debt += outcome.favor_debt_delta;
+    state.debts_and_credit.organization_debt += outcome.organization_debt_delta;
+    state.debts_and_credit.trading_credit += outcome.trading_credit_delta;
+    state.risk.exposure += outcome.exposure_delta;
 
     if let Some(target_node_id) = &outcome.target_node_id {
         state.world.current_node_id = target_node_id.clone();
     }
 
+    state.time.ap = state.time.ap.saturating_sub(outcome.arrival_ap_penalty);
+
     if let Some(survival_route) = &outcome.survival_route {
         state.build.survival_route = survival_route.clone();
+    }
+
+    if reserved_cost.consume_window || state.time.ap == 0 {
+        advance_window(state, content_bundle);
+    }
+}
+
+fn advance_window(state: &mut GameState, content_bundle: &ContentBundle) {
+    if state.time.window_type == WindowType::Free {
+        state.time.free_rounds_elapsed = state.time.free_rounds_elapsed.saturating_add(1);
+    }
+
+    let next_index = state.time.window_index + 1;
+    if let Some(next_window) = content_bundle.windows.get(next_index) {
+        state.time.window_id = next_window.id.clone();
+        state.time.window_index = next_index;
+        state.time.chapter_day = next_window.day;
+        state.time.period = next_window.period.clone();
+        state.time.window_type = next_window.window_type.clone();
+        state.time.ap = next_window.default_ap;
+        state.time.next_anchor_pressure = "下一处制度压力正在靠近".to_string();
+    } else {
+        state.time.window_id = "s0_anchor_pending".to_string();
+        state.time.window_index = next_index;
+        state.time.window_type = WindowType::Anchor;
+        state.time.ap = 0;
+        state.time.next_anchor_pressure = "首个阶段锚点临近".to_string();
     }
 }
 
@@ -1172,6 +1810,89 @@ fn ledger_append(state: &mut GameState, outcome: &SubsystemOutcome) {
         kind: outcome.ledger_kind.clone(),
         text: outcome.ledger_text.clone(),
     });
+}
+
+fn target_or_current(state: &GameState, command: &ActionCommand) -> Result<String, CommandError> {
+    if command.intent == ActionIntent::Move {
+        return command
+            .target
+            .clone()
+            .filter(|target| !target.trim().is_empty())
+            .ok_or_else(|| CommandError::validation("move target is required"));
+    }
+
+    Ok(command
+        .target
+        .clone()
+        .filter(|target| !target.trim().is_empty())
+        .unwrap_or_else(|| state.world.current_node_id.clone()))
+}
+
+fn movement_edge<'a>(
+    state: &GameState,
+    target: &str,
+    content_bundle: &'a ContentBundle,
+) -> Result<&'a ContentMovementEdge, CommandError> {
+    content_bundle
+        .movements
+        .iter()
+        .find(|movement| movement.from == state.world.current_node_id && movement.to == target)
+        .ok_or_else(|| {
+            CommandError::validation(format!(
+                "no movement edge from '{}' to '{}'",
+                state.world.current_node_id, target
+            ))
+        })
+}
+
+fn node_by_id<'a>(
+    node_id: &str,
+    content_bundle: &'a ContentBundle,
+) -> Result<&'a ContentNode, CommandError> {
+    let index = content_bundle
+        .indexes
+        .node_ids
+        .get(node_id)
+        .ok_or_else(|| CommandError::validation(format!("node '{node_id}' is not in bundle")))?;
+    Ok(&content_bundle.nodes[*index])
+}
+
+fn action_by_intent_target<'a>(
+    intent: ActionIntent,
+    target: Option<&str>,
+    content_bundle: &'a ContentBundle,
+) -> Result<&'a ContentAction, CommandError> {
+    content_bundle
+        .actions
+        .iter()
+        .find(|action| action.intent == intent && action.target.as_deref() == target)
+        .ok_or_else(|| {
+            CommandError::validation(format!(
+                "no content action for intent '{:?}' and target '{:?}'",
+                intent, target
+            ))
+        })
+}
+
+fn require_mode(
+    mode: &RunMode,
+    modes: &[ModePermit],
+    kind: &str,
+    id: &str,
+) -> Result<(), CommandError> {
+    let permitted = match mode {
+        RunMode::CanonStrict => modes.contains(&ModePermit::CanonStrict),
+        RunMode::SandboxIf => modes.contains(&ModePermit::SandboxIf),
+    };
+
+    if permitted {
+        Ok(())
+    } else {
+        Err(CommandError::validation(format!(
+            "{kind} '{id}' is not permitted in mode '{:?}'",
+            mode
+        )))
+    }
 }
 
 #[cfg(test)]
@@ -1184,73 +1905,50 @@ mod tests {
         let projection = build_projection(&state);
 
         assert_eq!(state.time.ap, 2);
+        assert_eq!(state.time.window_id, "day1_morning_free");
+        assert_eq!(state.resources.primeval_stones, 3);
         assert_eq!(projection.current_node_id, "academy_gate");
         assert!(projection.scene_text.contains("学堂门前"));
     }
 
     #[test]
     fn resolve_action_rejects_ap_shortage() {
-        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
-        let command = ActionCommand {
-            actor: "player".to_string(),
-            intent: ActionIntent::Scout,
-            target: None,
-            declared_cost: DeclaredCost {
-                ap: 3,
-                primeval_stones: 0,
-                exposure_risk: 0,
-            },
-            context_note: None,
-        };
+        let bundle = starter_content_bundle();
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.time.ap = 0;
 
-        let error = resolve_action(state, command).expect_err("AP gate should fail");
+        let error = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect_err("AP gate should fail");
+
         assert_eq!(error.kind, CommandErrorKind::Validation);
     }
 
     #[test]
     fn move_action_updates_node_and_records_ledger() {
+        let bundle = starter_content_bundle();
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
-        let command = ActionCommand {
-            actor: "player".to_string(),
-            intent: ActionIntent::Move,
-            target: Some("infirmary_lane".to_string()),
-            declared_cost: DeclaredCost {
-                ap: 1,
-                primeval_stones: 0,
-                exposure_risk: 1,
-            },
-            context_note: None,
-        };
 
-        let result = resolve_action(state, command).expect("move should resolve");
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Move, Some("infirmary_lane")),
+            &bundle,
+        )
+        .expect("move should resolve");
 
         assert_eq!(result.state.time.ap, 1);
         assert_eq!(result.state.world.current_node_id, "infirmary_lane");
-        assert_eq!(result.state.resources.exposure, 1);
+        assert_eq!(result.state.risk.exposure, 1);
         assert!(result.response.projection.scene_text.contains("移动代价"));
     }
 
     #[test]
     fn content_bundle_requires_entry_node() {
-        let source = ContentSource {
-            content_id: "s0.test".to_string(),
-            version: "0.1.0".to_string(),
-            title: "test".to_string(),
-            stage: "s0".to_string(),
-            entry_scene_id: "missing".to_string(),
-            nodes: vec![ContentNode {
-                id: "academy_gate".to_string(),
-                title: "学堂门前".to_string(),
-                safety: "low".to_string(),
-                stage: "s0".to_string(),
-                tags: vec!["node".to_string()],
-                evidence: EvidenceLevel::CanonInferred,
-                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
-            }],
-            actions: Vec::new(),
-            routes: Vec::new(),
-            windows: Vec::new(),
-        };
+        let mut source = valid_content_source();
+        source.entry_scene_id = "missing".to_string();
 
         let error = ContentBundle::from_source(source).expect_err("missing entry should fail");
         assert_eq!(error.kind, CommandErrorKind::Content);
@@ -1261,15 +1959,17 @@ mod tests {
         let source = valid_content_source();
         let bundle = ContentBundle::from_source(source).expect("valid bundle should build");
 
-        assert_eq!(bundle.manifest.node_count, 1);
+        assert_eq!(bundle.manifest.node_count, 2);
         assert_eq!(bundle.manifest.action_count, 1);
         assert_eq!(bundle.manifest.route_count, 1);
         assert_eq!(bundle.manifest.window_count, 1);
+        assert_eq!(bundle.manifest.movement_count, 1);
         assert_eq!(bundle.indexes.node_ids["academy_gate"], 0);
         assert_eq!(bundle.indexes.action_ids["scout_academy"], 0);
         assert_eq!(bundle.indexes.route_ids["moonlight_entry"], 0);
         assert_eq!(bundle.indexes.window_ids["day1_morning_free"], 0);
-        assert!(bundle.diagnostics.summary.contains("indexed 1 nodes"));
+        assert_eq!(bundle.indexes.movement_ids["academy_to_moonlight"], 0);
+        assert!(bundle.diagnostics.summary.contains("indexed 2 nodes"));
         assert!(bundle.diagnostics.warnings.is_empty());
     }
 
@@ -1334,6 +2034,20 @@ mod tests {
             .contains("sandbox_if content requires sandbox_if mode"));
     }
 
+    #[test]
+    fn content_bundle_rejects_movement_endpoint_outside_node_index() {
+        let mut source = valid_content_source();
+        source.movements[0].to = "missing_node".to_string();
+
+        let error = ContentBundle::from_source(source).expect_err("bad movement should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("to node 'missing_node' not found"));
+    }
+
     fn valid_content_source() -> ContentSource {
         ContentSource {
             content_id: "s0.qingmao.foundation".to_string(),
@@ -1341,66 +2055,68 @@ mod tests {
             title: "青茅山 Sprint 0 内容骨架".to_string(),
             stage: "s0".to_string(),
             entry_scene_id: "academy_gate".to_string(),
-            nodes: vec![ContentNode {
-                id: "academy_gate".to_string(),
-                title: "学堂门前".to_string(),
-                safety: "low".to_string(),
-                stage: "s0".to_string(),
-                tags: vec!["node".to_string(), "academy".to_string()],
-                evidence: EvidenceLevel::CanonInferred,
-                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
-            }],
-            actions: vec![ContentAction {
-                id: "scout_academy".to_string(),
-                label: "观察学堂风声".to_string(),
-                intent: ActionIntent::Scout,
-                target: Some("academy_gate".to_string()),
-                stage: "s0".to_string(),
-                tags: vec!["action".to_string(), "scout".to_string()],
-                evidence: EvidenceLevel::CanonInferred,
-                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
-                importance: ContentImportance::Standard,
-            }],
-            routes: vec![ContentRouteEntry {
-                id: "moonlight_entry".to_string(),
-                label: "月光修行入口".to_string(),
-                route: "moonlight".to_string(),
-                entry_action_ids: vec!["scout_academy".to_string()],
-                stage: "s0".to_string(),
-                tags: vec!["route".to_string(), "moonlight".to_string()],
-                evidence: EvidenceLevel::CanonInferred,
-                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
-            }],
-            windows: vec![ContentWindow {
-                id: "day1_morning_free".to_string(),
-                day: 1,
-                period: "清晨".to_string(),
-                window_type: WindowType::Free,
-                default_ap: 2,
-                stage: "s0".to_string(),
-                tags: vec!["window".to_string(), "opening".to_string()],
-                evidence: EvidenceLevel::CanonInferred,
-                modes: vec![ModePermit::CanonStrict, ModePermit::SandboxIf],
-            }],
+            nodes: vec![
+                node(
+                    "academy_gate",
+                    "学堂门前",
+                    "low",
+                    EvidenceLevel::CanonInferred,
+                    all_modes(),
+                    &["node", "academy"],
+                ),
+                node(
+                    "moonlight_corner",
+                    "月光修行角",
+                    "low",
+                    EvidenceLevel::CanonInferred,
+                    all_modes(),
+                    &["node", "moonlight"],
+                ),
+            ],
+            actions: vec![action(
+                "scout_academy",
+                "观察学堂风声",
+                ActionIntent::Scout,
+                Some("academy_gate"),
+                EvidenceLevel::CanonInferred,
+                all_modes(),
+                &["action", "scout"],
+            )],
+            routes: vec![route(
+                "moonlight_entry",
+                "月光修行入口",
+                "moonlight",
+                &["scout_academy"],
+                EvidenceLevel::CanonInferred,
+                all_modes(),
+            )],
+            windows: vec![window("day1_morning_free", 1, "清晨", 2)],
+            movements: vec![movement(
+                "academy_to_moonlight",
+                "academy_gate",
+                "moonlight_corner",
+                0,
+                0,
+                0,
+                None,
+                EvidenceLevel::CanonInferred,
+                all_modes(),
+                &["movement", "near"],
+            )],
         }
     }
 
     #[test]
     fn action_response_serializes_projection_without_full_game_state() {
+        let bundle = starter_content_bundle();
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
-        let command = ActionCommand {
-            actor: "player".to_string(),
-            intent: ActionIntent::Scout,
-            target: None,
-            declared_cost: DeclaredCost {
-                ap: 1,
-                primeval_stones: 0,
-                exposure_risk: 0,
-            },
-            context_note: None,
-        };
 
-        let result = resolve_action(state, command).expect("action should resolve");
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("action should resolve");
         let response_json = serde_json::to_value(&result.response).expect("response serializes");
 
         assert!(response_json.get("projection").is_some());
@@ -1411,20 +2127,15 @@ mod tests {
 
     #[test]
     fn resolve_action_records_explicit_pipeline_trace() {
+        let bundle = starter_content_bundle();
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
-        let command = ActionCommand {
-            actor: "player".to_string(),
-            intent: ActionIntent::Scout,
-            target: None,
-            declared_cost: DeclaredCost {
-                ap: 1,
-                primeval_stones: 0,
-                exposure_risk: 0,
-            },
-            context_note: None,
-        };
 
-        let result = resolve_action(state, command).expect("action should resolve");
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("action should resolve");
 
         assert_eq!(
             result.pipeline_trace,
@@ -1487,6 +2198,13 @@ mod tests {
             .expect_err("content mismatch should fail");
         assert_eq!(content_error.kind, CommandErrorKind::Save);
 
+        let mut mode_mismatch = SaveEnvelope::from_state("slot_0", state.clone());
+        mode_mismatch.metadata.mode = RunMode::SandboxIf;
+        let mode_error = mode_mismatch
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("mode mismatch should fail");
+        assert_eq!(mode_error.kind, CommandErrorKind::Save);
+
         let mut ledger_mismatch = SaveEnvelope::from_state("slot_0", state);
         ledger_mismatch.ledger.push(LedgerEntry {
             kind: "test".to_string(),
@@ -1512,5 +2230,199 @@ mod tests {
         assert_eq!(json["rules_version"], RULES_VERSION);
         assert_eq!(json["content_version"], STARTER_CONTENT_VERSION);
         assert_eq!(json["written"], true);
+    }
+
+    #[test]
+    fn wait_advances_window_without_carrying_unused_ap() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let result = resolve_action(state, command(ActionIntent::Wait, None), &bundle)
+            .expect("wait should consume the current window");
+
+        assert_eq!(result.state.time.window_id, "day1_midday_free");
+        assert_eq!(result.state.time.window_index, 1);
+        assert_eq!(result.state.time.chapter_day, 1);
+        assert_eq!(result.state.time.period, "日中");
+        assert_eq!(result.state.time.ap, 2);
+        assert_eq!(result.state.time.free_rounds_elapsed, 1);
+    }
+
+    #[test]
+    fn movement_uses_edge_costs_instead_of_fixed_ap_tax() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Move, Some("moonlight_corner")),
+            &bundle,
+        )
+        .expect("near movement should resolve");
+
+        assert_eq!(result.state.world.current_node_id, "moonlight_corner");
+        assert_eq!(
+            result.state.time.ap, 2,
+            "near movement should not cost fixed AP"
+        );
+        assert_eq!(result.state.risk.exposure, 0);
+    }
+
+    #[test]
+    fn infirmary_movement_compresses_arrival_ap_and_adds_exposure() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Move, Some("infirmary_lane")),
+            &bundle,
+        )
+        .expect("infirmary movement should resolve");
+
+        assert_eq!(result.state.world.current_node_id, "infirmary_lane");
+        assert_eq!(result.state.time.ap, 1);
+        assert_eq!(result.state.risk.exposure, 1);
+    }
+
+    #[test]
+    fn hidden_and_if_nodes_obey_period_and_mode_gates() {
+        let bundle = starter_content_bundle();
+        let morning = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let blackmarket_error = resolve_action(
+            morning,
+            command(ActionIntent::Move, Some("blackmarket_hint")),
+            &bundle,
+        )
+        .expect_err("blackmarket should require deep night");
+        assert_eq!(blackmarket_error.kind, CommandErrorKind::Validation);
+
+        let mut canon_night = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        set_deep_night(&mut canon_night);
+        let inheritance_error = resolve_action(
+            canon_night,
+            command(ActionIntent::Move, Some("inheritance_rumor")),
+            &bundle,
+        )
+        .expect_err("canon strict should reject sandbox-only inheritance node");
+        assert_eq!(inheritance_error.kind, CommandErrorKind::Validation);
+
+        let mut sandbox_night = create_run(RunMode::SandboxIf, STARTER_CONTENT_VERSION);
+        set_deep_night(&mut sandbox_night);
+        let inheritance = resolve_action(
+            sandbox_night,
+            command(ActionIntent::Move, Some("inheritance_rumor")),
+            &bundle,
+        )
+        .expect("sandbox_if can chase the inheritance rumor at high risk");
+        assert_eq!(inheritance.state.world.current_node_id, "inheritance_rumor");
+        assert!(inheritance.state.risk.exposure >= 3);
+    }
+
+    #[test]
+    fn action_costs_are_computed_by_rust_not_declared_cost() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let mut cultivate = command(ActionIntent::Cultivate, Some("academy_gate"));
+        cultivate.declared_cost = DeclaredCost {
+            ap: 0,
+            primeval_stones: 0,
+            exposure_risk: 0,
+        };
+
+        let result = resolve_action(state, cultivate, &bundle).expect("cultivation should resolve");
+
+        assert_eq!(result.state.time.ap, 1);
+        assert_eq!(result.state.resources.primeval_stones, 2);
+        assert!(result.state.build.survival_route.contains("月光"));
+
+        let mut broke = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        broke.resources.primeval_stones = 0;
+        let error = resolve_action(
+            broke,
+            command(ActionIntent::Cultivate, Some("academy_gate")),
+            &bundle,
+        )
+        .expect_err("cultivation should require primeval stones");
+        assert_eq!(error.kind, CommandErrorKind::Validation);
+    }
+
+    #[test]
+    fn s0_economy_debt_and_blackmarket_rules_apply() {
+        let bundle = starter_content_bundle();
+        let merit = resolve_action(
+            create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION),
+            command(ActionIntent::Scout, Some("merit_notice")),
+            &bundle,
+        )
+        .expect("merit notice scout should resolve");
+        assert_eq!(merit.state.resources.merit, 1);
+
+        let mut wounded = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        wounded.world.current_node_id = "infirmary_lane".to_string();
+        let recovered = resolve_action(
+            wounded,
+            command(ActionIntent::Recover, Some("infirmary_lane")),
+            &bundle,
+        )
+        .expect("infirmary recovery should resolve");
+        assert_eq!(recovered.state.debts_and_credit.infirmary_debt, 1);
+        assert_eq!(recovered.state.debts_and_credit.favor_debt, 1);
+
+        let mut trader = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        trader.world.current_node_id = "blackmarket_hint".to_string();
+        set_deep_night(&mut trader);
+        let traded = resolve_action(
+            trader,
+            command(ActionIntent::Trade, Some("blackmarket_hint")),
+            &bundle,
+        )
+        .expect("deep-night blackmarket trade should resolve");
+        assert_eq!(traded.state.resources.primeval_stones, 2);
+        assert_eq!(traded.state.resources.materials, 1);
+        assert!(traded.state.risk.exposure >= 2);
+    }
+
+    #[test]
+    fn save_envelope_preserves_phase_five_state_boundaries() {
+        let bundle = starter_content_bundle();
+        let state = resolve_action(
+            create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION),
+            command(ActionIntent::Move, Some("infirmary_lane")),
+            &bundle,
+        )
+        .expect("movement should resolve")
+        .state;
+
+        let encoded = serde_json::to_string(&SaveEnvelope::from_state("slot_0", state.clone()))
+            .expect("save envelope serializes");
+        let decoded: SaveEnvelope =
+            serde_json::from_str(&encoded).expect("save envelope deserializes");
+
+        decoded
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect("phase five save should load");
+        assert_eq!(decoded.snapshot.time.window_id, state.time.window_id);
+        assert_eq!(decoded.snapshot.time.window_index, state.time.window_index);
+        assert_eq!(decoded.snapshot.resources, state.resources);
+        assert_eq!(decoded.snapshot.debts_and_credit, state.debts_and_credit);
+        assert_eq!(decoded.snapshot.risk, state.risk);
+    }
+
+    fn command(intent: ActionIntent, target: Option<&str>) -> ActionCommand {
+        ActionCommand {
+            actor: "player".to_string(),
+            intent,
+            target: target.map(str::to_string),
+            declared_cost: DeclaredCost::default(),
+            context_note: None,
+        }
+    }
+
+    fn set_deep_night(state: &mut GameState) {
+        state.time.window_id = "day1_deep_night_free".to_string();
+        state.time.window_index = 3;
+        state.time.period = "深夜".to_string();
+        state.time.ap = 1;
     }
 }

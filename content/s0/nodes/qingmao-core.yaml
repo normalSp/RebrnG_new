@@ -7,7 +7,7 @@ nodes:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
   - id: merit_notice
-    title: 家族功绩告示处
+    title: 家族功绩告示旁
     safety: low
     stage: s0
     tags: [node, clan, merit]
@@ -25,12 +25,12 @@ nodes:
     safety: hidden
     stage: s0
     tags: [node, blackmarket, hidden]
-    evidence: canon_inferred
+    evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
   - id: inheritance_rumor
     title: 传承残线传闻
     safety: dangerous
     stage: s0
     tags: [node, inheritance, rumor]
-    evidence: gameplay_extrapolated
+    evidence: sandbox_if
     modes: [sandbox_if]

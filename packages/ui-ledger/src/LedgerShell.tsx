@@ -1,5 +1,5 @@
-import type { ActionCommand, LedgerViewModel } from "./index";
 import type { CSSProperties } from "react";
+import type { ActionCommand, ActionIntent, LedgerViewModel } from "./index";
 
 export interface LedgerShellProps {
   projection: LedgerViewModel | null;
@@ -17,6 +17,21 @@ const panelStyle = {
   background: "rgba(255, 250, 235, 0.9)",
 } satisfies CSSProperties;
 
+const zeroDeclaredCost = {
+  ap: 0,
+  primeval_stones: 0,
+  exposure_risk: 0,
+};
+
+function makeCommand(intent: ActionIntent, target?: string): ActionCommand {
+  return {
+    actor: "player",
+    intent,
+    target: target ?? null,
+    declared_cost: zeroDeclaredCost,
+  };
+}
+
 export function LedgerShell({
   projection,
   status,
@@ -25,8 +40,11 @@ export function LedgerShell({
   onWriteSave,
   onLoadSave,
 }: LedgerShellProps) {
-  const canAct = projection !== null && projection.available_ap > 0;
   const hasRun = projection !== null;
+  const canAct =
+    projection !== null &&
+    projection.window_type === "free" &&
+    projection.available_ap > 0;
 
   return (
     <main className="ledger-shell">
@@ -34,8 +52,8 @@ export function LedgerShell({
         <p className="eyebrow">RebrnG Sprint 0</p>
         <h1>青茅山账本底座</h1>
         <p>
-          规则状态由 Rust 托管，React 只读取账本投影。这里还不是完整 8 回合，只是底座能否
-          稳定走通的第一块青砖。
+          规则状态由 Rust 托管，React 只读取账本投影。阶段 5 先验证时间、节点移动、
+          资源债务和暴露都能从同一条行动管线结算。
         </p>
       </section>
 
@@ -61,20 +79,36 @@ export function LedgerShell({
             </article>
 
             <article>
-              <h2>状态条</h2>
+              <h2>窗口与位置</h2>
               <dl>
+                <dt>章节日</dt>
+                <dd>第 {projection.current_day} 日</dd>
                 <dt>时段</dt>
                 <dd>{projection.current_period}</dd>
                 <dt>窗口</dt>
                 <dd>{projection.window_type}</dd>
+                <dt>窗口 ID</dt>
+                <dd>{projection.window_id}</dd>
                 <dt>AP</dt>
                 <dd>{projection.available_ap}</dd>
                 <dt>节点</dt>
                 <dd>{projection.current_node_id}</dd>
-                <dt>暴露</dt>
-                <dd>{projection.exposure}</dd>
+              </dl>
+            </article>
+
+            <article>
+              <h2>资源账</h2>
+              <dl>
+                <dt>元石</dt>
+                <dd>{projection.primeval_stones}</dd>
+                <dt>材料</dt>
+                <dd>{projection.materials}</dd>
+                <dt>功绩</dt>
+                <dd>{projection.merit}</dd>
                 <dt>债务压力</dt>
                 <dd>{projection.debt_pressure}</dd>
+                <dt>暴露</dt>
+                <dd>{projection.exposure}</dd>
               </dl>
             </article>
 
@@ -89,56 +123,72 @@ export function LedgerShell({
                 <button
                   type="button"
                   disabled={!canAct}
-                  onClick={() =>
-                    onResolveAction({
-                      actor: "player",
-                      intent: "scout",
-                      target: "academy_gate",
-                      declared_cost: {
-                        ap: 1,
-                        primeval_stones: 0,
-                        exposure_risk: 0,
-                      },
-                    })
-                  }
+                  onClick={() => onResolveAction(makeCommand("scout", "academy_gate"))}
                 >
-                  观察风声
+                  观察学堂
                 </button>
                 <button
                   type="button"
                   disabled={!canAct}
-                  onClick={() =>
-                    onResolveAction({
-                      actor: "player",
-                      intent: "cultivate",
-                      target: "academy_gate",
-                      declared_cost: {
-                        ap: 1,
-                        primeval_stones: 0,
-                        exposure_risk: 0,
-                      },
-                    })
-                  }
+                  onClick={() => onResolveAction(makeCommand("cultivate", "academy_gate"))}
                 >
                   月光修行
                 </button>
                 <button
                   type="button"
                   disabled={!canAct}
-                  onClick={() =>
-                    onResolveAction({
-                      actor: "player",
-                      intent: "move",
-                      target: "infirmary_lane",
-                      declared_cost: {
-                        ap: 1,
-                        primeval_stones: 0,
-                        exposure_risk: 1,
-                      },
-                    })
-                  }
+                  onClick={() => onResolveAction(makeCommand("move", "moonlight_corner"))}
+                >
+                  去月光角
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("move", "merit_notice"))}
+                >
+                  去功绩告示
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("scout", "merit_notice"))}
+                >
+                  查功绩
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("move", "infirmary_lane"))}
                 >
                   去药堂侧巷
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("recover", "infirmary_lane"))}
+                >
+                  药堂恢复
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("move", "blackmarket_hint"))}
+                >
+                  摸黑市暗口
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("trade", "blackmarket_hint"))}
+                >
+                  黑市换料
+                </button>
+                <button
+                  type="button"
+                  disabled={!canAct}
+                  onClick={() => onResolveAction(makeCommand("wait"))}
+                >
+                  等过时段
                 </button>
               </div>
             </article>
@@ -156,6 +206,7 @@ export function LedgerShell({
               <h2>性能</h2>
               <p>resolve_action: {projection.performance.resolve_action_ms}ms</p>
               <p>projection: {projection.performance.projection_ms}ms</p>
+              <p>save/load: {projection.performance.save_load_ms}ms</p>
             </article>
           </div>
         ) : (
