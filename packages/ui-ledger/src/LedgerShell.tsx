@@ -6,6 +6,8 @@ export interface LedgerShellProps {
   status: string;
   onCreateRun: () => Promise<void>;
   onResolveAction: (command: ActionCommand) => Promise<void>;
+  onWriteSave: () => Promise<void>;
+  onLoadSave: () => Promise<void>;
 }
 
 const panelStyle = {
@@ -20,8 +22,11 @@ export function LedgerShell({
   status,
   onCreateRun,
   onResolveAction,
+  onWriteSave,
+  onLoadSave,
 }: LedgerShellProps) {
   const canAct = projection !== null && projection.available_ap > 0;
+  const hasRun = projection !== null;
 
   return (
     <main className="ledger-shell">
@@ -38,6 +43,12 @@ export function LedgerShell({
         <div className="toolbar">
           <button type="button" onClick={onCreateRun}>
             新建 Sprint 0 单局
+          </button>
+          <button type="button" disabled={!hasRun} onClick={onWriteSave}>
+            写入 slot_0
+          </button>
+          <button type="button" onClick={onLoadSave}>
+            读取 slot_0
           </button>
           <span>{status}</span>
         </div>

@@ -55,6 +55,15 @@ export interface ActionResponse {
   performance: PerformanceMetrics;
 }
 
+export interface SaveWriteResult {
+  slot_id: string;
+  path_hint: string;
+  save_version: string;
+  rules_version: string;
+  content_version: string;
+  written: boolean;
+}
+
 export interface CommandError {
   kind: CommandErrorKind;
   message: string;

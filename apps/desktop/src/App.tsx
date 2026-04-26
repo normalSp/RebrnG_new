@@ -5,6 +5,7 @@ import {
   type ActionResponse,
   type CommandError,
   type LedgerViewModel,
+  type SaveWriteResult,
 } from "@rebrng/ui-ledger";
 import { useState } from "react";
 import "./App.css";
@@ -41,12 +42,39 @@ function App() {
     }
   }
 
+  async function writeSave() {
+    setStatus("正在写入 slot_0...");
+    try {
+      const result = await invoke<SaveWriteResult>("write_save", {
+        slotId: "slot_0",
+      });
+      setStatus(`已写入：${result.path_hint}`);
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
+  }
+
+  async function loadSave() {
+    setStatus("正在读取 slot_0...");
+    try {
+      const response = await invoke<ActionResponse>("load_save", {
+        slotId: "slot_0",
+      });
+      setProjection(response.projection);
+      setStatus(`已读回：save_load ${response.performance.save_load_ms}ms`);
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
+  }
+
   return (
     <LedgerShell
       projection={projection}
       status={status}
       onCreateRun={createRun}
       onResolveAction={resolveAction}
+      onWriteSave={writeSave}
+      onLoadSave={loadSave}
     />
   );
 }

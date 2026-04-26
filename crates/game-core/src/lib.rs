@@ -5,6 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
+pub const RULES_VERSION: &str = "sprint0-rules-v1";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -140,6 +141,8 @@ pub struct GameState {
 pub struct SaveMetadata {
     pub slot_id: String,
     pub save_version: String,
+    #[serde(default)]
+    pub rules_version: String,
     pub mode: RunMode,
     pub current_stage: String,
     pub content_version: String,
@@ -176,6 +179,7 @@ impl SaveEnvelope {
             metadata: SaveMetadata {
                 slot_id: slot_id.into(),
                 save_version: SAVE_FORMAT_VERSION.to_string(),
+                rules_version: RULES_VERSION.to_string(),
                 mode: state.mode.clone(),
                 current_stage: state.chapter.clone(),
                 content_version: state.content_version.clone(),
@@ -185,6 +189,115 @@ impl SaveEnvelope {
             checkpoints: vec![checkpoint],
             rng_state: "sprint_0_deterministic_seed".to_string(),
             migration_state: "none".to_string(),
+        }
+    }
+
+    pub fn validate_for_load(
+        &self,
+        expected_slot_id: &str,
+        expected_content_version: &str,
+    ) -> Result<(), CommandError> {
+        if self.metadata.slot_id != expected_slot_id {
+            return Err(CommandError::save(
+                "存档槽位不匹配",
+                format!(
+                    "expected slot '{}', found '{}'",
+                    expected_slot_id, self.metadata.slot_id
+                ),
+            ));
+        }
+
+        if self.metadata.save_version != SAVE_FORMAT_VERSION {
+            return Err(CommandError::save(
+                "存档格式版本不匹配",
+                format!(
+                    "expected save_version '{}', found '{}'",
+                    SAVE_FORMAT_VERSION, self.metadata.save_version
+                ),
+            ));
+        }
+
+        if self.metadata.rules_version != RULES_VERSION {
+            return Err(CommandError::save(
+                "规则版本不匹配",
+                format!(
+                    "expected rules_version '{}', found '{}'",
+                    RULES_VERSION, self.metadata.rules_version
+                ),
+            ));
+        }
+
+        if self.metadata.content_version != expected_content_version {
+            return Err(CommandError::save(
+                "内容包版本不匹配",
+                format!(
+                    "expected content_version '{}', found '{}'",
+                    expected_content_version, self.metadata.content_version
+                ),
+            ));
+        }
+
+        if self.snapshot.content_version != self.metadata.content_version {
+            return Err(CommandError::save(
+                "存档快照内容版本不一致",
+                format!(
+                    "metadata content_version '{}', snapshot content_version '{}'",
+                    self.metadata.content_version, self.snapshot.content_version
+                ),
+            ));
+        }
+
+        if self.snapshot.mode != self.metadata.mode {
+            return Err(CommandError::save(
+                "存档快照模式不一致",
+                "metadata mode differs from snapshot mode",
+            ));
+        }
+
+        if self.snapshot.chapter != self.metadata.current_stage {
+            return Err(CommandError::save(
+                "存档阶段不一致",
+                format!(
+                    "metadata stage '{}', snapshot chapter '{}'",
+                    self.metadata.current_stage, self.snapshot.chapter
+                ),
+            ));
+        }
+
+        if self.ledger != self.snapshot.ledger {
+            return Err(CommandError::save(
+                "存档账本不一致",
+                "ledger copy differs from snapshot ledger",
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SaveWriteResult {
+    pub slot_id: String,
+    pub path_hint: String,
+    pub save_version: String,
+    pub rules_version: String,
+    pub content_version: String,
+    pub written: bool,
+}
+
+impl SaveWriteResult {
+    pub fn new(
+        slot_id: impl Into<String>,
+        path_hint: impl Into<String>,
+        content_version: impl Into<String>,
+    ) -> Self {
+        Self {
+            slot_id: slot_id.into(),
+            path_hint: path_hint.into(),
+            save_version: SAVE_FORMAT_VERSION.to_string(),
+            rules_version: RULES_VERSION.to_string(),
+            content_version: content_version.into(),
+            written: true,
         }
     }
 }
@@ -271,6 +384,22 @@ impl CommandError {
     pub fn content(message: impl Into<String>, diagnostics: impl Into<String>) -> Self {
         Self {
             kind: CommandErrorKind::Content,
+            message: message.into(),
+            diagnostics: Some(diagnostics.into()),
+        }
+    }
+
+    pub fn save(message: impl Into<String>, diagnostics: impl Into<String>) -> Self {
+        Self {
+            kind: CommandErrorKind::Save,
+            message: message.into(),
+            diagnostics: Some(diagnostics.into()),
+        }
+    }
+
+    pub fn io(message: impl Into<String>, diagnostics: impl Into<String>) -> Self {
+        Self {
+            kind: CommandErrorKind::Io,
             message: message.into(),
             diagnostics: Some(diagnostics.into()),
         }
@@ -1320,9 +1449,68 @@ mod tests {
             serde_json::from_str(&encoded).expect("save envelope deserializes");
 
         assert_eq!(decoded.metadata.save_version, SAVE_FORMAT_VERSION);
+        assert_eq!(decoded.metadata.rules_version, RULES_VERSION);
         assert_eq!(decoded.metadata.slot_id, "slot_0");
         assert_eq!(decoded.snapshot.time.ap, state.time.ap);
         assert_eq!(decoded.snapshot.ledger, state.ledger);
         assert_eq!(decoded.ledger, state.ledger);
+        decoded
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect("fresh envelope should load");
+    }
+
+    #[test]
+    fn save_envelope_rejects_missing_rules_version() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let mut envelope = SaveEnvelope::from_state("slot_0", state);
+        envelope.metadata.rules_version.clear();
+
+        let error = envelope
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("missing rules version should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Save);
+        assert!(error.message.contains("规则版本"));
+    }
+
+    #[test]
+    fn save_envelope_rejects_slot_content_and_ledger_mismatch() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let slot_error = SaveEnvelope::from_state("slot_0", state.clone())
+            .validate_for_load("slot_1", STARTER_CONTENT_VERSION)
+            .expect_err("slot mismatch should fail");
+        assert_eq!(slot_error.kind, CommandErrorKind::Save);
+
+        let content_error = SaveEnvelope::from_state("slot_0", state.clone())
+            .validate_for_load("slot_0", "different-content-version")
+            .expect_err("content mismatch should fail");
+        assert_eq!(content_error.kind, CommandErrorKind::Save);
+
+        let mut ledger_mismatch = SaveEnvelope::from_state("slot_0", state);
+        ledger_mismatch.ledger.push(LedgerEntry {
+            kind: "test".to_string(),
+            text: "外部篡改的账本".to_string(),
+        });
+        let ledger_error = ledger_mismatch
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("ledger mismatch should fail");
+        assert_eq!(ledger_error.kind, CommandErrorKind::Save);
+    }
+
+    #[test]
+    fn save_write_result_serializes_minimum_receipt() {
+        let result = SaveWriteResult::new(
+            "slot_0",
+            "saves/sprint0/slot_0.json",
+            STARTER_CONTENT_VERSION,
+        );
+        let json = serde_json::to_value(&result).expect("write result serializes");
+
+        assert_eq!(json["slot_id"], "slot_0");
+        assert_eq!(json["save_version"], SAVE_FORMAT_VERSION);
+        assert_eq!(json["rules_version"], RULES_VERSION);
+        assert_eq!(json["content_version"], STARTER_CONTENT_VERSION);
+        assert_eq!(json["written"], true);
     }
 }
