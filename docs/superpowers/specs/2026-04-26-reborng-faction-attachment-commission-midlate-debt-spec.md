@@ -1,6 +1,6 @@
 # RebrnG 势力依附、组织委托与中后期关系债规格 v1.0
 
-状态：frozen candidate
+状态：frozen
 
 更新时间：2026-04-26
 

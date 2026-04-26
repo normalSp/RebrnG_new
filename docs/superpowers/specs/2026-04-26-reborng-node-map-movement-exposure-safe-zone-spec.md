@@ -1,6 +1,6 @@
 # RebrnG 节点地图、移动、暴露与安全区规格 v1.0
 
-状态：frozen candidate
+状态：frozen
 
 更新时间：2026-04-26
 

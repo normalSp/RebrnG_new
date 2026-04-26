@@ -1,6 +1,6 @@
 # RebrnG 首发纵切规格 v1.0
 
-状态：frozen candidate
+状态：frozen
 
 更新时间：2026-04-26
 
