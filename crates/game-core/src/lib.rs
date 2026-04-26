@@ -3,6 +3,7 @@ use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
+pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -29,6 +30,18 @@ pub enum ActionIntent {
     Trade,
     Retreat,
     Wait,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PipelineStep {
+    AvailabilityCheck,
+    CostReservation,
+    SubsystemResolution,
+    AnchorRecalculation,
+    EffectCommit,
+    LedgerAppend,
+    ProjectionRefresh,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -122,6 +135,59 @@ pub struct GameState {
     pub ledger: Vec<LedgerEntry>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SaveMetadata {
+    pub slot_id: String,
+    pub save_version: String,
+    pub mode: RunMode,
+    pub current_stage: String,
+    pub content_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SaveCheckpoint {
+    pub checkpoint_id: String,
+    pub chapter: String,
+    pub period: String,
+    pub node_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SaveEnvelope {
+    pub metadata: SaveMetadata,
+    pub snapshot: GameState,
+    pub ledger: Vec<LedgerEntry>,
+    pub checkpoints: Vec<SaveCheckpoint>,
+    pub rng_state: String,
+    pub migration_state: String,
+}
+
+impl SaveEnvelope {
+    pub fn from_state(slot_id: impl Into<String>, state: GameState) -> Self {
+        let checkpoint = SaveCheckpoint {
+            checkpoint_id: "sprint_0_current".to_string(),
+            chapter: state.chapter.clone(),
+            period: state.time.period.clone(),
+            node_id: state.world.current_node_id.clone(),
+        };
+
+        Self {
+            metadata: SaveMetadata {
+                slot_id: slot_id.into(),
+                save_version: SAVE_FORMAT_VERSION.to_string(),
+                mode: state.mode.clone(),
+                current_stage: state.chapter.clone(),
+                content_version: state.content_version.clone(),
+            },
+            ledger: state.ledger.clone(),
+            snapshot: state,
+            checkpoints: vec![checkpoint],
+            rng_state: "sprint_0_deterministic_seed".to_string(),
+            migration_state: "none".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeclaredCost {
     pub ap: u8,
@@ -164,9 +230,15 @@ pub struct LedgerViewModel {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ActionResponse {
-    pub state: GameState,
     pub projection: LedgerViewModel,
     pub performance: PerformanceMetrics,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionResult {
+    pub state: GameState,
+    pub response: ActionResponse,
+    pub pipeline_trace: Vec<PipelineStep>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -351,13 +423,106 @@ pub fn build_projection(state: &GameState) -> LedgerViewModel {
 pub fn resolve_action(
     mut state: GameState,
     command: ActionCommand,
-) -> Result<ActionResponse, CommandError> {
+) -> Result<ActionResult, CommandError> {
     let started = Instant::now();
+    let mut pipeline_trace = Vec::with_capacity(7);
 
+    availability_check(&state, &command)?;
+    pipeline_trace.push(PipelineStep::AvailabilityCheck);
+
+    let reserved_cost = cost_reservation(&state, &command)?;
+    pipeline_trace.push(PipelineStep::CostReservation);
+
+    let outcome = subsystem_resolution(&state, &command)?;
+    pipeline_trace.push(PipelineStep::SubsystemResolution);
+
+    anchor_recalculation(&mut state, &outcome);
+    pipeline_trace.push(PipelineStep::AnchorRecalculation);
+
+    effect_commit(&mut state, reserved_cost, &outcome);
+    pipeline_trace.push(PipelineStep::EffectCommit);
+
+    ledger_append(&mut state, &outcome);
+    pipeline_trace.push(PipelineStep::LedgerAppend);
+
+    let projection_started = Instant::now();
+    let mut projection = build_projection(&state);
+    pipeline_trace.push(PipelineStep::ProjectionRefresh);
+    let performance = PerformanceMetrics {
+        resolve_action_ms: started.elapsed().as_millis() as u64,
+        projection_ms: projection_started.elapsed().as_millis() as u64,
+        save_load_ms: 0,
+        bundle_load_ms: 0,
+    };
+    projection.performance = performance.clone();
+
+    let response = ActionResponse {
+        projection,
+        performance,
+    };
+
+    Ok(ActionResult {
+        state,
+        response,
+        pipeline_trace,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ReservedCost {
+    ap: u8,
+    primeval_stones: i32,
+    exposure_risk: i32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SubsystemOutcome {
+    ledger_kind: String,
+    ledger_text: String,
+    target_node_id: Option<String>,
+    survival_route: Option<String>,
+    debt_delta: i32,
+    exposure_delta: i32,
+}
+
+fn availability_check(state: &GameState, command: &ActionCommand) -> Result<(), CommandError> {
     if command.actor != "player" {
         return Err(CommandError::validation("Sprint 0 只允许 player 行动者"));
     }
 
+    match command.intent {
+        ActionIntent::Move => {
+            if command
+                .target
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty()
+            {
+                return Err(CommandError::validation("移动行动缺少 target"));
+            }
+        }
+        ActionIntent::Cultivate
+        | ActionIntent::Scout
+        | ActionIntent::Recover
+        | ActionIntent::Trade
+        | ActionIntent::Retreat
+        | ActionIntent::Wait => {}
+    }
+
+    if state.time.window_type == WindowType::Anchor && command.intent != ActionIntent::Wait {
+        return Err(CommandError::validation(
+            "锚点窗口暂不接受自由行动，请先处理剧情压力",
+        ));
+    }
+
+    Ok(())
+}
+
+fn cost_reservation(
+    state: &GameState,
+    command: &ActionCommand,
+) -> Result<ReservedCost, CommandError> {
     if command.declared_cost.ap > state.time.ap {
         return Err(CommandError::validation(format!(
             "AP 不足：需要 {}，当前 {}",
@@ -365,60 +530,126 @@ pub fn resolve_action(
         )));
     }
 
-    state.time.ap -= command.declared_cost.ap;
-    state.resources.primeval_stones -= command.declared_cost.primeval_stones;
-    state.resources.exposure += command.declared_cost.exposure_risk;
+    if command.declared_cost.primeval_stones < 0 {
+        return Err(CommandError::validation("行动成本不能反向增加元石"));
+    }
 
-    let ledger_text = apply_intent(&mut state, &command)?;
-    state.ledger.push(LedgerEntry {
-        kind: "action".to_string(),
-        text: ledger_text,
-    });
+    if command.declared_cost.primeval_stones > state.resources.primeval_stones {
+        return Err(CommandError::validation(format!(
+            "元石不足：需要 {}，当前 {}",
+            command.declared_cost.primeval_stones, state.resources.primeval_stones
+        )));
+    }
 
-    let projection_started = Instant::now();
-    let mut projection = build_projection(&state);
-    let mut performance = PerformanceMetrics {
-        resolve_action_ms: started.elapsed().as_millis() as u64,
-        projection_ms: projection_started.elapsed().as_millis() as u64,
-        save_load_ms: 0,
-        bundle_load_ms: 0,
-    };
-    projection.performance = performance.clone();
-    performance.projection_ms = projection.performance.projection_ms;
+    if command.declared_cost.exposure_risk < 0 {
+        return Err(CommandError::validation("暴露风险成本不能为负"));
+    }
 
-    Ok(ActionResponse {
-        state,
-        projection,
-        performance,
+    Ok(ReservedCost {
+        ap: command.declared_cost.ap,
+        primeval_stones: command.declared_cost.primeval_stones,
+        exposure_risk: command.declared_cost.exposure_risk,
     })
 }
 
-fn apply_intent(state: &mut GameState, command: &ActionCommand) -> Result<String, CommandError> {
+fn subsystem_resolution(
+    state: &GameState,
+    command: &ActionCommand,
+) -> Result<SubsystemOutcome, CommandError> {
     match command.intent {
         ActionIntent::Move => {
             let target = command
                 .target
                 .clone()
                 .ok_or_else(|| CommandError::validation("移动行动缺少 target"))?;
-            state.world.current_node_id = target.clone();
-            Ok(format!("你压低脚步转向 {target}，账本记下一笔移动代价。"))
+            Ok(SubsystemOutcome {
+                ledger_kind: "action".to_string(),
+                ledger_text: format!(
+                    "你压低脚步从 {} 转向 {target}，账本记下一笔移动代价。",
+                    state.world.current_node_id
+                ),
+                target_node_id: Some(target),
+                survival_route: None,
+                debt_delta: 0,
+                exposure_delta: 0,
+            })
         }
-        ActionIntent::Cultivate => {
-            state.build.survival_route = "月光修行：制度内求稳".to_string();
-            Ok("你按下杂念运转真元，空窍的余波让清晨更冷。".to_string())
-        }
-        ActionIntent::Scout => Ok("你没有急着下注，先听风声、记人脸、看谁在看你。".to_string()),
-        ActionIntent::Recover => {
-            state.resources.debt_pressure += 1;
-            Ok("你换来一口喘息，也把人情债写进了药堂账页。".to_string())
-        }
-        ActionIntent::Trade => {
-            state.resources.exposure += 1;
-            Ok("你试探着问价，门路没有白来，风险也没有白涨。".to_string())
-        }
-        ActionIntent::Retreat => Ok("你没有逞强，撤退本身就是青茅山的生存技。".to_string()),
-        ActionIntent::Wait => Ok("你把这个时段耗过去，什么也没拿到，也没有凭空安全。".to_string()),
+        ActionIntent::Cultivate => Ok(SubsystemOutcome {
+            ledger_kind: "action".to_string(),
+            ledger_text: "你按下杂念运转真元，空窍的余波让清晨更冷。".to_string(),
+            target_node_id: None,
+            survival_route: Some("月光修行：制度内求稳".to_string()),
+            debt_delta: 0,
+            exposure_delta: 0,
+        }),
+        ActionIntent::Scout => Ok(SubsystemOutcome {
+            ledger_kind: "action".to_string(),
+            ledger_text: "你没有急着下注，先听风声、记人脸、看谁在看你。".to_string(),
+            target_node_id: None,
+            survival_route: None,
+            debt_delta: 0,
+            exposure_delta: 0,
+        }),
+        ActionIntent::Recover => Ok(SubsystemOutcome {
+            ledger_kind: "action".to_string(),
+            ledger_text: "你换来一口喘息，也把人情债写进了药堂账页。".to_string(),
+            target_node_id: None,
+            survival_route: None,
+            debt_delta: 1,
+            exposure_delta: 0,
+        }),
+        ActionIntent::Trade => Ok(SubsystemOutcome {
+            ledger_kind: "action".to_string(),
+            ledger_text: "你试探着问价，门路没有白来，风险也没有白涨。".to_string(),
+            target_node_id: None,
+            survival_route: None,
+            debt_delta: 0,
+            exposure_delta: 1,
+        }),
+        ActionIntent::Retreat => Ok(SubsystemOutcome {
+            ledger_kind: "action".to_string(),
+            ledger_text: "你没有逞强，撤退本身就是青茅山的生存技。".to_string(),
+            target_node_id: None,
+            survival_route: None,
+            debt_delta: 0,
+            exposure_delta: 0,
+        }),
+        ActionIntent::Wait => Ok(SubsystemOutcome {
+            ledger_kind: "action".to_string(),
+            ledger_text: "你把这个时段耗过去，什么也没拿到，也没有凭空安全。".to_string(),
+            target_node_id: None,
+            survival_route: None,
+            debt_delta: 0,
+            exposure_delta: 0,
+        }),
     }
+}
+
+fn anchor_recalculation(_state: &mut GameState, _outcome: &SubsystemOutcome) {
+    // Sprint 0 keeps hidden anchor variables out of the public response; the hook is fixed here
+    // so later systems do not bypass the unified action pipeline.
+}
+
+fn effect_commit(state: &mut GameState, reserved_cost: ReservedCost, outcome: &SubsystemOutcome) {
+    state.time.ap -= reserved_cost.ap;
+    state.resources.primeval_stones -= reserved_cost.primeval_stones;
+    state.resources.exposure += reserved_cost.exposure_risk + outcome.exposure_delta;
+    state.resources.debt_pressure += outcome.debt_delta;
+
+    if let Some(target_node_id) = &outcome.target_node_id {
+        state.world.current_node_id = target_node_id.clone();
+    }
+
+    if let Some(survival_route) = &outcome.survival_route {
+        state.build.survival_route = survival_route.clone();
+    }
+}
+
+fn ledger_append(state: &mut GameState, outcome: &SubsystemOutcome) {
+    state.ledger.push(LedgerEntry {
+        kind: outcome.ledger_kind.clone(),
+        text: outcome.ledger_text.clone(),
+    });
 }
 
 #[cfg(test)]
@@ -469,12 +700,12 @@ mod tests {
             context_note: None,
         };
 
-        let response = resolve_action(state, command).expect("move should resolve");
+        let result = resolve_action(state, command).expect("move should resolve");
 
-        assert_eq!(response.state.time.ap, 1);
-        assert_eq!(response.state.world.current_node_id, "infirmary_lane");
-        assert_eq!(response.state.resources.exposure, 1);
-        assert!(response.projection.scene_text.contains("移动代价"));
+        assert_eq!(result.state.time.ap, 1);
+        assert_eq!(result.state.world.current_node_id, "infirmary_lane");
+        assert_eq!(result.state.resources.exposure, 1);
+        assert!(result.response.projection.scene_text.contains("移动代价"));
     }
 
     #[test]
@@ -494,5 +725,75 @@ mod tests {
 
         let error = ContentBundle::from_source(source).expect_err("missing entry should fail");
         assert_eq!(error.kind, CommandErrorKind::Content);
+    }
+
+    #[test]
+    fn action_response_serializes_projection_without_full_game_state() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let command = ActionCommand {
+            actor: "player".to_string(),
+            intent: ActionIntent::Scout,
+            target: None,
+            declared_cost: DeclaredCost {
+                ap: 1,
+                primeval_stones: 0,
+                exposure_risk: 0,
+            },
+            context_note: None,
+        };
+
+        let result = resolve_action(state, command).expect("action should resolve");
+        let response_json = serde_json::to_value(&result.response).expect("response serializes");
+
+        assert!(response_json.get("projection").is_some());
+        assert!(response_json.get("performance").is_some());
+        assert!(response_json.get("state").is_none());
+        assert!(response_json.get("pipeline_trace").is_none());
+    }
+
+    #[test]
+    fn resolve_action_records_explicit_pipeline_trace() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let command = ActionCommand {
+            actor: "player".to_string(),
+            intent: ActionIntent::Scout,
+            target: None,
+            declared_cost: DeclaredCost {
+                ap: 1,
+                primeval_stones: 0,
+                exposure_risk: 0,
+            },
+            context_note: None,
+        };
+
+        let result = resolve_action(state, command).expect("action should resolve");
+
+        assert_eq!(
+            result.pipeline_trace,
+            vec![
+                PipelineStep::AvailabilityCheck,
+                PipelineStep::CostReservation,
+                PipelineStep::SubsystemResolution,
+                PipelineStep::AnchorRecalculation,
+                PipelineStep::EffectCommit,
+                PipelineStep::LedgerAppend,
+                PipelineStep::ProjectionRefresh,
+            ]
+        );
+    }
+
+    #[test]
+    fn save_envelope_round_trips_snapshot_and_ledger() {
+        let state = create_run(RunMode::SandboxIf, STARTER_CONTENT_VERSION);
+        let envelope = SaveEnvelope::from_state("slot_0", state.clone());
+        let encoded = serde_json::to_string(&envelope).expect("save envelope serializes");
+        let decoded: SaveEnvelope =
+            serde_json::from_str(&encoded).expect("save envelope deserializes");
+
+        assert_eq!(decoded.metadata.save_version, SAVE_FORMAT_VERSION);
+        assert_eq!(decoded.metadata.slot_id, "slot_0");
+        assert_eq!(decoded.snapshot.time.ap, state.time.ap);
+        assert_eq!(decoded.snapshot.ledger, state.ledger);
+        assert_eq!(decoded.ledger, state.ledger);
     }
 }

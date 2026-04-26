@@ -19,7 +19,7 @@ fn create_run(
     let run_mode = parse_mode(mode)?;
     let manifest = starter_content_manifest();
     let state = core_create_run(run_mode, manifest.version);
-    let response = response_from_state(state, PerformanceMetrics::default())?;
+    let response = response_from_state(&state, PerformanceMetrics::default())?;
 
     let mut active_run = runtime.active_run.lock().map_err(|error| {
         CommandError::internal(
@@ -27,7 +27,7 @@ fn create_run(
             format!("active_run mutex poisoned: {error}"),
         )
     })?;
-    *active_run = Some(response.state.clone());
+    *active_run = Some(state);
 
     Ok(response)
 }
@@ -47,10 +47,10 @@ fn resolve_action(
     let current = active_run
         .clone()
         .ok_or_else(|| CommandError::validation("当前没有 active run，请先新建单局"))?;
-    let response = core_resolve_action(current, command)?;
-    *active_run = Some(response.state.clone());
+    let result = core_resolve_action(current, command)?;
+    *active_run = Some(result.state);
 
-    Ok(response)
+    Ok(result.response)
 }
 
 #[tauri::command]
@@ -89,16 +89,15 @@ fn parse_mode(mode: Option<String>) -> Result<RunMode, CommandError> {
 }
 
 fn response_from_state(
-    state: GameState,
+    state: &GameState,
     mut performance: PerformanceMetrics,
 ) -> Result<ActionResponse, CommandError> {
     let projection_started = Instant::now();
-    let mut projection = core_build_projection(&state);
+    let mut projection = core_build_projection(state);
     performance.projection_ms = projection_started.elapsed().as_millis() as u64;
     projection.performance = performance.clone();
 
     Ok(ActionResponse {
-        state,
         projection,
         performance,
     })
