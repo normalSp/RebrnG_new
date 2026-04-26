@@ -1,50 +1,70 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  LedgerShell,
+  type ActionCommand,
+  type ActionResponse,
+  type CommandError,
+  type LedgerViewModel,
+} from "@rebrng/ui-ledger";
+import { useState } from "react";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [projection, setProjection] = useState<LedgerViewModel | null>(null);
+  const [status, setStatus] = useState("等待创建 active run");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  async function createRun() {
+    setStatus("正在请求 Rust 创建单局...");
+    try {
+      const response = await invoke<ActionResponse>("create_run", {
+        mode: "canon_strict",
+      });
+      setProjection(response.projection);
+      setStatus("active run 已由 Rust 托管");
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
+  }
+
+  async function resolveAction(command: ActionCommand) {
+    setStatus(`正在结算 ${command.intent}...`);
+    try {
+      const response = await invoke<ActionResponse>("resolve_action", {
+        command,
+      });
+      setProjection(response.projection);
+      setStatus(
+        `已结算：resolve_action ${response.performance.resolve_action_ms}ms`,
+      );
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
   }
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <LedgerShell
+      projection={projection}
+      status={status}
+      onCreateRun={createRun}
+      onResolveAction={resolveAction}
+    />
+  );
+}
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+function formatCommandError(error: unknown): string {
+  if (isCommandError(error)) {
+    return `${error.kind}: ${error.message}`;
+  }
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+  return `internal: ${String(error)}`;
+}
+
+function isCommandError(error: unknown): error is CommandError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "kind" in error &&
+    "message" in error
   );
 }
 

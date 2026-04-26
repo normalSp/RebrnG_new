@@ -4,17 +4,12 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RunMode {
+    #[default]
     CanonStrict,
     SandboxIf,
-}
-
-impl Default for RunMode {
-    fn default() -> Self {
-        Self::CanonStrict
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
