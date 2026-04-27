@@ -28,13 +28,16 @@ function App() {
   }
 
   async function resolveAction(command: ActionCommand) {
-    setStatus(`正在结算 ${command.intent}...`);
+    const label = command.context_note ?? command.intent;
+    setStatus(`正在结算：${label}`);
     try {
       const response = await invoke<ActionResponse>("resolve_action", {
         command,
       });
       setProjection(response.projection);
-      setStatus(`已结算：resolve_action ${response.performance.resolve_action_ms}ms`);
+      setStatus(
+        `已结算：${label} / resolve_action ${response.performance.resolve_action_ms}ms`,
+      );
     } catch (error) {
       setStatus(formatCommandError(error));
     }

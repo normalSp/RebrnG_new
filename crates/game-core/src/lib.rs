@@ -716,6 +716,28 @@ pub struct FactionRelationshipView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionChoiceGroup {
+    Encounter,
+    Movement,
+    Cultivation,
+    Information,
+    Recovery,
+    Trade,
+    Wait,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionChoiceTone {
+    Normal,
+    Safe,
+    Risky,
+    Danger,
+    Blocked,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ActionChoiceView {
     pub id: String,
     pub label: String,
@@ -725,6 +747,9 @@ pub struct ActionChoiceView {
     pub disabled_reason: Option<String>,
     pub cost_hint: String,
     pub risk_hint: String,
+    pub group: ActionChoiceGroup,
+    pub tone: ActionChoiceTone,
+    pub consequence_hint: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -778,6 +803,28 @@ pub struct StageClosureView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RecentFeedbackView {
+    pub title: String,
+    pub summary: String,
+    pub tone: ActionChoiceTone,
+    pub source_kind: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClueLineView {
+    pub id: String,
+    pub label: String,
+    pub summary: String,
+    pub tone: ActionChoiceTone,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClueLedgerView {
+    pub known_clues: Vec<ClueLineView>,
+    pub blackmarket_access_summary: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
     pub current_day: u8,
@@ -805,6 +852,8 @@ pub struct LedgerViewModel {
     pub active_encounter_known_risk: Option<String>,
     pub active_encounter_decisions: Vec<ActionIntent>,
     pub ledger_entries: Vec<LedgerEntry>,
+    pub recent_feedback: Option<RecentFeedbackView>,
+    pub clue_view: ClueLedgerView,
     pub narrative_boundary: NarrativeBoundaryView,
     pub stage_closure: StageClosureView,
     pub performance: PerformanceMetrics,
@@ -2912,6 +2961,8 @@ fn build_projection_from_content(
                 text: clean_ledger_text(entry),
             })
             .collect(),
+        recent_feedback: recent_feedback_view(state),
+        clue_view: clue_ledger_view(state),
         narrative_boundary: narrative_boundary_view(),
         stage_closure: stage_closure_view(state),
         performance: PerformanceMetrics::default(),
@@ -2920,6 +2971,95 @@ fn build_projection_from_content(
 
 fn clean_ledger_text(entry: &LedgerEntry) -> String {
     entry.text.clone()
+}
+
+fn recent_feedback_view(state: &GameState) -> Option<RecentFeedbackView> {
+    state.ledger.last().map(|entry| RecentFeedbackView {
+        title: "最近落账".to_string(),
+        summary: clean_ledger_text(entry),
+        tone: feedback_tone(&entry.kind),
+        source_kind: entry.kind.clone(),
+    })
+}
+
+fn feedback_tone(kind: &str) -> ActionChoiceTone {
+    if kind.contains("encounter") || kind.contains("injury") || kind.contains("confront") {
+        ActionChoiceTone::Danger
+    } else if kind.contains("recover") || kind.contains("trade") || kind.contains("debt") {
+        ActionChoiceTone::Risky
+    } else if kind.contains("scout") || kind.contains("clue") || kind.contains("test") {
+        ActionChoiceTone::Safe
+    } else {
+        ActionChoiceTone::Normal
+    }
+}
+
+fn clue_ledger_view(state: &GameState) -> ClueLedgerView {
+    ClueLedgerView {
+        known_clues: state
+            .knowledge
+            .known_clues
+            .iter()
+            .map(|clue_id| clue_line_view(clue_id))
+            .collect(),
+        blackmarket_access_summary: if state.knowledge.blackmarket_route_known {
+            "黑市门路：已记下暗口风声；仍受时段、AP 与暴露约束。".to_string()
+        } else {
+            "黑市门路：未解锁；未知门路不会显示成可选行动。".to_string()
+        },
+    }
+}
+
+fn clue_line_view(clue_id: &str) -> ClueLineView {
+    let (label, summary, tone) = match clue_id {
+        "rumor_blackmarket_tail" => (
+            "黑市尾巴",
+            "有人绕过学堂秩序谈换料，但门路本身会引来尾巴。",
+            ActionChoiceTone::Risky,
+        ),
+        "rumor_academy_pressure" => (
+            "学堂压力",
+            "月光修行的比较会把你推到众人眼前，提前知道可减轻冲突代价。",
+            ActionChoiceTone::Risky,
+        ),
+        "rumor_merit_audit" => (
+            "功绩审计",
+            "功绩账不是白拿的资源，稳健积累也会留下审计痕迹。",
+            ActionChoiceTone::Normal,
+        ),
+        "rumor_infirmary_debt" => (
+            "药堂债价",
+            "恢复可以救命，但药堂债和人情债会追到后续窗口。",
+            ActionChoiceTone::Risky,
+        ),
+        "rumor_family_debt" => (
+            "旁支债声",
+            "旁支落脚点不等于安全屋，家族秩序会把债声记在你身上。",
+            ActionChoiceTone::Risky,
+        ),
+        "rumor_inheritance_bamboo" => (
+            "传承竹影",
+            "传承残线半真半假，诱惑大，风险也不会替你兜底。",
+            ActionChoiceTone::Danger,
+        ),
+        "rumor_alley_probe" => (
+            "巷道试探",
+            "巷道里有人试探来路；提前侦查能降低拖延的暴露代价。",
+            ActionChoiceTone::Risky,
+        ),
+        _ => (
+            "未整理风声",
+            "账本只确认你听到过这条风声，细节仍待验真。",
+            ActionChoiceTone::Normal,
+        ),
+    };
+
+    ClueLineView {
+        id: clue_id.to_string(),
+        label: label.to_string(),
+        summary: summary.to_string(),
+        tone,
+    }
 }
 
 fn display_period(period: &str) -> String {
@@ -3178,6 +3318,9 @@ fn action_choice_from_command(
         Ok(()) => (true, None),
         Err(error) => (false, Some(display_disabled_reason(&error))),
     };
+    let group = action_choice_group(&command.intent);
+    let tone = action_choice_tone(&command, enabled);
+    let consequence_hint = consequence_hint(id, &command.intent, command.target.as_deref());
 
     ActionChoiceView {
         id: id.to_string(),
@@ -3188,6 +3331,9 @@ fn action_choice_from_command(
         disabled_reason,
         cost_hint: cost_hint(&command.intent),
         risk_hint: risk_hint(&command.intent),
+        group,
+        tone,
+        consequence_hint,
     }
 }
 
@@ -3262,7 +3408,121 @@ fn mode_permitted(mode: &RunMode, modes: &[ModePermit]) -> bool {
     }
 }
 
+fn action_choice_group(intent: &ActionIntent) -> ActionChoiceGroup {
+    match intent {
+        ActionIntent::Move => ActionChoiceGroup::Movement,
+        ActionIntent::Cultivate => ActionChoiceGroup::Cultivation,
+        ActionIntent::Scout => ActionChoiceGroup::Information,
+        ActionIntent::Recover => ActionChoiceGroup::Recovery,
+        ActionIntent::Trade => ActionChoiceGroup::Trade,
+        ActionIntent::Retreat
+        | ActionIntent::Confront
+        | ActionIntent::Yield
+        | ActionIntent::Argue
+        | ActionIntent::Delay
+        | ActionIntent::Frame => ActionChoiceGroup::Encounter,
+        ActionIntent::Wait => ActionChoiceGroup::Wait,
+    }
+}
+
+fn action_choice_tone(command: &ActionCommand, enabled: bool) -> ActionChoiceTone {
+    if !enabled {
+        return ActionChoiceTone::Blocked;
+    }
+
+    match command.intent {
+        ActionIntent::Scout | ActionIntent::Retreat => ActionChoiceTone::Safe,
+        ActionIntent::Move => match command.target.as_deref() {
+            Some("blackmarket_hint") | Some("inheritance_rumor") => ActionChoiceTone::Risky,
+            _ => ActionChoiceTone::Normal,
+        },
+        ActionIntent::Recover
+        | ActionIntent::Trade
+        | ActionIntent::Yield
+        | ActionIntent::Argue
+        | ActionIntent::Delay => ActionChoiceTone::Risky,
+        ActionIntent::Confront | ActionIntent::Frame => ActionChoiceTone::Danger,
+        ActionIntent::Cultivate | ActionIntent::Wait => ActionChoiceTone::Normal,
+    }
+}
+
+fn consequence_hint(id: &str, intent: &ActionIntent, target: Option<&str>) -> String {
+    match intent {
+        ActionIntent::Move => match target {
+            Some("moonlight_corner") => "换到月光修行角，可能引出学堂压力".to_string(),
+            Some("merit_notice") => "转向功绩告示，获得制度内线索".to_string(),
+            Some("infirmary_lane") => "靠近药堂，恢复机会伴随债务".to_string(),
+            Some("branch_lodging") => "回到旁支落脚点，听见家族债声".to_string(),
+            Some("clan_alley_rumor") => "进入山寨巷道，风声更杂也更危险".to_string(),
+            Some("blackmarket_hint") => "摸向黑市暗口，暴露和遭遇风险上升".to_string(),
+            Some("inheritance_rumor") => "追索传承残线，高风险且只在 IF 路线成立".to_string(),
+            _ => "更换节点，路径风险按 Rust 规则结算".to_string(),
+        },
+        ActionIntent::Cultivate => "推进月光修行痕迹，消耗元石与窗口".to_string(),
+        ActionIntent::Scout => match target {
+            Some("academy_gate") => "记录学堂风声与黑市尾巴线索".to_string(),
+            Some("moonlight_corner") => "记录月光角压力线索".to_string(),
+            Some("merit_notice") => "记录功绩审计线索".to_string(),
+            Some("infirmary_lane") => "记录药堂债价线索".to_string(),
+            Some("branch_lodging") => "记录旁支家族债声".to_string(),
+            Some("clan_alley_rumor") => "记录巷道试探与黑市尾巴线索".to_string(),
+            Some("inheritance_rumor") => "记录传承残线的半真半假痕迹".to_string(),
+            _ => "换取局部真实情报".to_string(),
+        },
+        ActionIntent::Recover => "减轻伤势，同时增加药堂债与人情债".to_string(),
+        ActionIntent::Trade => "换取材料，暴露上升".to_string(),
+        ActionIntent::Retreat => "保命优先，少量暴露后脱离遭遇".to_string(),
+        ActionIntent::Confront => {
+            if id.contains("academy") {
+                "硬撑压力，可能换来轻伤与更高暴露".to_string()
+            } else {
+                "硬顶风险，可能进入重创可续".to_string()
+            }
+        }
+        ActionIntent::Yield => "忍让压低冲突，保留行动余地".to_string(),
+        ActionIntent::Argue => "争辩换取余地，暴露会上升".to_string(),
+        ActionIntent::Delay => "拖延争取缝隙，消耗窗口".to_string(),
+        ActionIntent::Frame => "嫁祸脱身，短期解围但后患更深".to_string(),
+        ActionIntent::Wait => "放弃剩余安排，推进到下一窗口".to_string(),
+    }
+}
+
 fn clean_action_label(action: &ContentAction) -> String {
+    if !action.id.is_empty() {
+        return match action.id.as_str() {
+            "scout_academy" => "观察学堂风声",
+            "cultivate_moonlight" => "月光修行",
+            "cultivate_moonlight_corner" => "借月光角修行",
+            "move_moonlight_corner" => "去月光角",
+            "observe_moonlight_pressure" => "观察月光角压力",
+            "move_merit_notice" => "去功绩告示",
+            "check_merit_notice" => "查功绩告示",
+            "audit_merit_notice" => "核对功绩审计",
+            "move_infirmary_lane" => "去药堂侧巷",
+            "seek_treatment_debt" => "药堂恢复",
+            "ask_infirmary_price" => "打听药堂价码",
+            "move_branch_lodging" => "回旁支落脚点",
+            "listen_branch_lodging_debt" => "听旁支债声",
+            "move_clan_alley_rumor" => "绕到山寨巷道",
+            "listen_clan_alley_rumor" => "听巷道风声",
+            "move_blackmarket_hint" => "摸黑市暗口",
+            "probe_blackmarket_hint" => "黑市换料",
+            "retreat_blackmarket_extortion" => "跑路",
+            "confront_blackmarket_extortion" => "硬顶",
+            "yield_academy_public_pressure" => "忍让",
+            "argue_academy_public_pressure" => "争辩",
+            "confront_academy_public_pressure" => "硬撑",
+            "retreat_alley_probe" => "退走",
+            "delay_alley_probe" => "拖延",
+            "frame_alley_probe" => "嫁祸",
+            "confront_alley_probe" => "硬顶",
+            "chase_inheritance_rumor" => "追传承残线",
+            "verify_inheritance_rumor" => "查验传承残线",
+            _ => action.label.as_str(),
+        }
+        .to_string();
+    }
+
     match action.id.as_str() {
         "scout_academy" => "观察学堂风声",
         "cultivate_moonlight" => "月光修行",
@@ -3298,6 +3558,21 @@ fn clean_action_label(action: &ContentAction) -> String {
 }
 
 fn clean_node_title(node: &ContentNode) -> String {
+    if !node.id.is_empty() {
+        return match node.id.as_str() {
+            "academy_gate" => "学堂门前",
+            "moonlight_corner" => "月光修行角",
+            "merit_notice" => "功绩告示处",
+            "infirmary_lane" => "药堂侧巷",
+            "branch_lodging" => "旁支落脚点",
+            "clan_alley_rumor" => "山寨巷道风声点",
+            "blackmarket_hint" => "黑市暗口",
+            "inheritance_rumor" => "传承残线",
+            _ => node.title.as_str(),
+        }
+        .to_string();
+    }
+
     match node.id.as_str() {
         "academy_gate" => "学堂门前",
         "moonlight_corner" => "月光修行角",
@@ -3313,6 +3588,16 @@ fn clean_node_title(node: &ContentNode) -> String {
 }
 
 fn clean_safety(safety: &str) -> String {
+    if !safety.is_empty() {
+        return match safety {
+            "low" => "低",
+            "medium" => "中",
+            "high" => "高",
+            other => other,
+        }
+        .to_string();
+    }
+
     match safety {
         "low" => "低",
         "medium" => "中",
@@ -3323,6 +3608,26 @@ fn clean_safety(safety: &str) -> String {
 }
 
 fn display_disabled_reason(error: &CommandError) -> String {
+    if !error.message.is_empty() {
+        return if error.message.contains("active encounter") {
+            "遭遇未处理，普通行动暂不可用".to_string()
+        } else if error.message.contains("requires period") {
+            "时段不合，当前不可达".to_string()
+        } else if error.message.contains("primeval stones not enough") {
+            "元石不足".to_string()
+        } else if error.message.contains("AP not enough") {
+            "AP 不足，当前窗口已被压尽".to_string()
+        } else if error.message.contains("recover requires") {
+            "需要先到药堂侧巷".to_string()
+        } else if error.message.contains("blackmarket trade requires") {
+            "需要在深夜抵达黑市暗口".to_string()
+        } else if error.message.contains("requires an active encounter") {
+            "当前没有可处理的遭遇".to_string()
+        } else {
+            error.message.clone()
+        };
+    }
+
     if error.message.contains("active encounter") {
         "遭遇未处理，普通行动暂不可用".to_string()
     } else if error.message.contains("requires period") {
@@ -3343,6 +3648,38 @@ fn display_disabled_reason(error: &CommandError) -> String {
 }
 
 fn cost_hint(intent: &ActionIntent) -> String {
+    if matches!(
+        intent,
+        ActionIntent::Move
+            | ActionIntent::Cultivate
+            | ActionIntent::Scout
+            | ActionIntent::Recover
+            | ActionIntent::Trade
+            | ActionIntent::Retreat
+            | ActionIntent::Confront
+            | ActionIntent::Yield
+            | ActionIntent::Argue
+            | ActionIntent::Delay
+            | ActionIntent::Frame
+            | ActionIntent::Wait
+    ) {
+        return match intent {
+            ActionIntent::Move => "按路径结算",
+            ActionIntent::Cultivate => "1 AP / 1 元石",
+            ActionIntent::Scout => "1 AP",
+            ActionIntent::Recover => "1 AP / 药堂债",
+            ActionIntent::Trade => "1 AP / 1 元石",
+            ActionIntent::Retreat => "1 AP",
+            ActionIntent::Confront => "1 AP / 1 元石",
+            ActionIntent::Yield => "1 AP",
+            ActionIntent::Argue => "1 AP",
+            ActionIntent::Delay => "1 AP",
+            ActionIntent::Frame => "1 AP",
+            ActionIntent::Wait => "吃掉当前窗口",
+        }
+        .to_string();
+    }
+
     match intent {
         ActionIntent::Move => "按路径结算",
         ActionIntent::Cultivate => "1 AP / 1 元石",
@@ -3361,6 +3698,38 @@ fn cost_hint(intent: &ActionIntent) -> String {
 }
 
 fn risk_hint(intent: &ActionIntent) -> String {
+    if matches!(
+        intent,
+        ActionIntent::Move
+            | ActionIntent::Cultivate
+            | ActionIntent::Scout
+            | ActionIntent::Recover
+            | ActionIntent::Trade
+            | ActionIntent::Retreat
+            | ActionIntent::Confront
+            | ActionIntent::Yield
+            | ActionIntent::Argue
+            | ActionIntent::Delay
+            | ActionIntent::Frame
+            | ActionIntent::Wait
+    ) {
+        return match intent {
+            ActionIntent::Move => "移动风险随路径变化",
+            ActionIntent::Cultivate => "资源压力",
+            ActionIntent::Scout => "低风险，换取情报",
+            ActionIntent::Recover => "债务与人情",
+            ActionIntent::Trade => "暴露上升",
+            ActionIntent::Retreat => "少量暴露，保命优先",
+            ActionIntent::Confront => "重创可续，高暴露",
+            ActionIntent::Yield => "压低冲突，脸面受损",
+            ActionIntent::Argue => "暴露上升，换取余地",
+            ActionIntent::Delay => "拖出缝隙，消耗窗口",
+            ActionIntent::Frame => "嫁祸脱身，后患更深",
+            ActionIntent::Wait => "错过窗口",
+        }
+        .to_string();
+    }
+
     match intent {
         ActionIntent::Move => "移动风险随路径变化",
         ActionIntent::Cultivate => "资源压力",
@@ -4682,6 +5051,9 @@ mod tests {
         assert_eq!(scout.intent, ActionIntent::Scout);
         assert_eq!(scout.target.as_deref(), Some("academy_gate"));
         assert!(scout.enabled);
+        assert_eq!(scout.group, ActionChoiceGroup::Information);
+        assert_eq!(scout.tone, ActionChoiceTone::Safe);
+        assert!(scout.consequence_hint.contains("线索"));
 
         let wait = projection
             .action_choices
@@ -4690,6 +5062,9 @@ mod tests {
             .expect("wait action should be projected");
         assert_eq!(wait.intent, ActionIntent::Wait);
         assert!(wait.enabled);
+        assert_eq!(wait.group, ActionChoiceGroup::Wait);
+        assert_eq!(wait.tone, ActionChoiceTone::Normal);
+        assert!(wait.consequence_hint.contains("窗口"));
     }
 
     #[test]
@@ -4705,6 +5080,9 @@ mod tests {
             .expect("retreat should be projected during an encounter");
         assert!(retreat.enabled);
         assert_eq!(retreat.target.as_deref(), Some("blackmarket_extortion"));
+        assert_eq!(retreat.group, ActionChoiceGroup::Encounter);
+        assert_eq!(retreat.tone, ActionChoiceTone::Safe);
+        assert!(retreat.consequence_hint.contains("保命"));
 
         assert!(projection
             .action_choices
@@ -4722,6 +5100,99 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("遭遇"));
+        assert_eq!(wait.group, ActionChoiceGroup::Wait);
+        assert_eq!(wait.tone, ActionChoiceTone::Blocked);
+    }
+
+    #[test]
+    fn phase4_projection_groups_tones_and_consequence_hints_cover_core_actions() {
+        let bundle = starter_content_bundle();
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.knowledge.blackmarket_route_known = true;
+        state.time.period = "清晨".to_string();
+        state.time.ap = 0;
+
+        let projection = build_projection_with_content(&state, &bundle);
+
+        let cultivate = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "cultivate_moonlight")
+            .expect("cultivation action should be visible at academy gate");
+        assert_eq!(cultivate.group, ActionChoiceGroup::Cultivation);
+        assert_eq!(cultivate.tone, ActionChoiceTone::Blocked);
+        assert_eq!(
+            cultivate.disabled_reason.as_deref(),
+            Some("AP 不足，当前窗口已被压尽")
+        );
+        assert!(cultivate.consequence_hint.contains("月光"));
+
+        let blackmarket = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "move_blackmarket_hint")
+            .expect("known blackmarket route should be visible");
+        assert_eq!(blackmarket.group, ActionChoiceGroup::Movement);
+        assert_eq!(blackmarket.tone, ActionChoiceTone::Blocked);
+        assert_eq!(
+            blackmarket.disabled_reason.as_deref(),
+            Some("时段不合，当前不可达")
+        );
+        assert!(blackmarket.consequence_hint.contains("黑市"));
+
+        let recover = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "move_infirmary_lane")
+            .expect("infirmary movement should be visible");
+        assert_eq!(recover.group, ActionChoiceGroup::Movement);
+        assert!(recover.consequence_hint.contains("药堂"));
+    }
+
+    #[test]
+    fn phase4_projection_exposes_recent_feedback_and_clue_ledger() {
+        let bundle = starter_content_bundle();
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.knowledge.blackmarket_route_known = true;
+        state.knowledge.record_clue("rumor_blackmarket_tail");
+        state.knowledge.record_clue("rumor_academy_pressure");
+        state.knowledge.record_clue("rumor_infirmary_debt");
+        state.knowledge.record_clue("rumor_alley_probe");
+        state.ledger.push(LedgerEntry {
+            kind: "test_result".to_string(),
+            text: "你记下一笔新风声。".to_string(),
+        });
+
+        let projection = build_projection_with_content(&state, &bundle);
+        let feedback = projection
+            .recent_feedback
+            .as_ref()
+            .expect("latest ledger entry should produce recent feedback");
+
+        assert_eq!(feedback.title, "最近落账");
+        assert_eq!(feedback.summary, "你记下一笔新风声。");
+        assert_eq!(feedback.tone, ActionChoiceTone::Safe);
+        assert_eq!(feedback.source_kind, "test_result");
+        assert!(projection
+            .clue_view
+            .blackmarket_access_summary
+            .contains("已记下"));
+
+        let clue_labels: Vec<_> = projection
+            .clue_view
+            .known_clues
+            .iter()
+            .map(|clue| clue.label.as_str())
+            .collect();
+        assert!(clue_labels.contains(&"黑市尾巴"));
+        assert!(clue_labels.contains(&"学堂压力"));
+        assert!(clue_labels.contains(&"药堂债价"));
+        assert!(clue_labels.contains(&"巷道试探"));
+        assert!(projection
+            .clue_view
+            .known_clues
+            .iter()
+            .all(|clue| !clue.summary.contains("rumor_")));
     }
 
     #[test]

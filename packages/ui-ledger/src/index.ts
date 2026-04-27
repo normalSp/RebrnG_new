@@ -56,6 +56,22 @@ export interface FactionRelationshipView {
   blackmarket_access: string;
 }
 
+export type ActionChoiceGroup =
+  | "encounter"
+  | "movement"
+  | "cultivation"
+  | "information"
+  | "recovery"
+  | "trade"
+  | "wait";
+
+export type ActionChoiceTone =
+  | "normal"
+  | "safe"
+  | "risky"
+  | "danger"
+  | "blocked";
+
 export interface ActionChoiceView {
   id: string;
   label: string;
@@ -65,6 +81,9 @@ export interface ActionChoiceView {
   disabled_reason?: string | null;
   cost_hint: string;
   risk_hint: string;
+  group: ActionChoiceGroup;
+  tone: ActionChoiceTone;
+  consequence_hint: string;
 }
 
 export interface NodeSummaryView {
@@ -109,6 +128,25 @@ export interface StageClosureView {
   summary: string;
 }
 
+export interface RecentFeedbackView {
+  title: string;
+  summary: string;
+  tone: ActionChoiceTone;
+  source_kind: string;
+}
+
+export interface ClueLineView {
+  id: string;
+  label: string;
+  summary: string;
+  tone: ActionChoiceTone;
+}
+
+export interface ClueLedgerView {
+  known_clues: ClueLineView[];
+  blackmarket_access_summary: string;
+}
+
 export interface DeclaredCost {
   ap: number;
   primeval_stones: number;
@@ -150,6 +188,8 @@ export interface LedgerViewModel {
   active_encounter_known_risk?: string | null;
   active_encounter_decisions: ActionIntent[];
   ledger_entries: LedgerEntry[];
+  recent_feedback?: RecentFeedbackView | null;
+  clue_view: ClueLedgerView;
   narrative_boundary: NarrativeBoundaryView;
   stage_closure: StageClosureView;
   performance: PerformanceMetrics;
