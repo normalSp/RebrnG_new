@@ -8,6 +8,8 @@
 - [2026-04-26-reborng-launch-vertical-slice-spec.md](./2026-04-26-reborng-launch-vertical-slice-spec.md)
 - [2026-04-26-reborng-logical-architecture-design.md](./2026-04-26-reborng-logical-architecture-design.md)
 - [2026-04-26-reborng-technical-architecture-design.md](./2026-04-26-reborng-technical-architecture-design.md)
+- [2026-04-27-reborng-phase7-frontend-style-freeze-spec.md](./2026-04-27-reborng-phase7-frontend-style-freeze-spec.md)
+- [2026-04-27-reborng-mortal-gu-refinement-killer-move-contract-spec.md](./2026-04-27-reborng-mortal-gu-refinement-killer-move-contract-spec.md)
 
 适用范围：新项目 `D:\workspace\CodeBuddyWorkSpace\RebrnG_new`
 
@@ -191,6 +193,11 @@
 
 ## 阶段 7：账本式 UI 投影
 
+前置冻结依赖：
+
+- Phase 7 必须遵循根目录 `DESIGN.md` 与 `2026-04-27-reborng-phase7-frontend-style-freeze-spec.md` 的“冷峻账本”视觉合同。
+- Phase 7 的 Build、修行、蛊虫相关投影必须遵循 `2026-04-27-reborng-mortal-gu-refinement-killer-move-contract-spec.md` 的状态合同，不得临时把蛊虫写成普通装备或把杀招写成技能树。
+
 任务：
 
 - 在 Rust 中实现 `build_projection`。
@@ -202,13 +209,19 @@
 - 实现 Build 页。
 - 实现风声与线索页。
 - UI 所有行动按钮只提交 Tauri invoke。
+- 修复当前 UI 源码中的中文乱码，保持 UTF-8 文本稳定。
+- 建立冷峻账本基础 token，不使用紫色 SaaS、泛营销渐变、纯终端 UI 或纯水墨皮肤。
 
 验收：
 
 - 顶层状态条始终显示时段、窗口、AP、节点、暴露、债务压力。
+- 顶层状态条同时显示伤势与当前遭遇压力。
+- Build 页至少显示核心蛊 / 辅助蛊占位、求活路线、主修流派保留位、喂养维护压力与主要缺口。
 - UI 不读取隐藏变量原值。
 - UI 只提交 `ActionCommand`。
 - UI 不调用 AI 生成正文。
+- 中文正文、标签和中英文 ID 混排无乱码。
+- 页面组看起来属于同一本账，而不是普通 dashboard 卡片拼贴。
 
 ## 阶段 8：阶段存档
 
