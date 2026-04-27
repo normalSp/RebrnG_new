@@ -111,6 +111,8 @@ Phase 7 must organize these page groups as parts of one ledger:
 - Build page.
 - Rumors and clues page.
 
+The Build page must separate core Gu, support Gu, and vital Gu. For Sprint 0, vital Gu is shown only as `本命蛊：未建立`; it must not look like an equipment slot, skill slot, or available acquisition path.
+
 Future pages such as aperture management, Treasure Yellow Heaven trade, formations, and Gu Houses must be imaginable as new ledger leaves, not a different product shell.
 
 ### Crisis Information
