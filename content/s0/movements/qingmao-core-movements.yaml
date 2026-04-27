@@ -59,6 +59,46 @@ movements:
     tags: [movement, infirmary, debt]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
+  - id: academy_to_branch_lodging
+    from: academy_gate
+    to: branch_lodging
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 0
+    stage: s0
+    tags: [movement, branch, near]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: branch_lodging_to_academy
+    from: branch_lodging
+    to: academy_gate
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 0
+    stage: s0
+    tags: [movement, branch, near]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: academy_to_clan_alley_rumor
+    from: academy_gate
+    to: clan_alley_rumor
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 1
+    stage: s0
+    tags: [movement, alley, rumor]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: clan_alley_rumor_to_academy
+    from: clan_alley_rumor
+    to: academy_gate
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 1
+    stage: s0
+    tags: [movement, alley, rumor]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
   - id: academy_to_blackmarket_hint
     from: academy_gate
     to: blackmarket_hint
@@ -81,6 +121,28 @@ movements:
     tags: [movement, blackmarket, hidden]
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
+  - id: clan_alley_rumor_to_blackmarket_hint
+    from: clan_alley_rumor
+    to: blackmarket_hint
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 2
+    required_period: 深夜
+    stage: s0
+    tags: [movement, blackmarket, hidden]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+  - id: blackmarket_hint_to_clan_alley_rumor
+    from: blackmarket_hint
+    to: clan_alley_rumor
+    ap_cost: 0
+    arrival_ap_penalty: 0
+    exposure_delta: 1
+    required_period: 深夜
+    stage: s0
+    tags: [movement, blackmarket, hidden]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
   - id: academy_to_inheritance_rumor
     from: academy_gate
     to: inheritance_rumor
@@ -94,6 +156,26 @@ movements:
   - id: inheritance_rumor_to_academy
     from: inheritance_rumor
     to: academy_gate
+    ap_cost: 1
+    arrival_ap_penalty: 0
+    exposure_delta: 2
+    stage: s0
+    tags: [movement, inheritance, sandbox-if]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+  - id: clan_alley_rumor_to_inheritance_rumor
+    from: clan_alley_rumor
+    to: inheritance_rumor
+    ap_cost: 1
+    arrival_ap_penalty: 0
+    exposure_delta: 3
+    stage: s0
+    tags: [movement, inheritance, sandbox-if]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+  - id: inheritance_rumor_to_clan_alley_rumor
+    from: inheritance_rumor
+    to: clan_alley_rumor
     ap_cost: 1
     arrival_ap_penalty: 0
     exposure_delta: 2

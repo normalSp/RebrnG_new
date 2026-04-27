@@ -5,6 +5,18 @@ narratives:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     text: 你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。
+  - id: s0.scene.node.branch_lodging
+    stage: s0
+    tags: [narrative, scene, branch]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 旁支落脚点狭窄安静，能藏住一点喘息，也藏不住欠账的影子。
+  - id: s0.scene.node.clan_alley_rumor
+    stage: s0
+    tags: [narrative, scene, alley, rumor]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 山寨巷道里脚步杂乱，风声混着避让的眼神，能听见门路，也会留下痕迹。
   - id: s0.movement.default
     stage: s0
     tags: [narrative, movement]
@@ -17,6 +29,12 @@ narratives:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     text: 你按下杂念运转真元，月光修行痕迹更深。
+  - id: s0.action.cultivate.moonlight_corner
+    stage: s0
+    tags: [narrative, cultivate, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你借月光角避开几道视线，真元运转更稳，账上仍记下一枚元石的缺口。
   - id: s0.action.scout.default
     stage: s0
     tags: [narrative, scout]
@@ -29,12 +47,48 @@ narratives:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     text: 你在学堂门前听见几句低声风声，暗口二字被记进线索页。
+  - id: s0.action.scout.moonlight_corner
+    stage: s0
+    tags: [narrative, scout, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你在月光角看清几处站位，学堂里的比较压力比明面规矩更锋利。
   - id: s0.action.scout.merit_notice
     stage: s0
     tags: [narrative, scout, merit]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     text: 你在功绩告示旁核对机会，记下一点可用功绩。
+  - id: s0.action.scout.merit_audit
+    stage: s0
+    tags: [narrative, scout, merit, audit]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 功绩告示旁不只写机会，也写着谁会查账、谁会记仇。
+  - id: s0.action.scout.infirmary_lane
+    stage: s0
+    tags: [narrative, scout, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 药堂侧巷的价码不只算元石，还算人情和下一次被追索的时机。
+  - id: s0.action.scout.branch_lodging
+    stage: s0
+    tags: [narrative, scout, branch, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 旁支落脚点能挡一时风雨，也把欠账和亲疏写得更清楚。
+  - id: s0.action.scout.clan_alley_rumor
+    stage: s0
+    tags: [narrative, scout, alley, blackmarket]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。
+  - id: s0.action.scout.inheritance_rumor
+    stage: s0
+    tags: [narrative, scout, inheritance, rumor]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+    text: 传承残线半真半假，能记进账本，但不能当作稳妥出路。
   - id: s0.action.recover.default
     stage: s0
     tags: [narrative, recover, infirmary]

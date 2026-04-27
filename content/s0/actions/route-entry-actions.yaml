@@ -8,6 +8,24 @@ actions:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: cultivate_moonlight_corner
+    label: 借月光角修行
+    intent: cultivate
+    target: moonlight_corner
+    stage: s0
+    tags: [action, cultivate, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: observe_moonlight_pressure
+    label: 观察月光角压力
+    intent: scout
+    target: moonlight_corner
+    stage: s0
+    tags: [action, scout, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: move_merit_notice
     label: 靠近功绩告示
     intent: move
@@ -26,6 +44,15 @@ actions:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: audit_merit_notice
+    label: 核对功绩审计
+    intent: scout
+    target: merit_notice
+    stage: s0
+    tags: [action, scout, merit, audit]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: move_infirmary_lane
     label: 去药堂侧巷
     intent: move
@@ -41,6 +68,51 @@ actions:
     target: infirmary_lane
     stage: s0
     tags: [action, recover, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: ask_infirmary_price
+    label: 打听药堂价码
+    intent: scout
+    target: infirmary_lane
+    stage: s0
+    tags: [action, scout, infirmary, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: move_branch_lodging
+    label: 回旁支落脚点
+    intent: move
+    target: branch_lodging
+    stage: s0
+    tags: [action, move, branch]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: listen_branch_lodging_debt
+    label: 听旁支债声
+    intent: scout
+    target: branch_lodging
+    stage: s0
+    tags: [action, scout, branch, debt]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: move_clan_alley_rumor
+    label: 绕到山寨巷道
+    intent: move
+    target: clan_alley_rumor
+    stage: s0
+    tags: [action, move, alley, rumor]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: listen_clan_alley_rumor
+    label: 听巷道风声
+    intent: scout
+    target: clan_alley_rumor
+    stage: s0
+    tags: [action, scout, alley, rumor]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     importance: standard
@@ -86,6 +158,15 @@ actions:
     target: inheritance_rumor
     stage: s0
     tags: [action, move, inheritance, rumor]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+    importance: standard
+  - id: verify_inheritance_rumor
+    label: 查验传承残线
+    intent: scout
+    target: inheritance_rumor
+    stage: s0
+    tags: [action, scout, inheritance, rumor]
     evidence: sandbox_if
     modes: [sandbox_if]
     importance: standard

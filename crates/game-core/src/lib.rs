@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint0-rules-v6";
+pub const RULES_VERSION: &str = "sprint0-rules-v7";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -150,6 +150,15 @@ pub struct CharacterState {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KnowledgeState {
     pub blackmarket_route_known: bool,
+    pub known_clues: Vec<String>,
+}
+
+impl KnowledgeState {
+    fn record_clue(&mut self, clue_id: &str) {
+        if !self.known_clues.iter().any(|clue| clue == clue_id) {
+            self.known_clues.push(clue_id.to_string());
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1532,7 +1541,7 @@ pub fn starter_content_source() -> ContentSource {
     ContentSource {
         content_id: "s0.qingmao.foundation".to_string(),
         version: STARTER_CONTENT_VERSION.to_string(),
-        title: "青茅山 Sprint 0 内容骨架".to_string(),
+        title: "青茅山 S0 首发内容骨架".to_string(),
         stage: "s0".to_string(),
         entry_scene_id: "academy_gate".to_string(),
         nodes: starter_nodes(),
@@ -1590,6 +1599,22 @@ fn starter_nodes() -> Vec<ContentNode> {
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["node", "infirmary"],
+        ),
+        node(
+            "branch_lodging",
+            "旁支落脚点",
+            "low",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["node", "branch", "lodging"],
+        ),
+        node(
+            "clan_alley_rumor",
+            "山寨巷道风声点",
+            "watched",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["node", "clan", "alley", "rumor"],
         ),
         node(
             "blackmarket_hint",
@@ -1650,6 +1675,15 @@ fn starter_actions() -> Vec<ContentAction> {
             &["action", "cultivate", "moonlight"],
         ),
         action(
+            "cultivate_moonlight_corner",
+            "借月光角修行",
+            ActionIntent::Cultivate,
+            Some("moonlight_corner"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "cultivate", "moonlight"],
+        ),
+        action(
             "move_moonlight_corner",
             "挪到月光修行角",
             ActionIntent::Move,
@@ -1657,6 +1691,15 @@ fn starter_actions() -> Vec<ContentAction> {
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["action", "move"],
+        ),
+        action(
+            "observe_moonlight_pressure",
+            "观察月光角压力",
+            ActionIntent::Scout,
+            Some("moonlight_corner"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout", "moonlight"],
         ),
         action(
             "move_merit_notice",
@@ -1677,6 +1720,15 @@ fn starter_actions() -> Vec<ContentAction> {
             &["action", "scout", "merit"],
         ),
         action(
+            "audit_merit_notice",
+            "核对功绩审计",
+            ActionIntent::Scout,
+            Some("merit_notice"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout", "merit", "audit"],
+        ),
+        action(
             "move_infirmary_lane",
             "去药堂侧巷",
             ActionIntent::Move,
@@ -1693,6 +1745,51 @@ fn starter_actions() -> Vec<ContentAction> {
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["action", "recover", "debt"],
+        ),
+        action(
+            "ask_infirmary_price",
+            "打听药堂价码",
+            ActionIntent::Scout,
+            Some("infirmary_lane"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout", "infirmary", "debt"],
+        ),
+        action(
+            "move_branch_lodging",
+            "回旁支落脚点",
+            ActionIntent::Move,
+            Some("branch_lodging"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "move", "branch"],
+        ),
+        action(
+            "listen_branch_lodging_debt",
+            "听旁支债声",
+            ActionIntent::Scout,
+            Some("branch_lodging"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout", "branch", "debt"],
+        ),
+        action(
+            "move_clan_alley_rumor",
+            "绕到山寨巷道",
+            ActionIntent::Move,
+            Some("clan_alley_rumor"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "move", "alley", "rumor"],
+        ),
+        action(
+            "listen_clan_alley_rumor",
+            "听巷道风声",
+            ActionIntent::Scout,
+            Some("clan_alley_rumor"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "scout", "alley", "rumor"],
         ),
         action(
             "move_blackmarket_hint",
@@ -1739,6 +1836,15 @@ fn starter_actions() -> Vec<ContentAction> {
             sandbox_only(),
             &["action", "move", "inheritance"],
         ),
+        action(
+            "verify_inheritance_rumor",
+            "查验传承残线",
+            ActionIntent::Scout,
+            Some("inheritance_rumor"),
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["action", "scout", "inheritance", "rumor"],
+        ),
     ]
 }
 
@@ -1770,7 +1876,12 @@ fn starter_routes() -> Vec<ContentRouteEntry> {
             "moonlight_entry",
             "月光路线入口",
             "moonlight",
-            &["cultivate_moonlight"],
+            &[
+                "cultivate_moonlight",
+                "move_moonlight_corner",
+                "cultivate_moonlight_corner",
+                "observe_moonlight_pressure",
+            ],
             EvidenceLevel::CanonInferred,
             all_modes(),
         ),
@@ -1778,7 +1889,11 @@ fn starter_routes() -> Vec<ContentRouteEntry> {
             "merit_entry",
             "功绩路线入口",
             "merit",
-            &["check_merit_notice"],
+            &[
+                "move_merit_notice",
+                "check_merit_notice",
+                "audit_merit_notice",
+            ],
             EvidenceLevel::CanonInferred,
             all_modes(),
         ),
@@ -1786,7 +1901,11 @@ fn starter_routes() -> Vec<ContentRouteEntry> {
             "infirmary_entry",
             "药堂半主路线入口",
             "infirmary",
-            &["seek_treatment_debt"],
+            &[
+                "move_infirmary_lane",
+                "seek_treatment_debt",
+                "ask_infirmary_price",
+            ],
             EvidenceLevel::CanonInferred,
             all_modes(),
         ),
@@ -1794,7 +1913,12 @@ fn starter_routes() -> Vec<ContentRouteEntry> {
             "blackmarket_entry",
             "黑市路线入口",
             "blackmarket",
-            &["probe_blackmarket_hint"],
+            &[
+                "move_clan_alley_rumor",
+                "listen_clan_alley_rumor",
+                "move_blackmarket_hint",
+                "probe_blackmarket_hint",
+            ],
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
         ),
@@ -1802,7 +1926,7 @@ fn starter_routes() -> Vec<ContentRouteEntry> {
             "inheritance_entry",
             "传承路线入口",
             "inheritance",
-            &["chase_inheritance_rumor"],
+            &["chase_inheritance_rumor", "verify_inheritance_rumor"],
             EvidenceLevel::SandboxIf,
             sandbox_only(),
         ),
@@ -1931,6 +2055,78 @@ fn starter_movements() -> Vec<ContentMovementEdge> {
             &["movement", "infirmary"],
         ),
         movement(
+            "academy_to_branch_lodging",
+            "academy_gate",
+            "branch_lodging",
+            0,
+            0,
+            0,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "branch", "near"],
+        ),
+        movement(
+            "branch_lodging_to_academy",
+            "branch_lodging",
+            "academy_gate",
+            0,
+            0,
+            0,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "branch", "near"],
+        ),
+        movement(
+            "academy_to_clan_alley_rumor",
+            "academy_gate",
+            "clan_alley_rumor",
+            0,
+            0,
+            1,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "alley", "rumor"],
+        ),
+        movement(
+            "clan_alley_rumor_to_academy",
+            "clan_alley_rumor",
+            "academy_gate",
+            0,
+            0,
+            1,
+            None,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["movement", "alley", "rumor"],
+        ),
+        movement(
+            "clan_alley_rumor_to_blackmarket_hint",
+            "clan_alley_rumor",
+            "blackmarket_hint",
+            0,
+            0,
+            2,
+            Some("深夜"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["movement", "blackmarket", "hidden"],
+        ),
+        movement(
+            "blackmarket_hint_to_clan_alley_rumor",
+            "blackmarket_hint",
+            "clan_alley_rumor",
+            0,
+            0,
+            1,
+            Some("深夜"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["movement", "blackmarket", "hidden"],
+        ),
+        movement(
             "academy_to_blackmarket_hint",
             "academy_gate",
             "blackmarket_hint",
@@ -1970,6 +2166,30 @@ fn starter_movements() -> Vec<ContentMovementEdge> {
             "inheritance_rumor_to_academy",
             "inheritance_rumor",
             "academy_gate",
+            1,
+            0,
+            2,
+            None,
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["movement", "inheritance", "sandbox-if"],
+        ),
+        movement(
+            "clan_alley_rumor_to_inheritance_rumor",
+            "clan_alley_rumor",
+            "inheritance_rumor",
+            1,
+            0,
+            3,
+            None,
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["movement", "inheritance", "sandbox-if"],
+        ),
+        movement(
+            "inheritance_rumor_to_clan_alley_rumor",
+            "inheritance_rumor",
+            "clan_alley_rumor",
             1,
             0,
             2,
@@ -2036,6 +2256,20 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
             &["narrative", "opening", "academy"],
         ),
         content_narrative(
+            "s0.scene.node.branch_lodging",
+            "旁支落脚点狭窄安静，能藏住一点喘息，也藏不住欠账的影子。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scene", "branch"],
+        ),
+        content_narrative(
+            "s0.scene.node.clan_alley_rumor",
+            "山寨巷道里脚步杂乱，风声混着避让的眼神，能听见门路，也会留下痕迹。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scene", "alley", "rumor"],
+        ),
+        content_narrative(
             "s0.movement.default",
             "你换了一个位置，账本只记下路径、时段与暴露，不替你粉饰动机。",
             EvidenceLevel::CanonInferred,
@@ -2045,6 +2279,13 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         content_narrative(
             "s0.action.cultivate.moonlight",
             "你按下杂念运转真元，月光修行痕迹更深。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "cultivate", "moonlight"],
+        ),
+        content_narrative(
+            "s0.action.cultivate.moonlight_corner",
+            "你借月光角避开几道视线，真元运转更稳，账上仍记下一枚元石的缺口。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "cultivate", "moonlight"],
@@ -2069,6 +2310,48 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "merit"],
+        ),
+        content_narrative(
+            "s0.action.scout.moonlight_corner",
+            "你在月光角看清几处站位，学堂里的比较压力比明面规矩更锋利。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "moonlight"],
+        ),
+        content_narrative(
+            "s0.action.scout.merit_audit",
+            "功绩告示旁不只写机会，也写着谁会查账、谁会记仇。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "merit", "audit"],
+        ),
+        content_narrative(
+            "s0.action.scout.infirmary_lane",
+            "药堂侧巷的价码不只算元石，还算人情和下一次被追索的时机。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "infirmary", "debt"],
+        ),
+        content_narrative(
+            "s0.action.scout.branch_lodging",
+            "旁支落脚点能挡一时风雨，也把欠账和亲疏写得更清楚。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "branch", "debt"],
+        ),
+        content_narrative(
+            "s0.action.scout.clan_alley_rumor",
+            "巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "alley", "blackmarket"],
+        ),
+        content_narrative(
+            "s0.action.scout.inheritance_rumor",
+            "传承残线半真半假，能记进账本，但不能当作稳妥出路。",
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+            &["narrative", "scout", "inheritance", "rumor"],
         ),
         content_narrative(
             "s0.action.recover.default",
@@ -2538,7 +2821,22 @@ fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
             .is_some_and(|active| action.target.as_deref() == Some(active.encounter_id.as_str()));
     }
 
-    !is_blackmarket_tagged(&action.tags) || state.knowledge.blackmarket_route_known
+    if is_blackmarket_tagged(&action.tags) && !state.knowledge.blackmarket_route_known {
+        return false;
+    }
+
+    if action.intent == ActionIntent::Move {
+        return true;
+    }
+
+    if action_requires_current_node(&action.intent) {
+        return action
+            .target
+            .as_deref()
+            .is_some_and(|target| target == state.world.current_node_id);
+    }
+
+    true
 }
 
 fn is_blackmarket_tagged(tags: &[String]) -> bool {
@@ -2556,16 +2854,25 @@ fn clean_action_label(action: &ContentAction) -> String {
     match action.id.as_str() {
         "scout_academy" => "观察学堂风声",
         "cultivate_moonlight" => "月光修行",
+        "cultivate_moonlight_corner" => "借月光角修行",
         "move_moonlight_corner" => "去月光角",
+        "observe_moonlight_pressure" => "观察月光角压力",
         "move_merit_notice" => "去功绩告示",
-        "scout_merit_notice" => "查功绩告示",
+        "check_merit_notice" => "查功绩告示",
+        "audit_merit_notice" => "核对功绩审计",
         "move_infirmary_lane" => "去药堂侧巷",
-        "recover_infirmary" => "药堂恢复",
+        "seek_treatment_debt" => "药堂恢复",
+        "ask_infirmary_price" => "打听药堂价码",
+        "move_branch_lodging" => "回旁支落脚点",
+        "listen_branch_lodging_debt" => "听旁支债声",
+        "move_clan_alley_rumor" => "绕到山寨巷道",
+        "listen_clan_alley_rumor" => "听巷道风声",
         "move_blackmarket_hint" => "摸黑市暗口",
-        "trade_blackmarket" => "黑市换料",
+        "probe_blackmarket_hint" => "黑市换料",
         "retreat_blackmarket_extortion" => "跑路",
         "confront_blackmarket_extortion" => "硬顶",
-        "move_inheritance_rumor" => "追传承残线",
+        "chase_inheritance_rumor" => "追传承残线",
+        "verify_inheritance_rumor" => "查验传承残线",
         _ => action.label.as_str(),
     }
     .to_string()
@@ -2577,6 +2884,8 @@ fn clean_node_title(node: &ContentNode) -> String {
         "moonlight_corner" => "月光修行角",
         "merit_notice" => "功绩告示旁",
         "infirmary_lane" => "药堂侧巷",
+        "branch_lodging" => "旁支落脚点",
+        "clan_alley_rumor" => "山寨巷道风声点",
         "blackmarket_hint" => "黑市暗口",
         "inheritance_rumor" => "传承残线",
         _ => node.title.as_str(),
@@ -2745,6 +3054,7 @@ struct SubsystemOutcome {
     injury_level: Option<InjuryLevel>,
     injury_ap_penalty_pending: Option<bool>,
     reveal_blackmarket_route: bool,
+    clue_ids: Vec<String>,
 }
 
 impl SubsystemOutcome {
@@ -2769,12 +3079,19 @@ impl SubsystemOutcome {
             injury_level: None,
             injury_ap_penalty_pending: None,
             reveal_blackmarket_route: false,
+            clue_ids: Vec::new(),
         }
     }
 
     fn with_narrative_id(mut self, narrative_id: &str) -> Self {
         self.narrative_id = Some(narrative_id.to_string());
         self
+    }
+
+    fn remember_clue(&mut self, clue_id: &str) {
+        if !self.clue_ids.iter().any(|clue| clue == clue_id) {
+            self.clue_ids.push(clue_id.to_string());
+        }
     }
 }
 
@@ -2862,6 +3179,13 @@ fn availability_check(
     let node = node_by_id(&target, content_bundle)?;
     require_mode(&state.mode, &node.modes, "node", &node.id)?;
 
+    if action_requires_current_node(&command.intent) && target != state.world.current_node_id {
+        return Err(CommandError::validation(format!(
+            "action target '{}' requires current node '{}'",
+            target, state.world.current_node_id
+        )));
+    }
+
     match command.intent {
         ActionIntent::Recover if state.world.current_node_id != "infirmary_lane" => {
             Err(CommandError::validation("recover requires infirmary_lane"))
@@ -2875,6 +3199,13 @@ fn availability_check(
         }
         _ => Ok(()),
     }
+}
+
+fn action_requires_current_node(intent: &ActionIntent) -> bool {
+    matches!(
+        intent,
+        ActionIntent::Cultivate | ActionIntent::Scout | ActionIntent::Recover | ActionIntent::Trade
+    )
 }
 
 fn cost_reservation(
@@ -2981,13 +3312,41 @@ fn subsystem_resolution(
             let target = target_or_current(state, command)?;
             if target == "academy_gate" {
                 outcome.reveal_blackmarket_route = true;
+                outcome.remember_clue("rumor_blackmarket_tail");
                 outcome.ledger_text =
                     "你在学堂门前听见几句低声风声，暗口二字被记进线索页。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.academy_gate".to_string());
+            } else if target == "moonlight_corner" {
+                outcome.remember_clue("rumor_academy_pressure");
+                outcome.ledger_text =
+                    "你在月光角看清几处站位，学堂里的比较压力比明面规矩更锋利。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.moonlight_corner".to_string());
             } else if target == "merit_notice" {
                 outcome.merit_delta = 1;
+                outcome.remember_clue("rumor_merit_audit");
                 outcome.ledger_text = "你在功绩告示旁核对机会，记下一点可用功绩。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.merit_notice".to_string());
+            } else if target == "infirmary_lane" {
+                outcome.remember_clue("rumor_infirmary_debt");
+                outcome.ledger_text =
+                    "药堂侧巷的价码不只算元石，还算人情和下一次被追索的时机。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.infirmary_lane".to_string());
+            } else if target == "branch_lodging" {
+                outcome.remember_clue("rumor_family_debt");
+                outcome.ledger_text =
+                    "旁支落脚点能挡一时风雨，也把欠账和亲疏写得更清楚。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.branch_lodging".to_string());
+            } else if target == "clan_alley_rumor" {
+                outcome.reveal_blackmarket_route = true;
+                outcome.remember_clue("rumor_blackmarket_tail");
+                outcome.ledger_text =
+                    "巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.clan_alley_rumor".to_string());
+            } else if target == "inheritance_rumor" {
+                outcome.remember_clue("rumor_inheritance_bamboo");
+                outcome.ledger_text =
+                    "传承残线半真半假，能记进账本，但不能当作稳妥出路。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.inheritance_rumor".to_string());
             }
             Ok(outcome)
         }
@@ -3106,6 +3465,10 @@ fn effect_commit(
 
     if outcome.reveal_blackmarket_route {
         state.knowledge.blackmarket_route_known = true;
+    }
+
+    for clue_id in &outcome.clue_ids {
+        state.knowledge.record_clue(clue_id);
     }
 
     if reserved_cost.consume_window || state.time.ap == 0 {
@@ -3419,6 +3782,134 @@ mod tests {
     }
 
     #[test]
+    fn sprint1_starter_bundle_contains_route_content_outline() {
+        let bundle = starter_content_bundle();
+
+        for node_id in [
+            "academy_gate",
+            "moonlight_corner",
+            "merit_notice",
+            "infirmary_lane",
+            "blackmarket_hint",
+            "inheritance_rumor",
+            "branch_lodging",
+            "clan_alley_rumor",
+        ] {
+            assert!(
+                bundle.indexes.node_ids.contains_key(node_id),
+                "missing S0 node {node_id}"
+            );
+        }
+
+        for action_id in [
+            "cultivate_moonlight_corner",
+            "observe_moonlight_pressure",
+            "audit_merit_notice",
+            "ask_infirmary_price",
+            "move_branch_lodging",
+            "listen_branch_lodging_debt",
+            "move_clan_alley_rumor",
+            "listen_clan_alley_rumor",
+            "verify_inheritance_rumor",
+        ] {
+            assert!(
+                bundle.indexes.action_ids.contains_key(action_id),
+                "missing S0 action {action_id}"
+            );
+        }
+
+        assert_eq!(bundle.nodes.len(), 8);
+        assert!(
+            bundle.narratives.len() >= 23,
+            "Sprint 1 Phase 2 should carry local narrative coverage for new route content"
+        );
+        for route in &bundle.routes {
+            assert!(
+                route.entry_action_ids.len() >= 2,
+                "route '{}' should expose at least two entry content points",
+                route.id
+            );
+        }
+    }
+
+    #[test]
+    fn sprint1_projection_localizes_non_move_actions_and_keeps_blackmarket_hidden() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection_with_content(&state, &bundle);
+
+        assert!(projection
+            .action_choices
+            .iter()
+            .any(|choice| choice.id == "move_branch_lodging"));
+        assert!(projection
+            .action_choices
+            .iter()
+            .all(|choice| choice.id != "listen_branch_lodging_debt"));
+        assert!(projection
+            .action_choices
+            .iter()
+            .all(|choice| !choice.id.contains("blackmarket")));
+
+        let moved = resolve_action(
+            state,
+            command(ActionIntent::Move, Some("branch_lodging")),
+            &bundle,
+        )
+        .expect("branch lodging movement should resolve");
+        let localized = build_projection_with_content(&moved.state, &bundle);
+
+        let lodging_scout = localized
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "listen_branch_lodging_debt")
+            .expect("branch lodging should expose its local scout action");
+        assert!(lodging_scout.enabled);
+        assert!(localized
+            .action_choices
+            .iter()
+            .all(|choice| choice.id != "check_merit_notice"));
+    }
+
+    #[test]
+    fn sprint1_scout_records_unique_route_clues() {
+        let bundle = starter_content_bundle();
+        let moved = resolve_action(
+            create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION),
+            command(ActionIntent::Move, Some("branch_lodging")),
+            &bundle,
+        )
+        .expect("branch lodging movement should resolve");
+
+        let scouted = resolve_action(
+            moved.state,
+            command(ActionIntent::Scout, Some("branch_lodging")),
+            &bundle,
+        )
+        .expect("branch lodging scout should record a clue");
+        assert!(scouted
+            .state
+            .knowledge
+            .known_clues
+            .contains(&"rumor_family_debt".to_string()));
+
+        let repeated = resolve_action(
+            scouted.state,
+            command(ActionIntent::Scout, Some("branch_lodging")),
+            &bundle,
+        )
+        .expect("repeated branch lodging scout should not duplicate clue ids");
+        let family_debt_count = repeated
+            .state
+            .knowledge
+            .known_clues
+            .iter()
+            .filter(|clue| clue.as_str() == "rumor_family_debt")
+            .count();
+        assert_eq!(family_debt_count, 1);
+    }
+
+    #[test]
     fn encounter_ledger_projection_does_not_leak_english_fallback_text() {
         let bundle = starter_content_bundle();
         let encountered = state_at_blackmarket_extortion(&bundle);
@@ -3468,7 +3959,7 @@ mod tests {
     }
 
     #[test]
-    fn active_encounter_projection_surfaces_only_decision_actions_as_enabled() {
+    fn active_encounter_projection_surfaces_decisions_and_disables_wait() {
         let bundle = starter_content_bundle();
         let state = state_at_blackmarket_extortion(&bundle);
         let projection = build_projection_with_content(&state, &bundle);
@@ -3481,13 +3972,18 @@ mod tests {
         assert!(retreat.enabled);
         assert_eq!(retreat.target.as_deref(), Some("blackmarket_extortion"));
 
-        let scout = projection
+        assert!(projection
             .action_choices
             .iter()
-            .find(|choice| choice.id == "scout_academy")
-            .expect("ordinary actions remain visible with disabled reasons");
-        assert!(!scout.enabled);
-        assert!(scout
+            .all(|choice| choice.id != "scout_academy"));
+
+        let wait = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "wait_current_window")
+            .expect("wait remains visible but disabled during an encounter");
+        assert!(!wait.enabled);
+        assert!(wait
             .disabled_reason
             .as_deref()
             .unwrap_or_default()
@@ -4157,8 +4653,14 @@ mod tests {
     #[test]
     fn s0_economy_debt_and_blackmarket_rules_apply() {
         let bundle = starter_content_bundle();
-        let merit = resolve_action(
+        let at_merit = resolve_action(
             create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION),
+            command(ActionIntent::Move, Some("merit_notice")),
+            &bundle,
+        )
+        .expect("merit notice movement should resolve");
+        let merit = resolve_action(
+            at_merit.state,
             command(ActionIntent::Scout, Some("merit_notice")),
             &bundle,
         )
