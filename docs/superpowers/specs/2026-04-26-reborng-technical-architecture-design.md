@@ -459,7 +459,7 @@ AI / LLM 禁止用于：
 - 内容证据等级改写
 - 玩家点击后必须等待的正文生成
 
-如果 AI 不可用、断网或超时，S0 8 回合必须仍可完整游玩。
+AI 不可用、无 key、断网或超时不作为玩家功能验收项；首发只验收运行时 AI 不进入 `resolve_action`、Tauri command 或 UI 点击后的同步主链。
 
 ## 存档与迁移
 
@@ -528,7 +528,7 @@ Rust command 内部使用本地计时采集这些指标，并随 `ActionResponse
 - Build 分层不混写求活路线和主修流派。
 - `SaveEnvelope` 读写后关键状态一致。
 - UI projection 不包含隐藏变量原值。
-- 断网或无 AI 配置时仍能跑完 S0 8 回合。
+- 运行时没有 AI provider、proposal 或 narrator 参与 S0 8 回合主链。
 - S0 8 回合性能报告中单回合无分钟级等待。
 
 ## 技术架构禁止项

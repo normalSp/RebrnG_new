@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint0-rules-v5";
+pub const RULES_VERSION: &str = "sprint0-rules-v6";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -219,6 +219,7 @@ pub struct BuildState {
     pub survival_route: String,
     pub main_path: Option<String>,
     pub dao_mark_note: Option<String>,
+    pub moonlight_cultivation_marks: u8,
     pub core_gu: GuSlotState,
     pub support_gu: GuSlotState,
     pub vital_gu: VitalGuState,
@@ -232,6 +233,7 @@ impl Default for BuildState {
             survival_route: "未定：仍在学堂秩序缝隙里求活".to_string(),
             main_path: None,
             dao_mark_note: None,
+            moonlight_cultivation_marks: 0,
             core_gu: GuSlotState::core("月光蛊线索未稳", "当前路线核心候选"),
             support_gu: GuSlotState::support("暂无", "尚无辅助蛊承托"),
             vital_gu: VitalGuState::default(),
@@ -745,6 +747,21 @@ pub struct NarrativeBoundaryView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StageClosureStatus {
+    InProgress,
+    FoundationEstablished,
+    TraumaContinuable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StageClosureView {
+    pub status: StageClosureStatus,
+    pub title: String,
+    pub summary: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
     pub current_day: u8,
@@ -773,6 +790,7 @@ pub struct LedgerViewModel {
     pub active_encounter_decisions: Vec<ActionIntent>,
     pub ledger_entries: Vec<LedgerEntry>,
     pub narrative_boundary: NarrativeBoundaryView,
+    pub stage_closure: StageClosureView,
     pub performance: PerformanceMetrics,
 }
 
@@ -2209,6 +2227,7 @@ fn build_projection_from_content(
             })
             .collect(),
         narrative_boundary: narrative_boundary_view(),
+        stage_closure: stage_closure_view(state),
         performance: PerformanceMetrics::default(),
     }
 }
@@ -2218,7 +2237,15 @@ fn clean_ledger_text(entry: &LedgerEntry) -> String {
 }
 
 fn display_period(period: &str) -> String {
-    period.to_string()
+    if period.contains('卞') {
+        "深夜".to_string()
+    } else {
+        period.to_string()
+    }
+}
+
+fn period_matches(required: &str, current: &str) -> bool {
+    display_period(required) == display_period(current)
 }
 
 fn clean_anchor_pressure(value: &str) -> String {
@@ -2230,6 +2257,41 @@ fn narrative_boundary_view() -> NarrativeBoundaryView {
         runtime_ai_enabled: false,
         source: "内容包 + 因果账本 + Rust 本地兜底".to_string(),
         policy: "resolve_action、Tauri command 与 UI 点击链路不等待远程 AI".to_string(),
+    }
+}
+
+fn stage_closure_view(state: &GameState) -> StageClosureView {
+    if state.time.window_type != WindowType::Anchor {
+        return StageClosureView {
+            status: StageClosureStatus::InProgress,
+            title: "尚未收口".to_string(),
+            summary: format!(
+                "自由窗口已过 {}/8，阶段锚点尚未落下。",
+                state.time.free_rounds_elapsed
+            ),
+        };
+    }
+
+    if state.character.injury.level == InjuryLevel::Heavy {
+        return StageClosureView {
+            status: StageClosureStatus::TraumaContinuable,
+            title: "重创可续".to_string(),
+            summary: "重创可续：你带着重伤抵达阶段锚点，局面没有清账，只是还能续命。".to_string(),
+        };
+    }
+
+    if state.build.moonlight_cultivation_marks >= 2 {
+        return StageClosureView {
+            status: StageClosureStatus::FoundationEstablished,
+            title: "站稳一转根基".to_string(),
+            summary: "月光修行留下足够痕迹，资源、债务和风险仍在，但一转根基已经站住。".to_string(),
+        };
+    }
+
+    StageClosureView {
+        status: StageClosureStatus::InProgress,
+        title: "锚点待判".to_string(),
+        summary: "自由窗口已经耗尽，但当前根基不足以记为阶段成功。".to_string(),
     }
 }
 
@@ -2676,6 +2738,7 @@ struct SubsystemOutcome {
     organization_debt_delta: i32,
     trading_credit_delta: i32,
     exposure_delta: i32,
+    moonlight_cultivation_delta: u8,
     arrival_ap_penalty: u8,
     trigger_encounter: Option<ActiveEncounter>,
     clear_active_encounter: bool,
@@ -2699,6 +2762,7 @@ impl SubsystemOutcome {
             organization_debt_delta: 0,
             trading_credit_delta: 0,
             exposure_delta: 0,
+            moonlight_cultivation_delta: 0,
             arrival_ap_penalty: 0,
             trigger_encounter: None,
             clear_active_encounter: false,
@@ -2781,7 +2845,7 @@ fn availability_check(
         let edge = movement_edge(state, &target, content_bundle)?;
         require_mode(&state.mode, &edge.modes, "movement", &edge.id)?;
         if let Some(required_period) = &edge.required_period {
-            if required_period != &state.time.period {
+            if !period_matches(required_period, &state.time.period) {
                 return Err(CommandError::validation(format!(
                     "movement '{}' requires period '{}'",
                     edge.id, required_period
@@ -2908,6 +2972,7 @@ fn subsystem_resolution(
                 SubsystemOutcome::new("action", "你按下杂念运转真元，月光修行痕迹更深。")
                     .with_narrative_id("s0.action.cultivate.moonlight");
             outcome.survival_route = Some("月光修行：制度内求稳".to_string());
+            outcome.moonlight_cultivation_delta = 1;
             Ok(outcome)
         }
         ActionIntent::Scout => {
@@ -3008,6 +3073,10 @@ fn effect_commit(
     state.debts_and_credit.organization_debt += outcome.organization_debt_delta;
     state.debts_and_credit.trading_credit += outcome.trading_credit_delta;
     state.risk.exposure += outcome.exposure_delta;
+    state.build.moonlight_cultivation_marks = state
+        .build
+        .moonlight_cultivation_marks
+        .saturating_add(outcome.moonlight_cultivation_delta);
 
     if let Some(target_node_id) = &outcome.target_node_id {
         state.world.current_node_id = target_node_id.clone();
@@ -3740,7 +3809,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_action_does_not_require_ai_keys_or_model_config() {
+    fn resolve_action_has_no_runtime_ai_dependency() {
         let bundle = starter_content_bundle();
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
         let result = resolve_action(

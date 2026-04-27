@@ -94,6 +94,17 @@ export interface NarrativeBoundaryView {
   policy: string;
 }
 
+export type StageClosureStatus =
+  | "in_progress"
+  | "foundation_established"
+  | "trauma_continuable";
+
+export interface StageClosureView {
+  status: StageClosureStatus;
+  title: string;
+  summary: string;
+}
+
 export interface DeclaredCost {
   ap: number;
   primeval_stones: number;
@@ -136,6 +147,7 @@ export interface LedgerViewModel {
   active_encounter_decisions: ActionIntent[];
   ledger_entries: LedgerEntry[];
   narrative_boundary: NarrativeBoundaryView;
+  stage_closure: StageClosureView;
   performance: PerformanceMetrics;
 }
 
