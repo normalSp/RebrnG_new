@@ -7,10 +7,11 @@
 - 分支：`codex/sprint-0-foundation`
 - 候选冻结提交：`cca6930 docs: 冻结 Sprint 2 走查版候选`
 - 内容版本：`s0.1.2`
-- 规则版本：`sprint1-rules-v2`
+- 规则版本：`sprint2-rules-v1`
 - 启动入口：`start-game.cmd`
 - 验证入口：`verify-game.cmd`
 - 走查登记表：`docs/superpowers/reviews/2026-04-27-reborng-sprint2-playtest-round1.md`
+- Sprint 2.2 补丁：移动点击反馈已前置到当前位置与最近落账；S0 开局冻结为开窍大典余波，空窍未开时不可修行。
 
 ## 走查前检查
 正式点击前先运行：

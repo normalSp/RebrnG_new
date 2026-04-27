@@ -21,7 +21,9 @@ function App() {
         mode: "canon_strict",
       });
       setProjection(response.projection);
-      setStatus("active run 已由 Rust 托管");
+      setStatus(
+        `新局已建立：${currentNodeTitle(response.projection)}。${recentSummary(response.projection)}`,
+      );
     } catch (error) {
       setStatus(formatCommandError(error));
     }
@@ -29,15 +31,13 @@ function App() {
 
   async function resolveAction(command: ActionCommand) {
     const label = command.context_note ?? command.intent;
-    setStatus(`正在结算：${label}`);
+    setStatus(`正在结算：${label}，账本正在回算...`);
     try {
       const response = await invoke<ActionResponse>("resolve_action", {
         command,
       });
       setProjection(response.projection);
-      setStatus(
-        `已结算：${label} / resolve_action ${response.performance.resolve_action_ms}ms`,
-      );
+      setStatus(describeResolvedAction(label, command, response));
     } catch (error) {
       setStatus(formatCommandError(error));
     }
@@ -64,7 +64,9 @@ function App() {
         slotId: "slot_0",
       });
       setProjection(response.projection);
-      setStatus(`已读回：save_load ${response.performance.save_load_ms}ms`);
+      setStatus(
+        `已读回：${currentNodeTitle(response.projection)} / save_load ${response.performance.save_load_ms}ms`,
+      );
     } catch (error) {
       setStatus(formatCommandError(error));
     }
@@ -80,6 +82,58 @@ function App() {
       onLoadSave={loadSave}
     />
   );
+}
+
+function describeResolvedAction(
+  label: string,
+  command: ActionCommand,
+  response: ActionResponse,
+): string {
+  const projection = response.projection;
+  const location = currentNodeTitle(projection);
+  const feedback = recentSummary(projection);
+  const elapsed = response.performance.resolve_action_ms;
+
+  const prefix = (() => {
+    switch (command.intent) {
+      case "move":
+        return `已移动到：${location}`;
+      case "cultivate":
+        return "已修行落账";
+      case "scout":
+        return "已记录风声线索";
+      case "recover":
+        return "已恢复并记下债务";
+      case "trade":
+        return "已完成交易并抬高暴露";
+      case "retreat":
+        return "已脱离遭遇";
+      case "confront":
+        return "已硬顶遭遇，代价已落账";
+      case "yield":
+      case "argue":
+      case "delay":
+      case "frame":
+        return "已处理遭遇决断";
+      case "wait":
+        return `已推进窗口：${projection.current_period}`;
+      default:
+        return `已结算：${label}`;
+    }
+  })();
+
+  return `${prefix}。${feedback} / resolve_action ${elapsed}ms`;
+}
+
+function currentNodeTitle(projection: LedgerViewModel): string {
+  return (
+    projection.node_view.visible_nodes.find((node) => node.current)?.title ??
+    projection.current_node_id
+  );
+}
+
+function recentSummary(projection: LedgerViewModel): string {
+  return projection.recent_feedback?.summary ?? projection.scene_text;
 }
 
 function formatCommandError(error: unknown): string {

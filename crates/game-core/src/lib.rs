@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.1.2";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint1-rules-v2";
+pub const RULES_VERSION: &str = "sprint2-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -146,9 +146,25 @@ pub struct InjuryState {
     pub ap_penalty_pending: bool,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CharacterState {
+    pub aperture_opened: bool,
     pub injury: InjuryState,
+}
+
+impl CharacterState {
+    fn opened_aperture() -> Self {
+        Self {
+            aperture_opened: true,
+            injury: InjuryState::default(),
+        }
+    }
+}
+
+impl Default for CharacterState {
+    fn default() -> Self {
+        Self::opened_aperture()
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -2892,13 +2908,13 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
         resources: ResourceState::default(),
         debts_and_credit: DebtAndCreditState::default(),
         risk: RiskState::default(),
-        character: CharacterState::default(),
+        character: CharacterState::opened_aperture(),
         knowledge: KnowledgeState::default(),
         encounters: EncounterState::default(),
         build: BuildState::default(),
         ledger: vec![LedgerEntry {
             kind: "scene".to_string(),
-            text: "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。".to_string(),
+            text: "开窍大典的余声刚落，你站在学堂门前，清晨山雾压着木檐；空窍已开，真正的家族秩序才刚开始记账。".to_string(),
         }],
     }
 }
@@ -2940,7 +2956,7 @@ fn build_projection_from_content(
         exposure: state.risk.exposure,
         debt_pressure: state.debts_and_credit.pressure(),
         build_summary: state.build.survival_route.clone(),
-        status_markers: status_markers(state, active_encounter),
+        status_markers: status_markers(state, active_encounter, content_bundle),
         build_view: build_view(state),
         relationship_view: relationship_view(state),
         save_view: save_view(state),
@@ -3146,6 +3162,7 @@ fn save_view(state: &GameState) -> SaveLedgerView {
 fn status_markers(
     state: &GameState,
     active_encounter: Option<&ActiveEncounter>,
+    content_bundle: &ContentBundle,
 ) -> Vec<StatusMarkerView> {
     vec![
         marker("时段", &display_period(&state.time.period), "normal"),
@@ -3159,7 +3176,24 @@ fn status_markers(
                 "normal"
             },
         ),
-        marker("地点", &state.world.current_node_id, "normal"),
+        marker(
+            "地点",
+            &node_title_by_id(&state.world.current_node_id, content_bundle),
+            "normal",
+        ),
+        marker(
+            "空窍",
+            if state.character.aperture_opened {
+                "已开窍"
+            } else {
+                "未开窍"
+            },
+            if state.character.aperture_opened {
+                "normal"
+            } else {
+                "danger"
+            },
+        ),
         marker(
             "暴露",
             &state.risk.exposure.to_string(),
@@ -3368,6 +3402,13 @@ fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
     }
 
     if action.intent == ActionIntent::Move {
+        if action
+            .target
+            .as_deref()
+            .is_some_and(|target| target == state.world.current_node_id)
+        {
+            return false;
+        }
         return true;
     }
 
@@ -3583,6 +3624,15 @@ fn clean_node_title(node: &ContentNode) -> String {
     .to_string()
 }
 
+fn node_title_by_id(node_id: &str, content_bundle: &ContentBundle) -> String {
+    content_bundle
+        .nodes
+        .iter()
+        .find(|node| node.id == node_id)
+        .map(clean_node_title)
+        .unwrap_or_else(|| node_id.to_string())
+}
+
 fn clean_safety(safety: &str) -> String {
     if !safety.is_empty() {
         return match safety {
@@ -3607,6 +3657,8 @@ fn display_disabled_reason(error: &CommandError) -> String {
     if !error.message.is_empty() {
         return if error.message.contains("active encounter") {
             "遭遇未处理，普通行动暂不可用".to_string()
+        } else if error.message.contains("aperture is not opened") {
+            "空窍未开，不能修行".to_string()
         } else if error.message.contains("requires period") {
             "时段不合，当前不可达".to_string()
         } else if error.message.contains("primeval stones not enough") {
@@ -3626,6 +3678,8 @@ fn display_disabled_reason(error: &CommandError) -> String {
 
     if error.message.contains("active encounter") {
         "遭遇未处理，普通行动暂不可用".to_string()
+    } else if error.message.contains("aperture is not opened") {
+        "空窍未开，不能修行".to_string()
     } else if error.message.contains("requires period") {
         "时段不合，当前不可达".to_string()
     } else if error.message.contains("primeval stones not enough") {
@@ -3901,6 +3955,12 @@ fn availability_check(
     if state.time.window_type == WindowType::Anchor && command.intent != ActionIntent::Wait {
         return Err(CommandError::validation(
             "anchor window is pending; free actions are closed",
+        ));
+    }
+
+    if command.intent == ActionIntent::Cultivate && !state.character.aperture_opened {
+        return Err(CommandError::validation(
+            "aperture is not opened; cultivation unavailable",
         ));
     }
 
@@ -4583,7 +4643,45 @@ mod tests {
         assert_eq!(state.time.window_id, "day1_morning_free");
         assert_eq!(state.resources.primeval_stones, 3);
         assert_eq!(projection.current_node_id, "academy_gate");
+        assert!(state.character.aperture_opened);
+        assert!(projection.scene_text.contains("开窍大典"));
         assert!(projection.scene_text.contains("学堂门前"));
+        assert!(projection
+            .status_markers
+            .iter()
+            .any(|marker| marker.label == "空窍" && marker.value == "已开窍"));
+        assert!(projection
+            .status_markers
+            .iter()
+            .any(|marker| marker.label == "地点" && marker.value == "学堂门前"));
+    }
+
+    #[test]
+    fn unopened_aperture_blocks_cultivation_without_hiding_the_reason() {
+        let bundle = starter_content_bundle();
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.character.aperture_opened = false;
+
+        let projection = build_projection_with_content(&state, &bundle);
+        let cultivate = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "cultivate_moonlight")
+            .expect("cultivation action should remain visible with a clear gate");
+
+        assert!(!cultivate.enabled);
+        assert_eq!(
+            cultivate.disabled_reason.as_deref(),
+            Some("空窍未开，不能修行")
+        );
+
+        let error = resolve_action(
+            state,
+            command(ActionIntent::Cultivate, Some("academy_gate")),
+            &bundle,
+        )
+        .expect_err("unopened aperture must reject cultivation");
+        assert_eq!(error.kind, CommandErrorKind::Validation);
     }
 
     #[test]
@@ -5068,6 +5166,34 @@ mod tests {
         assert_eq!(wait.group, ActionChoiceGroup::Wait);
         assert_eq!(wait.tone, ActionChoiceTone::Normal);
         assert!(wait.consequence_hint.contains("窗口"));
+    }
+
+    #[test]
+    fn movement_feedback_projection_updates_current_node_and_hides_current_destination() {
+        let bundle = starter_content_bundle();
+        let moved = resolve_action(
+            create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION),
+            command(ActionIntent::Move, Some("moonlight_corner")),
+            &bundle,
+        )
+        .expect("movement should resolve");
+
+        let projection = moved.response.projection;
+        assert_eq!(projection.current_node_id, "moonlight_corner");
+        assert!(projection
+            .status_markers
+            .iter()
+            .any(|marker| marker.label == "地点" && marker.value == "月光修行角"));
+        assert!(projection
+            .node_view
+            .visible_nodes
+            .iter()
+            .any(|node| node.current && node.title == "月光修行角"));
+        assert!(projection.recent_feedback.is_some());
+        assert!(projection
+            .action_choices
+            .iter()
+            .all(|choice| choice.id != "move_moonlight_corner"));
     }
 
     #[test]

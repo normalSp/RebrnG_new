@@ -20,7 +20,7 @@
 当前关键事实：
 - Sprint 1 原冻结大纲的 Phase 1-5 已完成：内容包扩展、三类遭遇、账本行动反馈、4 条 8 窗口可玩性验收脚本均已落地。
 - 当前不应继续横向扩新系统；下一步应先处理用户可见文本、走查记录、平衡调参和候选冻结。
-- 只读审查发现 UI 与 Rust 可见文案中仍存在明显 mojibake，例如 `闈掕寘`、`鑺傜偣`、`铔` 等。这会直接破坏人工走查，应作为后半程第一优先级。
+- 只读审查发现 UI 与 Rust 可见文案中曾出现明显 mojibake。这会直接破坏人工走查，应作为后半程第一优先级；具体检测字符以 `scripts/check-visible-text.ps1` 为准，不在本文继续保留乱码样例。
 
 ## 核心结论
 
@@ -41,7 +41,7 @@ Sprint 1 后半程锁定为 4 个阶段：
 - 修复 UI、Rust 投影、本地叙事、内容 YAML 中所有用户可见 mojibake。
 - 新增可选检查脚本 `scripts/check-visible-text.ps1`，扫描用户可见源码和内容文件中的乱码残留。
 - 检查目标至少覆盖：`packages/ui-ledger/src/`、`apps/desktop/src/`、`crates/game-core/src/lib.rs`、`content/s0/`。
-- 扫描禁止 `�`、`鑾`、`娓`、`榛`、`铔`、`鍥`、`闈`、`璐` 等已知乱码残留进入用户可见源。
+- 扫描禁止替换符和已知 mojibake 残留进入用户可见源；禁止清单以 `scripts/check-visible-text.ps1` 为准。
 - 修复后人工启动 `start-game.cmd` 检查主界面、行动按钮、线索页、因果账、Build 页、关系页、阶段收口页。
 
 版本规则：

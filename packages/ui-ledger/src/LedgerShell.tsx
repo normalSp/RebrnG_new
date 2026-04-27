@@ -123,6 +123,7 @@ export function LedgerShell({
         {status}
       </div>
 
+      {projection ? <CurrentLocationNotice projection={projection} /> : null}
       {projection ? <WalkthroughSummary projection={projection} /> : null}
 
       {projection ? (
@@ -167,15 +168,16 @@ export function LedgerShell({
 
 function WalkthroughSummary({ projection }: { projection: LedgerViewModel }) {
   const feedback = projection.recent_feedback?.summary ?? "尚未产生新的因果反馈";
+  const location = currentNodeTitle(projection);
 
   return (
     <section className="ledger-walkthrough-summary" aria-label="走查摘要">
       <div>
-        <span>窗口</span>
-        <strong>
-          {projection.current_period} / {projection.available_ap} AP
-        </strong>
-        <small>{projection.window_id}</small>
+        <span>当前位置</span>
+        <strong>{location}</strong>
+        <small>
+          {projection.current_period} / {projection.available_ap} AP / {projection.window_id}
+        </small>
       </div>
       <div>
         <span>最近反馈</span>
@@ -194,6 +196,22 @@ function WalkthroughSummary({ projection }: { projection: LedgerViewModel }) {
         <strong>{projection.stage_closure.title}</strong>
         <small>{projection.stage_closure.summary}</small>
       </div>
+    </section>
+  );
+}
+
+function CurrentLocationNotice({ projection }: { projection: LedgerViewModel }) {
+  const location = currentNodeTitle(projection);
+  const feedback = projection.recent_feedback?.summary ?? projection.scene_text;
+
+  return (
+    <section className="ledger-location-notice" aria-live="polite">
+      <div>
+        <span>当前位置已记为</span>
+        <strong>{location}</strong>
+        <small>{projection.current_node_id}</small>
+      </div>
+      <p>{feedback}</p>
     </section>
   );
 }
@@ -476,6 +494,13 @@ function Row({ label, value }: { label: string; value: string | number }) {
       <dt>{label}</dt>
       <dd>{value}</dd>
     </>
+  );
+}
+
+function currentNodeTitle(projection: LedgerViewModel): string {
+  return (
+    projection.node_view.visible_nodes.find((node) => node.current)?.title ??
+    projection.current_node_id
   );
 }
 

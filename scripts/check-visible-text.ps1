@@ -5,9 +5,12 @@ $TargetRoots = @(
     "crates/game-core/src",
     "packages/ui-ledger/src",
     "apps/desktop/src",
-    "content/s0"
+    "content/s0",
+    "docs/superpowers/specs",
+    "docs/superpowers/plans",
+    "docs/superpowers/reviews"
 )
-$AllowedExtensions = @(".rs", ".ts", ".tsx", ".css", ".yaml", ".yml")
+$AllowedExtensions = @(".rs", ".ts", ".tsx", ".css", ".yaml", ".yml", ".md")
 $SkippedPathFragments = @("\node_modules\", "\target\", "\dist\", "\assets\")
 
 $ForbiddenFragments = @(
@@ -22,7 +25,9 @@ $ForbiddenFragments = @(
     @{ Name = "known mojibake marker U+699B"; Value = [string][char]0x699B },
     @{ Name = "known mojibake marker U+7EC9"; Value = [string][char]0x7EC9 },
     @{ Name = "known mojibake marker U+947D"; Value = [string][char]0x947D },
-    @{ Name = "legacy mojibake compatibility marker U+535E"; Value = [string][char]0x535E }
+    @{ Name = "legacy mojibake compatibility marker U+535E"; Value = [string][char]0x535E },
+    @{ Name = "known mojibake marker U+59DD"; Value = [string][char]0x59DD },
+    @{ Name = "known mojibake marker U+5FAD"; Value = [string][char]0x5FAD }
 )
 
 $Hits = New-Object System.Collections.Generic.List[string]
@@ -51,7 +56,10 @@ foreach ($target in $TargetRoots) {
             if ($raw.Contains($forbidden.Value)) {
                 $index = $raw.IndexOf($forbidden.Value)
                 $line = ($raw.Substring(0, $index).Split("`n")).Count
-                $relative = [System.IO.Path]::GetRelativePath($Root, $file.FullName)
+                $relative = $file.FullName
+                if ($relative.StartsWith($Root)) {
+                    $relative = $relative.Substring($Root.Length).TrimStart("\", "/")
+                }
                 $Hits.Add("${relative}:${line} contains $($forbidden.Name)")
             }
         }

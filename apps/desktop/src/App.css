@@ -97,7 +97,7 @@ button:disabled {
   color: #efe6cf;
   display: grid;
   gap: 1px;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
   margin-top: 18px;
   overflow: hidden;
 }
@@ -139,6 +139,45 @@ button:disabled {
   color: var(--rg-ink-soft);
   font-size: 0.92rem;
   padding: 12px 0;
+}
+
+.ledger-location-notice {
+  align-items: stretch;
+  background:
+    linear-gradient(90deg, rgba(143, 109, 46, 0.18), rgba(233, 224, 198, 0.84)),
+    var(--rg-field);
+  border: 1px solid var(--rg-line);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: minmax(180px, 0.32fr) minmax(0, 1fr);
+  margin-top: 14px;
+  box-shadow: 0 10px 34px rgba(30, 24, 15, 0.12);
+}
+
+.ledger-location-notice div {
+  border-right: 1px solid var(--rg-line-soft);
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.ledger-location-notice span {
+  color: var(--rg-bluegray);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+}
+
+.ledger-location-notice strong {
+  font-size: 1.08rem;
+}
+
+.ledger-location-notice small {
+  color: var(--rg-ink-soft);
+}
+
+.ledger-location-notice p {
+  margin: 0;
+  padding: 12px 14px;
 }
 
 .ledger-walkthrough-summary {
@@ -565,6 +604,7 @@ button:disabled {
   }
 
   .ledger-status-strip,
+  .ledger-location-notice,
   .ledger-walkthrough-summary,
   .ledger-tabs,
   .node-row {
