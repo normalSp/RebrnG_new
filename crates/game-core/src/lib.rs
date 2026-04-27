@@ -738,6 +738,13 @@ pub struct SaveLedgerView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NarrativeBoundaryView {
+    pub runtime_ai_enabled: bool,
+    pub source: String,
+    pub policy: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
     pub current_day: u8,
@@ -765,6 +772,7 @@ pub struct LedgerViewModel {
     pub active_encounter_known_risk: Option<String>,
     pub active_encounter_decisions: Vec<ActionIntent>,
     pub ledger_entries: Vec<LedgerEntry>,
+    pub narrative_boundary: NarrativeBoundaryView,
     pub performance: PerformanceMetrics,
 }
 
@@ -853,6 +861,7 @@ pub struct ContentManifest {
     pub window_count: usize,
     pub movement_count: usize,
     pub encounter_count: usize,
+    pub narrative_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -961,6 +970,16 @@ pub struct ContentEncounterTemplate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentNarrativeTemplate {
+    pub id: String,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+    pub text: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContentSource {
     pub content_id: String,
     pub version: String,
@@ -979,6 +998,8 @@ pub struct ContentSource {
     pub movements: Vec<ContentMovementEdge>,
     #[serde(default)]
     pub encounters: Vec<ContentEncounterTemplate>,
+    #[serde(default)]
+    pub narratives: Vec<ContentNarrativeTemplate>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1000,6 +1021,8 @@ pub struct ContentSourceFragment {
     pub movements: Vec<ContentMovementEdge>,
     #[serde(default)]
     pub encounters: Vec<ContentEncounterTemplate>,
+    #[serde(default)]
+    pub narratives: Vec<ContentNarrativeTemplate>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1011,6 +1034,7 @@ pub struct ContentBundle {
     pub windows: Vec<ContentWindow>,
     pub movements: Vec<ContentMovementEdge>,
     pub encounters: Vec<ContentEncounterTemplate>,
+    pub narratives: Vec<ContentNarrativeTemplate>,
     pub indexes: ContentIndexes,
     pub diagnostics: ContentBuildDiagnostics,
 }
@@ -1023,6 +1047,7 @@ pub struct ContentIndexes {
     pub window_ids: BTreeMap<String, usize>,
     pub movement_ids: BTreeMap<String, usize>,
     pub encounter_ids: BTreeMap<String, usize>,
+    pub narrative_ids: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1049,6 +1074,10 @@ impl ContentBundle {
         let encounter_ids = build_index(
             "encounter",
             source.encounters.iter().map(|encounter| &encounter.id),
+        )?;
+        let narrative_ids = build_index(
+            "narrative",
+            source.narratives.iter().map(|narrative| &narrative.id),
         )?;
 
         if !node_ids.contains_key(&source.entry_scene_id) {
@@ -1234,12 +1263,26 @@ impl ContentBundle {
             }
         }
 
+        for narrative in &source.narratives {
+            validate_common_content(
+                "narrative",
+                &narrative.id,
+                &narrative.stage,
+                &narrative.tags,
+                &narrative.evidence,
+                &narrative.modes,
+                ContentImportance::Flavor,
+            )?;
+            require_non_empty("narrative", &narrative.id, "text", &narrative.text)?;
+        }
+
         let node_count = source.nodes.len();
         let action_count = source.actions.len();
         let route_count = source.routes.len();
         let window_count = source.windows.len();
         let movement_count = source.movements.len();
         let encounter_count = source.encounters.len();
+        let narrative_count = source.narratives.len();
 
         Ok(Self {
             manifest: ContentManifest {
@@ -1254,6 +1297,7 @@ impl ContentBundle {
                 window_count,
                 movement_count,
                 encounter_count,
+                narrative_count,
             },
             nodes: source.nodes,
             actions: source.actions,
@@ -1261,6 +1305,7 @@ impl ContentBundle {
             windows: source.windows,
             movements: source.movements,
             encounters: source.encounters,
+            narratives: source.narratives,
             indexes: ContentIndexes {
                 node_ids,
                 action_ids,
@@ -1268,10 +1313,11 @@ impl ContentBundle {
                 window_ids,
                 movement_ids,
                 encounter_ids,
+                narrative_ids,
             },
             diagnostics: ContentBuildDiagnostics {
                 summary: format!(
-                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters"
+                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters, {narrative_count} narratives"
                 ),
                 warnings: Vec::new(),
             },
@@ -1294,6 +1340,7 @@ impl ContentSource {
         let mut windows = Vec::new();
         let mut movements = Vec::new();
         let mut encounters = Vec::new();
+        let mut narratives = Vec::new();
 
         for fragment in fragments {
             merge_metadata("content_id", &mut content_id, fragment.content_id)?;
@@ -1311,6 +1358,7 @@ impl ContentSource {
             windows.extend(fragment.windows);
             movements.extend(fragment.movements);
             encounters.extend(fragment.encounters);
+            narratives.extend(fragment.narratives);
         }
 
         Ok(Self {
@@ -1338,6 +1386,7 @@ impl ContentSource {
             windows,
             movements,
             encounters,
+            narratives,
         })
     }
 }
@@ -1474,6 +1523,7 @@ pub fn starter_content_source() -> ContentSource {
         windows: starter_windows(),
         movements: starter_movements(),
         encounters: starter_encounters(),
+        narratives: starter_narratives(),
     }
 }
 
@@ -1958,6 +2008,126 @@ fn starter_encounters() -> Vec<ContentEncounterTemplate> {
     }]
 }
 
+fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
+    vec![
+        content_narrative(
+            "s0.scene.opening.academy_gate",
+            "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "opening", "academy"],
+        ),
+        content_narrative(
+            "s0.movement.default",
+            "你换了一个位置，账本只记下路径、时段与暴露，不替你粉饰动机。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "movement"],
+        ),
+        content_narrative(
+            "s0.action.cultivate.moonlight",
+            "你按下杂念运转真元，月光修行痕迹更深。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "cultivate", "moonlight"],
+        ),
+        content_narrative(
+            "s0.action.scout.default",
+            "你没有急着下注，先听风声、记人脸。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout"],
+        ),
+        content_narrative(
+            "s0.action.scout.academy_gate",
+            "你在学堂门前听见几句低声风声，暗口二字被记进线索页。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "academy", "blackmarket"],
+        ),
+        content_narrative(
+            "s0.action.scout.merit_notice",
+            "你在功绩告示旁核对机会，记下一点可用功绩。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "scout", "merit"],
+        ),
+        content_narrative(
+            "s0.action.recover.default",
+            "你换来一口喘息，也把债写进药堂账页。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "recover", "infirmary"],
+        ),
+        content_narrative(
+            "s0.action.recover.heavy_to_light",
+            "药堂处理重伤，伤势降为轻伤，债仍跟着你。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "recover", "infirmary", "injury"],
+        ),
+        content_narrative(
+            "s0.action.recover.light_to_healthy",
+            "药堂清掉轻伤，又在债账上添了一笔。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "recover", "infirmary", "injury"],
+        ),
+        content_narrative(
+            "s0.action.trade.blackmarket_hint",
+            "你在暗口换来材料，门路和风险一起上涨。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "trade", "blackmarket"],
+        ),
+        content_narrative(
+            "s0.encounter.blackmarket_extortion.trigger",
+            "黑市边路有人拦住去路，勒索的风险已经明牌。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "blackmarket", "extortion"],
+        ),
+        content_narrative(
+            "s0.encounter.blackmarket_extortion.retreat",
+            "你选择跑路，丢一点脸面和掩护，保住筋骨。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "retreat"],
+        ),
+        content_narrative(
+            "s0.encounter.blackmarket_extortion.confront",
+            "你硬顶勒索，代价落在元石和伤势上。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "confront"],
+        ),
+        content_narrative(
+            "s0.action.wait.default",
+            "你把这个时段耗过去，未用 AP 不会结转。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "wait"],
+        ),
+    ]
+}
+
+fn content_narrative(
+    id: &str,
+    text: &str,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+    tags: &[&str],
+) -> ContentNarrativeTemplate {
+    ContentNarrativeTemplate {
+        id: id.to_string(),
+        stage: "s0".to_string(),
+        tags: strings(tags),
+        evidence,
+        modes,
+        text: text.to_string(),
+    }
+}
+
 pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameState {
     GameState {
         run_id: DEFAULT_RUN_ID.to_string(),
@@ -2038,6 +2208,7 @@ fn build_projection_from_content(
                 text: clean_ledger_text(entry),
             })
             .collect(),
+        narrative_boundary: narrative_boundary_view(),
         performance: PerformanceMetrics::default(),
     }
 }
@@ -2052,6 +2223,14 @@ fn display_period(period: &str) -> String {
 
 fn clean_anchor_pressure(value: &str) -> String {
     value.to_string()
+}
+
+fn narrative_boundary_view() -> NarrativeBoundaryView {
+    NarrativeBoundaryView {
+        runtime_ai_enabled: false,
+        source: "内容包 + 因果账本 + Rust 本地兜底".to_string(),
+        policy: "resolve_action、Tauri command 与 UI 点击链路不等待远程 AI".to_string(),
+    }
 }
 
 fn save_view(state: &GameState) -> SaveLedgerView {
@@ -2450,7 +2629,7 @@ pub fn resolve_action(
     effect_commit(&mut state, reserved_cost, &outcome, content_bundle);
     pipeline_trace.push(PipelineStep::EffectCommit);
 
-    ledger_append(&mut state, &outcome);
+    ledger_append(&mut state, &outcome, content_bundle);
     pipeline_trace.push(PipelineStep::LedgerAppend);
 
     let projection_started = Instant::now();
@@ -2487,6 +2666,7 @@ struct ReservedCost {
 struct SubsystemOutcome {
     ledger_kind: String,
     ledger_text: String,
+    narrative_id: Option<String>,
     target_node_id: Option<String>,
     survival_route: Option<String>,
     materials_delta: i32,
@@ -2509,6 +2689,7 @@ impl SubsystemOutcome {
         Self {
             ledger_kind: kind.to_string(),
             ledger_text: text.into(),
+            narrative_id: None,
             target_node_id: None,
             survival_route: None,
             materials_delta: 0,
@@ -2525,6 +2706,11 @@ impl SubsystemOutcome {
             injury_ap_penalty_pending: None,
             reveal_blackmarket_route: false,
         }
+    }
+
+    fn with_narrative_id(mut self, narrative_id: &str) -> Self {
+        self.narrative_id = Some(narrative_id.to_string());
+        self
     }
 }
 
@@ -2692,7 +2878,8 @@ fn subsystem_resolution(
                     "你从 {} 转向 {}，账本记下移动代价。",
                     state.world.current_node_id, target
                 ),
-            );
+            )
+            .with_narrative_id("s0.movement.default");
             outcome.target_node_id = Some(target);
             outcome.exposure_delta = edge.exposure_delta;
             outcome.arrival_ap_penalty = edge.arrival_ap_penalty;
@@ -2711,31 +2898,38 @@ fn subsystem_resolution(
                     "黑市边路有人拦住去路，勒索的风险已经明牌：{}",
                     encounter.known_risk
                 );
+                outcome.narrative_id =
+                    Some("s0.encounter.blackmarket_extortion.trigger".to_string());
             }
             Ok(outcome)
         }
         ActionIntent::Cultivate => {
             let mut outcome =
-                SubsystemOutcome::new("action", "你按下杂念运转真元，月光修行痕迹更深。");
+                SubsystemOutcome::new("action", "你按下杂念运转真元，月光修行痕迹更深。")
+                    .with_narrative_id("s0.action.cultivate.moonlight");
             outcome.survival_route = Some("月光修行：制度内求稳".to_string());
             Ok(outcome)
         }
         ActionIntent::Scout => {
-            let mut outcome = SubsystemOutcome::new("action", "你没有急着下注，先听风声、记人脸。");
+            let mut outcome = SubsystemOutcome::new("action", "你没有急着下注，先听风声、记人脸。")
+                .with_narrative_id("s0.action.scout.default");
             let target = target_or_current(state, command)?;
             if target == "academy_gate" {
                 outcome.reveal_blackmarket_route = true;
                 outcome.ledger_text =
                     "你在学堂门前听见几句低声风声，暗口二字被记进线索页。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.academy_gate".to_string());
             } else if target == "merit_notice" {
                 outcome.merit_delta = 1;
                 outcome.ledger_text = "你在功绩告示旁核对机会，记下一点可用功绩。".to_string();
+                outcome.narrative_id = Some("s0.action.scout.merit_notice".to_string());
             }
             Ok(outcome)
         }
         ActionIntent::Recover => {
             let mut outcome =
-                SubsystemOutcome::new("action", "你换来一口喘息，也把债写进药堂账页。");
+                SubsystemOutcome::new("action", "你换来一口喘息，也把债写进药堂账页。")
+                    .with_narrative_id("s0.action.recover.default");
             outcome.infirmary_debt_delta = 1;
             outcome.favor_debt_delta = 1;
             match state.character.injury.level {
@@ -2743,11 +2937,13 @@ fn subsystem_resolution(
                     outcome.injury_level = Some(InjuryLevel::Light);
                     outcome.injury_ap_penalty_pending = Some(false);
                     outcome.ledger_text = "药堂处理重伤，伤势降为轻伤，债仍跟着你。".to_string();
+                    outcome.narrative_id = Some("s0.action.recover.heavy_to_light".to_string());
                 }
                 InjuryLevel::Light => {
                     outcome.injury_level = Some(InjuryLevel::Healthy);
                     outcome.injury_ap_penalty_pending = Some(false);
                     outcome.ledger_text = "药堂清掉轻伤，又在债账上添了一笔。".to_string();
+                    outcome.narrative_id = Some("s0.action.recover.light_to_healthy".to_string());
                 }
                 InjuryLevel::Healthy => {}
             }
@@ -2755,7 +2951,8 @@ fn subsystem_resolution(
         }
         ActionIntent::Trade => {
             let mut outcome =
-                SubsystemOutcome::new("action", "你在暗口换来材料，门路和风险一起上涨。");
+                SubsystemOutcome::new("action", "你在暗口换来材料，门路和风险一起上涨。")
+                    .with_narrative_id("s0.action.trade.blackmarket_hint");
             outcome.materials_delta = 1;
             outcome.exposure_delta = 2;
             Ok(outcome)
@@ -2763,7 +2960,8 @@ fn subsystem_resolution(
         ActionIntent::Retreat => {
             let encounter = active_encounter_template(state, content_bundle)?;
             let mut outcome =
-                SubsystemOutcome::new("encounter", "你选择跑路，丢一点脸面和掩护，保住筋骨。");
+                SubsystemOutcome::new("encounter", "你选择跑路，丢一点脸面和掩护，保住筋骨。")
+                    .with_narrative_id("s0.encounter.blackmarket_extortion.retreat");
             outcome.exposure_delta = encounter.retreat_exposure_delta;
             outcome.clear_active_encounter = true;
             outcome.target_node_id = Some("academy_gate".to_string());
@@ -2773,7 +2971,8 @@ fn subsystem_resolution(
         ActionIntent::Confront => {
             let encounter = active_encounter_template(state, content_bundle)?;
             let mut outcome =
-                SubsystemOutcome::new("encounter", "你硬顶勒索，代价落在元石和伤势上。");
+                SubsystemOutcome::new("encounter", "你硬顶勒索，代价落在元石和伤势上。")
+                    .with_narrative_id("s0.encounter.blackmarket_extortion.confront");
             outcome.exposure_delta = encounter.confront_exposure_delta;
             outcome.clear_active_encounter = true;
             outcome.target_node_id = Some("academy_gate".to_string());
@@ -2785,7 +2984,8 @@ fn subsystem_resolution(
         ActionIntent::Wait => Ok(SubsystemOutcome::new(
             "action",
             "你把这个时段耗过去，未用 AP 不会结转。",
-        )),
+        )
+        .with_narrative_id("s0.action.wait.default")),
     }
 }
 
@@ -2874,11 +3074,25 @@ fn advance_window(state: &mut GameState, content_bundle: &ContentBundle) {
     }
 }
 
-fn ledger_append(state: &mut GameState, outcome: &SubsystemOutcome) {
+fn ledger_append(
+    state: &mut GameState,
+    outcome: &SubsystemOutcome,
+    content_bundle: &ContentBundle,
+) {
     state.ledger.push(LedgerEntry {
         kind: outcome.ledger_kind.clone(),
-        text: outcome.ledger_text.clone(),
+        text: render_local_narrative(content_bundle, outcome),
     });
+}
+
+fn render_local_narrative(content_bundle: &ContentBundle, outcome: &SubsystemOutcome) -> String {
+    outcome
+        .narrative_id
+        .as_deref()
+        .and_then(|narrative_id| narrative_by_id(narrative_id, content_bundle))
+        .map(|narrative| narrative.text.clone())
+        .filter(|text| !text.trim().is_empty())
+        .unwrap_or_else(|| outcome.ledger_text.clone())
 }
 
 fn target_or_current(state: &GameState, command: &ActionCommand) -> Result<String, CommandError> {
@@ -2938,6 +3152,17 @@ fn encounter_by_id<'a>(
             CommandError::validation(format!("encounter '{encounter_id}' is not in bundle"))
         })?;
     Ok(&content_bundle.encounters[*index])
+}
+
+fn narrative_by_id<'a>(
+    narrative_id: &str,
+    content_bundle: &'a ContentBundle,
+) -> Option<&'a ContentNarrativeTemplate> {
+    content_bundle
+        .indexes
+        .narrative_ids
+        .get(narrative_id)
+        .map(|index| &content_bundle.narratives[*index])
 }
 
 fn active_encounter_template<'a>(
@@ -3231,7 +3456,11 @@ mod tests {
         assert_eq!(result.state.time.ap, 1);
         assert_eq!(result.state.world.current_node_id, "infirmary_lane");
         assert_eq!(result.state.risk.exposure, 1);
-        assert!(result.response.projection.scene_text.contains("移动代价"));
+        assert!(result
+            .response
+            .projection
+            .scene_text
+            .contains("路径、时段与暴露"));
     }
 
     #[test]
@@ -3254,12 +3483,15 @@ mod tests {
         assert_eq!(bundle.manifest.window_count, 1);
         assert_eq!(bundle.manifest.movement_count, 1);
         assert_eq!(bundle.manifest.encounter_count, 0);
+        assert_eq!(bundle.manifest.narrative_count, 1);
         assert_eq!(bundle.indexes.node_ids["academy_gate"], 0);
         assert_eq!(bundle.indexes.action_ids["scout_academy"], 0);
         assert_eq!(bundle.indexes.route_ids["moonlight_entry"], 0);
         assert_eq!(bundle.indexes.window_ids["day1_morning_free"], 0);
         assert_eq!(bundle.indexes.movement_ids["academy_to_moonlight"], 0);
+        assert_eq!(bundle.indexes.narrative_ids["s0.action.scout.default"], 0);
         assert!(bundle.diagnostics.summary.contains("indexed 2 nodes"));
+        assert!(bundle.diagnostics.summary.contains("1 narratives"));
         assert!(bundle.diagnostics.warnings.is_empty());
     }
 
@@ -3338,6 +3570,35 @@ mod tests {
             .contains("to node 'missing_node' not found"));
     }
 
+    #[test]
+    fn content_bundle_rejects_duplicate_narrative_ids() {
+        let mut source = valid_content_source();
+        source.narratives.push(source.narratives[0].clone());
+
+        let error =
+            ContentBundle::from_source(source).expect_err("duplicate narrative should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("duplicate narrative id"));
+    }
+
+    #[test]
+    fn content_bundle_rejects_empty_narrative_text() {
+        let mut source = valid_content_source();
+        source.narratives[0].text = "   ".to_string();
+
+        let error = ContentBundle::from_source(source).expect_err("empty narrative should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("field 'text' is empty"));
+    }
+
     fn valid_content_source() -> ContentSource {
         ContentSource {
             content_id: "s0.qingmao.foundation".to_string(),
@@ -3394,6 +3655,13 @@ mod tests {
                 &["movement", "near"],
             )],
             encounters: Vec::new(),
+            narratives: vec![narrative(
+                "s0.action.scout.default",
+                "你从内容包里听见一段经策展的本地风声。",
+                EvidenceLevel::CanonInferred,
+                all_modes(),
+                &["narrative", "scout"],
+            )],
         }
     }
 
@@ -3414,6 +3682,87 @@ mod tests {
         assert!(response_json.get("performance").is_some());
         assert!(response_json.get("state").is_none());
         assert!(response_json.get("pipeline_trace").is_none());
+        assert!(response_json
+            .pointer("/projection/narrative_boundary/runtime_ai_enabled")
+            .is_some());
+    }
+
+    #[test]
+    fn local_narrative_template_overrides_rust_fallback_text() {
+        let mut source = starter_content_source();
+        let narrative = source
+            .narratives
+            .iter_mut()
+            .find(|item| item.id == "s0.action.scout.academy_gate")
+            .expect("starter source should include academy scout narrative");
+        narrative.text = "内容包覆写：你把暗口风声压进账页。".to_string();
+        let bundle = ContentBundle::from_source(source).expect("source should remain valid");
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("scout should resolve through local narrative renderer");
+
+        assert_eq!(
+            result.state.ledger.last().map(|entry| entry.text.as_str()),
+            Some("内容包覆写：你把暗口风声压进账页。")
+        );
+        assert_eq!(
+            result.response.projection.scene_text,
+            "内容包覆写：你把暗口风声压进账页。"
+        );
+    }
+
+    #[test]
+    fn missing_local_narrative_uses_rust_fallback_without_blocking() {
+        let mut source = starter_content_source();
+        source.narratives.clear();
+        let bundle = ContentBundle::from_source(source).expect("empty narratives are allowed");
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("missing narrative templates should not block local resolution");
+
+        assert!(result
+            .state
+            .ledger
+            .last()
+            .expect("ledger entry")
+            .text
+            .contains("暗口二字"));
+    }
+
+    #[test]
+    fn resolve_action_does_not_require_ai_keys_or_model_config() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Cultivate, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("local rules and local narrative should not require AI config");
+
+        assert!(
+            !result
+                .response
+                .projection
+                .narrative_boundary
+                .runtime_ai_enabled
+        );
+        assert!(result
+            .response
+            .projection
+            .narrative_boundary
+            .source
+            .contains("内容包"));
     }
 
     #[test]
@@ -3968,6 +4317,23 @@ mod tests {
             for fragment in &forbidden_fragments {
                 assert!(!entry.text.contains(fragment), "{}", entry.text);
             }
+        }
+    }
+
+    fn narrative(
+        id: &str,
+        text: &str,
+        evidence: EvidenceLevel,
+        modes: Vec<ModePermit>,
+        tags: &[&str],
+    ) -> ContentNarrativeTemplate {
+        ContentNarrativeTemplate {
+            id: id.to_string(),
+            stage: "s0".to_string(),
+            tags: strings(tags),
+            evidence,
+            modes,
+            text: text.to_string(),
         }
     }
 }

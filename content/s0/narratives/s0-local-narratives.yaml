@@ -1,0 +1,85 @@
+narratives:
+  - id: s0.scene.opening.academy_gate
+    stage: s0
+    tags: [narrative, opening, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。
+  - id: s0.movement.default
+    stage: s0
+    tags: [narrative, movement]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你换了一个位置，账本只记下路径、时段与暴露，不替你粉饰动机。
+  - id: s0.action.cultivate.moonlight
+    stage: s0
+    tags: [narrative, cultivate, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你按下杂念运转真元，月光修行痕迹更深。
+  - id: s0.action.scout.default
+    stage: s0
+    tags: [narrative, scout]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你没有急着下注，先听风声、记人脸。
+  - id: s0.action.scout.academy_gate
+    stage: s0
+    tags: [narrative, scout, academy, blackmarket]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你在学堂门前听见几句低声风声，暗口二字被记进线索页。
+  - id: s0.action.scout.merit_notice
+    stage: s0
+    tags: [narrative, scout, merit]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你在功绩告示旁核对机会，记下一点可用功绩。
+  - id: s0.action.recover.default
+    stage: s0
+    tags: [narrative, recover, infirmary]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你换来一口喘息，也把债写进药堂账页。
+  - id: s0.action.recover.heavy_to_light
+    stage: s0
+    tags: [narrative, recover, infirmary, injury]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 药堂处理重伤，伤势降为轻伤，债仍跟着你。
+  - id: s0.action.recover.light_to_healthy
+    stage: s0
+    tags: [narrative, recover, infirmary, injury]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 药堂清掉轻伤，又在债账上添了一笔。
+  - id: s0.action.trade.blackmarket_hint
+    stage: s0
+    tags: [narrative, trade, blackmarket]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你在暗口换来材料，门路和风险一起上涨。
+  - id: s0.encounter.blackmarket_extortion.trigger
+    stage: s0
+    tags: [narrative, encounter, blackmarket, extortion]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 黑市边路有人拦住去路，勒索的风险已经明牌。
+  - id: s0.encounter.blackmarket_extortion.retreat
+    stage: s0
+    tags: [narrative, encounter, retreat]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你选择跑路，丢一点脸面和掩护，保住筋骨。
+  - id: s0.encounter.blackmarket_extortion.confront
+    stage: s0
+    tags: [narrative, encounter, confront]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你硬顶勒索，代价落在元石和伤势上。
+  - id: s0.action.wait.default
+    stage: s0
+    tags: [narrative, wait]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你把这个时段耗过去，未用 AP 不会结转。

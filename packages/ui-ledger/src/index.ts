@@ -88,6 +88,12 @@ export interface SaveLedgerView {
   rollback_policy: string;
 }
 
+export interface NarrativeBoundaryView {
+  runtime_ai_enabled: boolean;
+  source: string;
+  policy: string;
+}
+
 export interface DeclaredCost {
   ap: number;
   primeval_stones: number;
@@ -129,6 +135,7 @@ export interface LedgerViewModel {
   active_encounter_known_risk?: string | null;
   active_encounter_decisions: ActionIntent[];
   ledger_entries: LedgerEntry[];
+  narrative_boundary: NarrativeBoundaryView;
   performance: PerformanceMetrics;
 }
 

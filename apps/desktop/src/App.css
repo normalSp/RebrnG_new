@@ -202,6 +202,21 @@ button:disabled {
   padding-left: 18px;
 }
 
+.narrative-boundary {
+  border: 1px solid var(--rg-line-soft);
+  color: var(--rg-ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+  max-width: 70ch;
+  padding: 10px 12px;
+}
+
+.narrative-boundary strong {
+  color: var(--rg-ink);
+}
+
 .danger-note {
   border: 1px solid rgba(155, 52, 40, 0.38);
   color: var(--rg-cinnabar);

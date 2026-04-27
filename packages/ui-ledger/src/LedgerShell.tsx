@@ -171,6 +171,11 @@ function ScenePage({ projection }: { projection: LedgerViewModel }) {
       <p className="ledger-page-label">正文场景</p>
       <h2>{projection.current_period}，{projection.current_node_id}</h2>
       <p className="scene-text">{projection.scene_text}</p>
+      <div className="narrative-boundary">
+        <strong>运行时 AI：</strong>
+        {projection.narrative_boundary.runtime_ai_enabled ? "已接入" : "未接入"}
+        <span>{projection.narrative_boundary.source}</span>
+      </div>
       {projection.active_encounter_id ? (
         <div className="danger-note">
           <strong>遭遇压身：</strong>
