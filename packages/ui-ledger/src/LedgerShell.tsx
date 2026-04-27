@@ -41,9 +41,16 @@ export function LedgerShell({
   onLoadSave,
 }: LedgerShellProps) {
   const hasRun = projection !== null;
+  const hasActiveEncounter = projection?.active_encounter_id != null;
   const canAct =
     projection !== null &&
     projection.window_type === "free" &&
+    !hasActiveEncounter &&
+    projection.available_ap > 0;
+  const canEncounterDecision =
+    projection !== null &&
+    projection.window_type === "free" &&
+    hasActiveEncounter &&
     projection.available_ap > 0;
 
   return (
@@ -109,6 +116,18 @@ export function LedgerShell({
                 <dd>{projection.debt_pressure}</dd>
                 <dt>暴露</dt>
                 <dd>{projection.exposure}</dd>
+              </dl>
+            </article>
+
+            <article>
+              <h2>遭遇与伤势</h2>
+              <dl>
+                <dt>伤势</dt>
+                <dd>{projection.injury_level}</dd>
+                <dt>当前遭遇</dt>
+                <dd>{projection.active_encounter_id ?? "none"}</dd>
+                <dt>已知风险</dt>
+                <dd>{projection.active_encounter_known_risk ?? "none"}</dd>
               </dl>
             </article>
 
@@ -182,6 +201,28 @@ export function LedgerShell({
                   onClick={() => onResolveAction(makeCommand("trade", "blackmarket_hint"))}
                 >
                   黑市换料
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEncounterDecision}
+                  onClick={() =>
+                    onResolveAction(
+                      makeCommand("retreat", projection.active_encounter_id ?? undefined),
+                    )
+                  }
+                >
+                  跑路
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEncounterDecision}
+                  onClick={() =>
+                    onResolveAction(
+                      makeCommand("confront", projection.active_encounter_id ?? undefined),
+                    )
+                  }
+                >
+                  硬顶
                 </button>
                 <button
                   type="button"

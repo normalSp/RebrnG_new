@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
-pub const RULES_VERSION: &str = "sprint0-rules-v2";
+pub const RULES_VERSION: &str = "sprint0-rules-v3";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -31,6 +31,7 @@ pub enum ActionIntent {
     Recover,
     Trade,
     Retreat,
+    Confront,
     Wait,
 }
 
@@ -124,6 +125,26 @@ pub struct RiskState {
     pub exposure: i32,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InjuryLevel {
+    #[default]
+    Healthy,
+    Light,
+    Heavy,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InjuryState {
+    pub level: InjuryLevel,
+    pub ap_penalty_pending: bool,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CharacterState {
+    pub injury: InjuryState,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildState {
     pub survival_route: String,
@@ -144,6 +165,25 @@ impl Default for BuildState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EncounterType {
+    Extortion,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ActiveEncounter {
+    pub encounter_id: String,
+    pub encounter_type: EncounterType,
+    pub known_risk: String,
+    pub decision_intents: Vec<ActionIntent>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EncounterState {
+    pub active: Option<ActiveEncounter>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerEntry {
     pub kind: String,
     pub text: String,
@@ -160,6 +200,8 @@ pub struct GameState {
     pub resources: ResourceState,
     pub debts_and_credit: DebtAndCreditState,
     pub risk: RiskState,
+    pub character: CharacterState,
+    pub encounters: EncounterState,
     pub build: BuildState,
     pub ledger: Vec<LedgerEntry>,
 }
@@ -364,6 +406,11 @@ pub struct LedgerViewModel {
     pub exposure: i32,
     pub debt_pressure: i32,
     pub build_summary: String,
+    pub injury_level: InjuryLevel,
+    pub active_encounter_id: Option<String>,
+    pub active_encounter_type: Option<EncounterType>,
+    pub active_encounter_known_risk: Option<String>,
+    pub active_encounter_decisions: Vec<ActionIntent>,
     pub ledger_entries: Vec<LedgerEntry>,
     pub performance: PerformanceMetrics,
 }
@@ -452,6 +499,7 @@ pub struct ContentManifest {
     pub route_count: usize,
     pub window_count: usize,
     pub movement_count: usize,
+    pub encounter_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -544,6 +592,22 @@ pub struct ContentMovementEdge {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentEncounterTemplate {
+    pub id: String,
+    pub encounter_type: EncounterType,
+    pub trigger_node_id: String,
+    pub known_risk: String,
+    pub retreat_exposure_delta: i32,
+    pub confront_primeval_stones_cost: i32,
+    pub confront_exposure_delta: i32,
+    pub confront_injury_level: InjuryLevel,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContentSource {
     pub content_id: String,
     pub version: String,
@@ -560,6 +624,8 @@ pub struct ContentSource {
     pub windows: Vec<ContentWindow>,
     #[serde(default)]
     pub movements: Vec<ContentMovementEdge>,
+    #[serde(default)]
+    pub encounters: Vec<ContentEncounterTemplate>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -579,6 +645,8 @@ pub struct ContentSourceFragment {
     pub windows: Vec<ContentWindow>,
     #[serde(default)]
     pub movements: Vec<ContentMovementEdge>,
+    #[serde(default)]
+    pub encounters: Vec<ContentEncounterTemplate>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -589,6 +657,7 @@ pub struct ContentBundle {
     pub routes: Vec<ContentRouteEntry>,
     pub windows: Vec<ContentWindow>,
     pub movements: Vec<ContentMovementEdge>,
+    pub encounters: Vec<ContentEncounterTemplate>,
     pub indexes: ContentIndexes,
     pub diagnostics: ContentBuildDiagnostics,
 }
@@ -600,6 +669,7 @@ pub struct ContentIndexes {
     pub route_ids: BTreeMap<String, usize>,
     pub window_ids: BTreeMap<String, usize>,
     pub movement_ids: BTreeMap<String, usize>,
+    pub encounter_ids: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -622,6 +692,10 @@ impl ContentBundle {
         let movement_ids = build_index(
             "movement",
             source.movements.iter().map(|movement| &movement.id),
+        )?;
+        let encounter_ids = build_index(
+            "encounter",
+            source.encounters.iter().map(|encounter| &encounter.id),
         )?;
 
         if !node_ids.contains_key(&source.entry_scene_id) {
@@ -660,7 +734,11 @@ impl ContentBundle {
             )?;
             require_non_empty("action", &action.id, "label", &action.label)?;
             if let Some(target) = &action.target {
-                if !node_ids.contains_key(target) {
+                let target_is_encounter_decision = matches!(
+                    action.intent,
+                    ActionIntent::Retreat | ActionIntent::Confront
+                ) && encounter_ids.contains_key(target);
+                if !node_ids.contains_key(target) && !target_is_encounter_decision {
                     return Err(CommandError::content(
                         "行动目标节点不存在",
                         format!("action '{}' target node '{}' not found", action.id, target),
@@ -767,11 +845,48 @@ impl ContentBundle {
             }
         }
 
+        for encounter in &source.encounters {
+            validate_common_content(
+                "encounter",
+                &encounter.id,
+                &encounter.stage,
+                &encounter.tags,
+                &encounter.evidence,
+                &encounter.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty(
+                "encounter",
+                &encounter.id,
+                "known_risk",
+                &encounter.known_risk,
+            )?;
+            if !node_ids.contains_key(&encounter.trigger_node_id) {
+                return Err(CommandError::content(
+                    "encounter trigger node not found",
+                    format!(
+                        "encounter '{}' trigger node '{}' not found",
+                        encounter.id, encounter.trigger_node_id
+                    ),
+                ));
+            }
+            if encounter.retreat_exposure_delta < 0
+                || encounter.confront_primeval_stones_cost < 0
+                || encounter.confront_exposure_delta < 0
+            {
+                return Err(CommandError::content(
+                    "encounter costs cannot be negative",
+                    format!("encounter '{}' costs must be >= 0", encounter.id),
+                ));
+            }
+        }
+
         let node_count = source.nodes.len();
         let action_count = source.actions.len();
         let route_count = source.routes.len();
         let window_count = source.windows.len();
         let movement_count = source.movements.len();
+        let encounter_count = source.encounters.len();
 
         Ok(Self {
             manifest: ContentManifest {
@@ -785,22 +900,25 @@ impl ContentBundle {
                 route_count,
                 window_count,
                 movement_count,
+                encounter_count,
             },
             nodes: source.nodes,
             actions: source.actions,
             routes: source.routes,
             windows: source.windows,
             movements: source.movements,
+            encounters: source.encounters,
             indexes: ContentIndexes {
                 node_ids,
                 action_ids,
                 route_ids,
                 window_ids,
                 movement_ids,
+                encounter_ids,
             },
             diagnostics: ContentBuildDiagnostics {
                 summary: format!(
-                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements"
+                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters"
                 ),
                 warnings: Vec::new(),
             },
@@ -822,6 +940,7 @@ impl ContentSource {
         let mut routes = Vec::new();
         let mut windows = Vec::new();
         let mut movements = Vec::new();
+        let mut encounters = Vec::new();
 
         for fragment in fragments {
             merge_metadata("content_id", &mut content_id, fragment.content_id)?;
@@ -838,6 +957,7 @@ impl ContentSource {
             routes.extend(fragment.routes);
             windows.extend(fragment.windows);
             movements.extend(fragment.movements);
+            encounters.extend(fragment.encounters);
         }
 
         Ok(Self {
@@ -864,6 +984,7 @@ impl ContentSource {
             routes,
             windows,
             movements,
+            encounters,
         })
     }
 }
@@ -999,6 +1120,7 @@ pub fn starter_content_source() -> ContentSource {
         routes: starter_routes(),
         windows: starter_windows(),
         movements: starter_movements(),
+        encounters: starter_encounters(),
     }
 }
 
@@ -1168,6 +1290,24 @@ fn starter_actions() -> Vec<ContentAction> {
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
             &["action", "trade", "blackmarket"],
+        ),
+        action(
+            "retreat_blackmarket_extortion",
+            "退避勒索",
+            ActionIntent::Retreat,
+            Some("blackmarket_extortion"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "encounter", "retreat"],
+        ),
+        action(
+            "confront_blackmarket_extortion",
+            "硬顶勒索",
+            ActionIntent::Confront,
+            Some("blackmarket_extortion"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "encounter", "confront"],
         ),
         action(
             "chase_inheritance_rumor",
@@ -1448,6 +1588,23 @@ fn movement(
     }
 }
 
+fn starter_encounters() -> Vec<ContentEncounterTemplate> {
+    vec![ContentEncounterTemplate {
+        id: "blackmarket_extortion".to_string(),
+        encounter_type: EncounterType::Extortion,
+        trigger_node_id: "blackmarket_hint".to_string(),
+        known_risk: "边路被盯上：对方要元石，硬顶会受创。".to_string(),
+        retreat_exposure_delta: 1,
+        confront_primeval_stones_cost: 1,
+        confront_exposure_delta: 2,
+        confront_injury_level: InjuryLevel::Heavy,
+        stage: "s0".to_string(),
+        tags: strings(&["encounter", "blackmarket", "extortion"]),
+        evidence: EvidenceLevel::GameplayExtrapolated,
+        modes: all_modes(),
+    }]
+}
+
 pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameState {
     GameState {
         run_id: DEFAULT_RUN_ID.to_string(),
@@ -1459,6 +1616,8 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
         resources: ResourceState::default(),
         debts_and_credit: DebtAndCreditState::default(),
         risk: RiskState::default(),
+        character: CharacterState::default(),
+        encounters: EncounterState::default(),
         build: BuildState::default(),
         ledger: vec![LedgerEntry {
             kind: "scene".to_string(),
@@ -1468,6 +1627,8 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
 }
 
 pub fn build_projection(state: &GameState) -> LedgerViewModel {
+    let active_encounter = state.encounters.active.as_ref();
+
     LedgerViewModel {
         scene_text: state
             .ledger
@@ -1486,6 +1647,13 @@ pub fn build_projection(state: &GameState) -> LedgerViewModel {
         exposure: state.risk.exposure,
         debt_pressure: state.debts_and_credit.pressure(),
         build_summary: state.build.survival_route.clone(),
+        injury_level: state.character.injury.level.clone(),
+        active_encounter_id: active_encounter.map(|encounter| encounter.encounter_id.clone()),
+        active_encounter_type: active_encounter.map(|encounter| encounter.encounter_type.clone()),
+        active_encounter_known_risk: active_encounter.map(|encounter| encounter.known_risk.clone()),
+        active_encounter_decisions: active_encounter
+            .map(|encounter| encounter.decision_intents.clone())
+            .unwrap_or_default(),
         ledger_entries: state.ledger.clone(),
         performance: PerformanceMetrics::default(),
     }
@@ -1561,6 +1729,10 @@ struct SubsystemOutcome {
     trading_credit_delta: i32,
     exposure_delta: i32,
     arrival_ap_penalty: u8,
+    trigger_encounter: Option<ActiveEncounter>,
+    clear_active_encounter: bool,
+    injury_level: Option<InjuryLevel>,
+    injury_ap_penalty_pending: Option<bool>,
 }
 
 impl SubsystemOutcome {
@@ -1578,6 +1750,10 @@ impl SubsystemOutcome {
             trading_credit_delta: 0,
             exposure_delta: 0,
             arrival_ap_penalty: 0,
+            trigger_encounter: None,
+            clear_active_encounter: false,
+            injury_level: None,
+            injury_ap_penalty_pending: None,
         }
     }
 }
@@ -1596,6 +1772,43 @@ fn availability_check(
     if state.time.window_type == WindowType::Anchor && command.intent != ActionIntent::Wait {
         return Err(CommandError::validation(
             "anchor window is pending; free actions are closed",
+        ));
+    }
+
+    if let Some(active) = &state.encounters.active {
+        if !matches!(
+            command.intent,
+            ActionIntent::Retreat | ActionIntent::Confront
+        ) {
+            return Err(CommandError::validation(
+                "active encounter must be resolved before ordinary actions",
+            ));
+        }
+
+        let target = command
+            .target
+            .as_deref()
+            .ok_or_else(|| CommandError::validation("encounter decision target is required"))?;
+        if target != active.encounter_id {
+            return Err(CommandError::validation(format!(
+                "encounter decision target '{}' does not match active encounter '{}'",
+                target, active.encounter_id
+            )));
+        }
+
+        let encounter = encounter_by_id(&active.encounter_id, content_bundle)?;
+        require_mode(&state.mode, &encounter.modes, "encounter", &encounter.id)?;
+        let action = action_by_intent_target(command.intent.clone(), Some(target), content_bundle)?;
+        require_mode(&state.mode, &action.modes, "action", &action.id)?;
+        return Ok(());
+    }
+
+    if matches!(
+        command.intent,
+        ActionIntent::Retreat | ActionIntent::Confront
+    ) {
+        return Err(CommandError::validation(
+            "encounter decision requires an active encounter",
         ));
     }
 
@@ -1663,6 +1876,10 @@ fn cost_reservation(
         ActionIntent::Recover => (1, 0, false),
         ActionIntent::Trade => (1, 1, false),
         ActionIntent::Retreat => (1, 0, false),
+        ActionIntent::Confront => {
+            let encounter = active_encounter_template(state, content_bundle)?;
+            (1, encounter.confront_primeval_stones_cost, false)
+        }
         ActionIntent::Wait => (state.time.ap, 0, true),
     };
 
@@ -1706,6 +1923,22 @@ fn subsystem_resolution(
             outcome.target_node_id = Some(target);
             outcome.exposure_delta = edge.exposure_delta;
             outcome.arrival_ap_penalty = edge.arrival_ap_penalty;
+            if let Some(encounter) =
+                encounter_trigger_for_node(outcome.target_node_id.as_deref(), content_bundle)
+            {
+                require_mode(&state.mode, &encounter.modes, "encounter", &encounter.id)?;
+                outcome.trigger_encounter = Some(ActiveEncounter {
+                    encounter_id: encounter.id.clone(),
+                    encounter_type: encounter.encounter_type.clone(),
+                    known_risk: encounter.known_risk.clone(),
+                    decision_intents: vec![ActionIntent::Retreat, ActionIntent::Confront],
+                });
+                outcome.ledger_kind = "encounter".to_string();
+                outcome.ledger_text = format!(
+                    "A blackmarket extortion blocks the path: {}",
+                    encounter.known_risk
+                );
+            }
             Ok(outcome)
         }
         ActionIntent::Cultivate => {
@@ -1727,6 +1960,23 @@ fn subsystem_resolution(
                 SubsystemOutcome::new("action", "你换来一口喘息，也把债写进药堂账页。");
             outcome.infirmary_debt_delta = 1;
             outcome.favor_debt_delta = 1;
+            match state.character.injury.level {
+                InjuryLevel::Heavy => {
+                    outcome.injury_level = Some(InjuryLevel::Light);
+                    outcome.injury_ap_penalty_pending = Some(false);
+                    outcome.ledger_text =
+                        "Infirmary recovery lowers heavy injury to light, but the debt follows you."
+                            .to_string();
+                }
+                InjuryLevel::Light => {
+                    outcome.injury_level = Some(InjuryLevel::Healthy);
+                    outcome.injury_ap_penalty_pending = Some(false);
+                    outcome.ledger_text =
+                        "Infirmary recovery clears light injury, with another mark on the debt ledger."
+                            .to_string();
+                }
+                InjuryLevel::Healthy => {}
+            }
             Ok(outcome)
         }
         ActionIntent::Trade => {
@@ -1736,10 +1986,33 @@ fn subsystem_resolution(
             outcome.exposure_delta = 2;
             Ok(outcome)
         }
-        ActionIntent::Retreat => Ok(SubsystemOutcome::new(
-            "action",
-            "你没有逞强，撤退本身就是生存技。",
-        )),
+        ActionIntent::Retreat => {
+            let encounter = active_encounter_template(state, content_bundle)?;
+            let mut outcome = SubsystemOutcome::new(
+                "encounter",
+                "You retreat from the extortion, losing face and cover but keeping your bones intact.",
+            );
+            outcome.exposure_delta = encounter.retreat_exposure_delta;
+            outcome.clear_active_encounter = true;
+            outcome.target_node_id = Some("academy_gate".to_string());
+            outcome.survival_route = Some("blackmarket retreat: survival before pride".to_string());
+            Ok(outcome)
+        }
+        ActionIntent::Confront => {
+            let encounter = active_encounter_template(state, content_bundle)?;
+            let mut outcome = SubsystemOutcome::new(
+                "encounter",
+                "You harden your face against the extortion. The price is paid in stones and blood.",
+            );
+            outcome.exposure_delta = encounter.confront_exposure_delta;
+            outcome.clear_active_encounter = true;
+            outcome.target_node_id = Some("academy_gate".to_string());
+            outcome.injury_level = Some(encounter.confront_injury_level.clone());
+            outcome.injury_ap_penalty_pending = Some(true);
+            outcome.survival_route =
+                Some("blackmarket hard stand: wounded but not broken".to_string());
+            Ok(outcome)
+        }
         ActionIntent::Wait => Ok(SubsystemOutcome::new(
             "action",
             "你把这个时段耗过去，未用 AP 不会结转。",
@@ -1773,6 +2046,22 @@ fn effect_commit(
 
     state.time.ap = state.time.ap.saturating_sub(outcome.arrival_ap_penalty);
 
+    if outcome.clear_active_encounter {
+        state.encounters.active = None;
+    }
+
+    if let Some(active_encounter) = &outcome.trigger_encounter {
+        state.encounters.active = Some(active_encounter.clone());
+    }
+
+    if let Some(injury_level) = &outcome.injury_level {
+        state.character.injury.level = injury_level.clone();
+    }
+
+    if let Some(pending) = outcome.injury_ap_penalty_pending {
+        state.character.injury.ap_penalty_pending = pending;
+    }
+
     if let Some(survival_route) = &outcome.survival_route {
         state.build.survival_route = survival_route.clone();
     }
@@ -1795,6 +2084,13 @@ fn advance_window(state: &mut GameState, content_bundle: &ContentBundle) {
         state.time.period = next_window.period.clone();
         state.time.window_type = next_window.window_type.clone();
         state.time.ap = next_window.default_ap;
+        if state.character.injury.ap_penalty_pending
+            && state.time.window_type == WindowType::Free
+            && state.time.ap > 0
+        {
+            state.time.ap = state.time.ap.saturating_sub(1);
+            state.character.injury.ap_penalty_pending = false;
+        }
         state.time.next_anchor_pressure = "下一处制度压力正在靠近".to_string();
     } else {
         state.time.window_id = "s0_anchor_pending".to_string();
@@ -1855,6 +2151,42 @@ fn node_by_id<'a>(
         .get(node_id)
         .ok_or_else(|| CommandError::validation(format!("node '{node_id}' is not in bundle")))?;
     Ok(&content_bundle.nodes[*index])
+}
+
+fn encounter_by_id<'a>(
+    encounter_id: &str,
+    content_bundle: &'a ContentBundle,
+) -> Result<&'a ContentEncounterTemplate, CommandError> {
+    let index = content_bundle
+        .indexes
+        .encounter_ids
+        .get(encounter_id)
+        .ok_or_else(|| {
+            CommandError::validation(format!("encounter '{encounter_id}' is not in bundle"))
+        })?;
+    Ok(&content_bundle.encounters[*index])
+}
+
+fn active_encounter_template<'a>(
+    state: &GameState,
+    content_bundle: &'a ContentBundle,
+) -> Result<&'a ContentEncounterTemplate, CommandError> {
+    let active =
+        state.encounters.active.as_ref().ok_or_else(|| {
+            CommandError::validation("encounter decision requires active encounter")
+        })?;
+    encounter_by_id(&active.encounter_id, content_bundle)
+}
+
+fn encounter_trigger_for_node<'a>(
+    node_id: Option<&str>,
+    content_bundle: &'a ContentBundle,
+) -> Option<&'a ContentEncounterTemplate> {
+    let node_id = node_id?;
+    content_bundle
+        .encounters
+        .iter()
+        .find(|encounter| encounter.trigger_node_id == node_id)
 }
 
 fn action_by_intent_target<'a>(
@@ -1964,6 +2296,7 @@ mod tests {
         assert_eq!(bundle.manifest.route_count, 1);
         assert_eq!(bundle.manifest.window_count, 1);
         assert_eq!(bundle.manifest.movement_count, 1);
+        assert_eq!(bundle.manifest.encounter_count, 0);
         assert_eq!(bundle.indexes.node_ids["academy_gate"], 0);
         assert_eq!(bundle.indexes.action_ids["scout_academy"], 0);
         assert_eq!(bundle.indexes.route_ids["moonlight_entry"], 0);
@@ -2103,6 +2436,7 @@ mod tests {
                 all_modes(),
                 &["movement", "near"],
             )],
+            encounters: Vec::new(),
         }
     }
 
@@ -2384,6 +2718,114 @@ mod tests {
     }
 
     #[test]
+    fn blackmarket_deep_night_movement_triggers_extortion_without_resetting_ap() {
+        let bundle = starter_content_bundle();
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        set_deep_night(&mut state);
+
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Move, Some("blackmarket_hint")),
+            &bundle,
+        )
+        .expect("deep-night blackmarket movement should trigger encounter");
+
+        let active = result
+            .state
+            .encounters
+            .active
+            .as_ref()
+            .expect("extortion encounter should be active");
+        assert_eq!(active.encounter_id, "blackmarket_extortion");
+        assert_eq!(active.encounter_type, EncounterType::Extortion);
+        assert_eq!(result.state.time.ap, 1, "encounter must not reset AP");
+        assert_eq!(result.state.world.current_node_id, "blackmarket_hint");
+        assert_eq!(
+            result.response.projection.active_encounter_id.as_deref(),
+            Some("blackmarket_extortion")
+        );
+    }
+
+    #[test]
+    fn active_encounter_blocks_ordinary_actions_until_decided() {
+        let bundle = starter_content_bundle();
+        let state = state_at_blackmarket_extortion(&bundle);
+
+        let error = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("blackmarket_hint")),
+            &bundle,
+        )
+        .expect_err("ordinary actions should not bypass an active encounter");
+
+        assert_eq!(error.kind, CommandErrorKind::Validation);
+    }
+
+    #[test]
+    fn retreat_is_better_than_confronting_the_blackmarket_extortion() {
+        let bundle = starter_content_bundle();
+        let encountered = state_at_blackmarket_extortion(&bundle);
+
+        let retreated = resolve_action(
+            encountered.clone(),
+            command(ActionIntent::Retreat, Some("blackmarket_extortion")),
+            &bundle,
+        )
+        .expect("retreat should resolve");
+        assert!(retreated.state.encounters.active.is_none());
+        assert_eq!(retreated.state.character.injury.level, InjuryLevel::Healthy);
+        assert_eq!(retreated.state.resources.primeval_stones, 3);
+        assert_eq!(retreated.state.world.current_node_id, "academy_gate");
+        assert_eq!(retreated.state.time.window_id, "day2_morning_free");
+        assert_eq!(retreated.state.time.ap, 2);
+        assert!(retreated.state.build.survival_route.contains("retreat"));
+
+        let confronted = resolve_action(
+            encountered,
+            command(ActionIntent::Confront, Some("blackmarket_extortion")),
+            &bundle,
+        )
+        .expect("confront should resolve as trauma-continuable failure");
+        assert!(confronted.state.encounters.active.is_none());
+        assert_eq!(confronted.state.character.injury.level, InjuryLevel::Heavy);
+        assert_eq!(confronted.state.resources.primeval_stones, 2);
+        assert_eq!(confronted.state.world.current_node_id, "academy_gate");
+        assert_eq!(confronted.state.time.window_id, "day2_morning_free");
+        assert_eq!(
+            confronted.state.time.ap, 1,
+            "heavy injury should compress the next free window"
+        );
+        assert!(confronted.state.risk.exposure > retreated.state.risk.exposure);
+    }
+
+    #[test]
+    fn infirmary_recovery_reduces_heavy_and_light_injury() {
+        let bundle = starter_content_bundle();
+        let mut wounded = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        wounded.world.current_node_id = "infirmary_lane".to_string();
+        wounded.character.injury.level = InjuryLevel::Heavy;
+        wounded.character.injury.ap_penalty_pending = false;
+
+        let light = resolve_action(
+            wounded,
+            command(ActionIntent::Recover, Some("infirmary_lane")),
+            &bundle,
+        )
+        .expect("infirmary should reduce heavy injury");
+        assert_eq!(light.state.character.injury.level, InjuryLevel::Light);
+        assert_eq!(light.state.debts_and_credit.infirmary_debt, 1);
+        assert_eq!(light.state.debts_and_credit.favor_debt, 1);
+
+        let healthy = resolve_action(
+            light.state,
+            command(ActionIntent::Recover, Some("infirmary_lane")),
+            &bundle,
+        )
+        .expect("infirmary should clear light injury");
+        assert_eq!(healthy.state.character.injury.level, InjuryLevel::Healthy);
+    }
+
+    #[test]
     fn save_envelope_preserves_phase_five_state_boundaries() {
         let bundle = starter_content_bundle();
         let state = resolve_action(
@@ -2407,6 +2849,37 @@ mod tests {
         assert_eq!(decoded.snapshot.resources, state.resources);
         assert_eq!(decoded.snapshot.debts_and_credit, state.debts_and_credit);
         assert_eq!(decoded.snapshot.risk, state.risk);
+    }
+
+    #[test]
+    fn save_envelope_preserves_active_encounter_and_injury_state() {
+        let bundle = starter_content_bundle();
+        let mut state = state_at_blackmarket_extortion(&bundle);
+        state.character.injury.level = InjuryLevel::Heavy;
+        state.character.injury.ap_penalty_pending = true;
+
+        let encoded = serde_json::to_string(&SaveEnvelope::from_state("slot_0", state.clone()))
+            .expect("save envelope serializes");
+        let decoded: SaveEnvelope =
+            serde_json::from_str(&encoded).expect("save envelope deserializes");
+
+        decoded
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect("phase six save should load");
+        assert_eq!(decoded.snapshot.encounters, state.encounters);
+        assert_eq!(decoded.snapshot.character, state.character);
+    }
+
+    fn state_at_blackmarket_extortion(bundle: &ContentBundle) -> GameState {
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        set_deep_night(&mut state);
+        resolve_action(
+            state,
+            command(ActionIntent::Move, Some("blackmarket_hint")),
+            bundle,
+        )
+        .expect("blackmarket movement should trigger extortion")
+        .state
     }
 
     fn command(intent: ActionIntent, target: Option<&str>) -> ActionCommand {

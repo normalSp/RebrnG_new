@@ -9,7 +9,12 @@ export type ActionIntent =
   | "recover"
   | "trade"
   | "retreat"
+  | "confront"
   | "wait";
+
+export type InjuryLevel = "healthy" | "light" | "heavy";
+
+export type EncounterType = "extortion";
 
 export interface PerformanceMetrics {
   resolve_action_ms: number;
@@ -51,6 +56,11 @@ export interface LedgerViewModel {
   exposure: number;
   debt_pressure: number;
   build_summary: string;
+  injury_level: InjuryLevel;
+  active_encounter_id?: string | null;
+  active_encounter_type?: EncounterType | null;
+  active_encounter_known_risk?: string | null;
+  active_encounter_decisions: ActionIntent[];
   ledger_entries: LedgerEntry[];
   performance: PerformanceMetrics;
 }

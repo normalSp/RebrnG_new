@@ -62,6 +62,24 @@ actions:
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: retreat_blackmarket_extortion
+    label: retreat from blackmarket extortion
+    intent: retreat
+    target: blackmarket_extortion
+    stage: s0
+    tags: [action, encounter, retreat]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: confront_blackmarket_extortion
+    label: confront blackmarket extortion
+    intent: confront
+    target: blackmarket_extortion
+    stage: s0
+    tags: [action, encounter, confront]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: chase_inheritance_rumor
     label: 追一截传承残线
     intent: move

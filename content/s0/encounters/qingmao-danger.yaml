@@ -1,0 +1,13 @@
+encounters:
+  - id: blackmarket_extortion
+    encounter_type: extortion
+    trigger_node_id: blackmarket_hint
+    known_risk: "边路被盯上：对方要元石，硬顶会受创。"
+    retreat_exposure_delta: 1
+    confront_primeval_stones_cost: 1
+    confront_exposure_delta: 2
+    confront_injury_level: heavy
+    stage: s0
+    tags: [encounter, blackmarket, extortion]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
