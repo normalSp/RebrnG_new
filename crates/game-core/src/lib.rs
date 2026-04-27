@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.1.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.1.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
 pub const RULES_VERSION: &str = "sprint1-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
@@ -3063,11 +3063,7 @@ fn clue_line_view(clue_id: &str) -> ClueLineView {
 }
 
 fn display_period(period: &str) -> String {
-    if period.contains('卞') {
-        "深夜".to_string()
-    } else {
-        period.to_string()
-    }
+    period.to_string()
 }
 
 fn period_matches(required: &str, current: &str) -> bool {
@@ -5196,6 +5192,46 @@ mod tests {
     }
 
     #[test]
+    fn user_visible_sources_have_no_mojibake_markers() {
+        let bundle = starter_content_bundle();
+        let mut canon_state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        canon_state.knowledge.blackmarket_route_known = true;
+        canon_state.knowledge.record_clue("rumor_blackmarket_tail");
+        canon_state.knowledge.record_clue("rumor_academy_pressure");
+        canon_state.ledger.push(LedgerEntry {
+            kind: "test_result".to_string(),
+            text: "你把新风声记进因果账。".to_string(),
+        });
+
+        let mut sandbox_state = create_run(RunMode::SandboxIf, STARTER_CONTENT_VERSION);
+        sandbox_state.knowledge.blackmarket_route_known = true;
+        sandbox_state
+            .knowledge
+            .record_clue("rumor_inheritance_bamboo");
+
+        let payloads = [
+            (
+                "starter content bundle",
+                serde_json::to_string(&bundle).expect("starter bundle serializes"),
+            ),
+            (
+                "canon projection",
+                serde_json::to_string(&build_projection_with_content(&canon_state, &bundle))
+                    .expect("canon projection serializes"),
+            ),
+            (
+                "sandbox projection",
+                serde_json::to_string(&build_projection_with_content(&sandbox_state, &bundle))
+                    .expect("sandbox projection serializes"),
+            ),
+        ];
+
+        for (context, payload) in payloads {
+            assert_no_mojibake_markers(context, &payload);
+        }
+    }
+
+    #[test]
     fn resolve_action_rejects_ap_shortage() {
         let bundle = starter_content_bundle();
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
@@ -6132,6 +6168,27 @@ mod tests {
             for fragment in &forbidden_fragments {
                 assert!(!entry.text.contains(fragment), "{}", entry.text);
             }
+        }
+    }
+
+    fn assert_no_mojibake_markers(context: &str, text: &str) {
+        let forbidden_fragments = [
+            ("U+FFFD replacement character", "\u{fffd}"),
+            ("known mojibake marker U+95C8", "\u{95c8}"),
+            ("known mojibake marker U+947A", "\u{947a}"),
+            ("known mojibake marker U+7490", "\u{7490}"),
+            ("known mojibake marker U+9365", "\u{9365}"),
+            ("known mojibake marker U+94D4", "\u{94d4}"),
+            ("known mojibake marker U+947E", "\u{947e}"),
+            ("known mojibake marker U+5A13", "\u{5a13}"),
+            ("known mojibake marker U+699B", "\u{699b}"),
+            ("known mojibake marker U+7EC9", "\u{7ec9}"),
+            ("known mojibake marker U+947D", "\u{947d}"),
+            ("legacy mojibake compatibility marker U+535E", "\u{535e}"),
+        ];
+
+        for (name, fragment) in forbidden_fragments {
+            assert!(!text.contains(fragment), "{context} contains {name}");
         }
     }
 
