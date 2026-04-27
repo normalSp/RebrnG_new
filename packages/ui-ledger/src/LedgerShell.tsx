@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react";
-import type { ActionCommand, ActionIntent, LedgerViewModel } from "./index";
+import { useState } from "react";
+import type { ActionChoiceView, ActionCommand, LedgerViewModel } from "./index";
 
 export interface LedgerShellProps {
   projection: LedgerViewModel | null;
@@ -10,12 +10,7 @@ export interface LedgerShellProps {
   onLoadSave: () => Promise<void>;
 }
 
-const panelStyle = {
-  border: "1px solid #d7c7a0",
-  borderRadius: "12px",
-  padding: "16px",
-  background: "rgba(255, 250, 235, 0.9)",
-} satisfies CSSProperties;
+type LedgerPage = "scene" | "map" | "resources" | "build" | "clues" | "ledger";
 
 const zeroDeclaredCost = {
   ap: 0,
@@ -23,11 +18,20 @@ const zeroDeclaredCost = {
   exposure_risk: 0,
 };
 
-function makeCommand(intent: ActionIntent, target?: string): ActionCommand {
+const pages: Array<{ id: LedgerPage; label: string }> = [
+  { id: "scene", label: "正文" },
+  { id: "map", label: "节点" },
+  { id: "resources", label: "物资债务" },
+  { id: "build", label: "修行 Build" },
+  { id: "clues", label: "风声线索" },
+  { id: "ledger", label: "因果账" },
+];
+
+function makeCommand(choice: ActionChoiceView): ActionCommand {
   return {
     actor: "player",
-    intent,
-    target: target ?? null,
+    intent: choice.intent,
+    target: choice.target ?? null,
     declared_cost: zeroDeclaredCost,
   };
 }
@@ -40,34 +44,19 @@ export function LedgerShell({
   onWriteSave,
   onLoadSave,
 }: LedgerShellProps) {
+  const [activePage, setActivePage] = useState<LedgerPage>("scene");
   const hasRun = projection !== null;
-  const hasActiveEncounter = projection?.active_encounter_id != null;
-  const canAct =
-    projection !== null &&
-    projection.window_type === "free" &&
-    !hasActiveEncounter &&
-    projection.available_ap > 0;
-  const canEncounterDecision =
-    projection !== null &&
-    projection.window_type === "free" &&
-    hasActiveEncounter &&
-    projection.available_ap > 0;
 
   return (
-    <main className="ledger-shell">
-      <section className="hero">
-        <p className="eyebrow">RebrnG Sprint 0</p>
-        <h1>青茅山账本底座</h1>
-        <p>
-          规则状态由 Rust 托管，React 只读取账本投影。阶段 5 先验证时间、节点移动、
-          资源债务和暴露都能从同一条行动管线结算。
-        </p>
-      </section>
-
-      <section style={panelStyle}>
-        <div className="toolbar">
+    <main className="ledger-shell" aria-label="RebrnG 青茅山账本">
+      <header className="ledger-top">
+        <div>
+          <p className="ledger-kicker">RebrnG Sprint 0</p>
+          <h1>青茅山冷账</h1>
+        </div>
+        <div className="ledger-run-controls" aria-label="运行控制">
           <button type="button" onClick={onCreateRun}>
-            新建 Sprint 0 单局
+            新开一局
           </button>
           <button type="button" disabled={!hasRun} onClick={onWriteSave}>
             写入 slot_0
@@ -75,185 +64,205 @@ export function LedgerShell({
           <button type="button" onClick={onLoadSave}>
             读取 slot_0
           </button>
-          <span>{status}</span>
         </div>
+      </header>
 
+      <section className="ledger-status-strip" aria-label="当前压力">
         {projection ? (
-          <div className="ledger-grid">
-            <article>
-              <h2>正文场景</h2>
-              <p>{projection.scene_text}</p>
-            </article>
-
-            <article>
-              <h2>窗口与位置</h2>
-              <dl>
-                <dt>章节日</dt>
-                <dd>第 {projection.current_day} 日</dd>
-                <dt>时段</dt>
-                <dd>{projection.current_period}</dd>
-                <dt>窗口</dt>
-                <dd>{projection.window_type}</dd>
-                <dt>窗口 ID</dt>
-                <dd>{projection.window_id}</dd>
-                <dt>AP</dt>
-                <dd>{projection.available_ap}</dd>
-                <dt>节点</dt>
-                <dd>{projection.current_node_id}</dd>
-              </dl>
-            </article>
-
-            <article>
-              <h2>资源账</h2>
-              <dl>
-                <dt>元石</dt>
-                <dd>{projection.primeval_stones}</dd>
-                <dt>材料</dt>
-                <dd>{projection.materials}</dd>
-                <dt>功绩</dt>
-                <dd>{projection.merit}</dd>
-                <dt>债务压力</dt>
-                <dd>{projection.debt_pressure}</dd>
-                <dt>暴露</dt>
-                <dd>{projection.exposure}</dd>
-              </dl>
-            </article>
-
-            <article>
-              <h2>遭遇与伤势</h2>
-              <dl>
-                <dt>伤势</dt>
-                <dd>{projection.injury_level}</dd>
-                <dt>当前遭遇</dt>
-                <dd>{projection.active_encounter_id ?? "none"}</dd>
-                <dt>已知风险</dt>
-                <dd>{projection.active_encounter_known_risk ?? "none"}</dd>
-              </dl>
-            </article>
-
-            <article>
-              <h2>Build 痕迹</h2>
-              <p>{projection.build_summary}</p>
-            </article>
-
-            <article>
-              <h2>行动</h2>
-              <div className="actions">
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("scout", "academy_gate"))}
-                >
-                  观察学堂
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("cultivate", "academy_gate"))}
-                >
-                  月光修行
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("move", "moonlight_corner"))}
-                >
-                  去月光角
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("move", "merit_notice"))}
-                >
-                  去功绩告示
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("scout", "merit_notice"))}
-                >
-                  查功绩
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("move", "infirmary_lane"))}
-                >
-                  去药堂侧巷
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("recover", "infirmary_lane"))}
-                >
-                  药堂恢复
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("move", "blackmarket_hint"))}
-                >
-                  摸黑市暗口
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("trade", "blackmarket_hint"))}
-                >
-                  黑市换料
-                </button>
-                <button
-                  type="button"
-                  disabled={!canEncounterDecision}
-                  onClick={() =>
-                    onResolveAction(
-                      makeCommand("retreat", projection.active_encounter_id ?? undefined),
-                    )
-                  }
-                >
-                  跑路
-                </button>
-                <button
-                  type="button"
-                  disabled={!canEncounterDecision}
-                  onClick={() =>
-                    onResolveAction(
-                      makeCommand("confront", projection.active_encounter_id ?? undefined),
-                    )
-                  }
-                >
-                  硬顶
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  onClick={() => onResolveAction(makeCommand("wait"))}
-                >
-                  等过时段
-                </button>
-              </div>
-            </article>
-
-            <article>
-              <h2>因果账</h2>
-              <ol>
-                {projection.ledger_entries.map((entry, index) => (
-                  <li key={`${entry.kind}-${index}`}>{entry.text}</li>
-                ))}
-              </ol>
-            </article>
-
-            <article>
-              <h2>性能</h2>
-              <p>resolve_action: {projection.performance.resolve_action_ms}ms</p>
-              <p>projection: {projection.performance.projection_ms}ms</p>
-              <p>save/load: {projection.performance.save_load_ms}ms</p>
-            </article>
-          </div>
+          projection.status_markers.map((marker) => (
+            <div className={`ledger-status-item is-${marker.tone}`} key={marker.label}>
+              <span>{marker.label}</span>
+              <strong>{marker.value}</strong>
+            </div>
+          ))
         ) : (
-          <p className="empty">还没有 active run。先新建单局。</p>
+          <div className="ledger-status-empty">尚无 active run，规则状态仍未开账。</div>
         )}
       </section>
+
+      <div className="ledger-system-line" role="status">
+        {status}
+      </div>
+
+      {projection ? (
+        <div className="ledger-layout">
+          <nav className="ledger-tabs" aria-label="账页">
+            {pages.map((page) => (
+              <button
+                type="button"
+                className={page.id === activePage ? "is-active" : ""}
+                key={page.id}
+                onClick={() => setActivePage(page.id)}
+              >
+                {page.label}
+              </button>
+            ))}
+          </nav>
+
+          <section className="ledger-leaf">{renderPage(activePage, projection)}</section>
+
+          <aside className="ledger-actions" aria-label="行动">
+            <div className="ledger-actions-heading">
+              <span>行动札</span>
+              <small>{projection.next_anchor_pressure}</small>
+            </div>
+            <div className="ledger-action-list">
+              {projection.action_choices.map((choice) => (
+                <button
+                  type="button"
+                  className="ledger-action"
+                  disabled={!choice.enabled}
+                  key={choice.id}
+                  onClick={() => onResolveAction(makeCommand(choice))}
+                >
+                  <span>{choice.label}</span>
+                  <small>{choice.enabled ? choice.cost_hint : choice.disabled_reason}</small>
+                  <em>{choice.risk_hint}</em>
+                </button>
+              ))}
+            </div>
+          </aside>
+        </div>
+      ) : (
+        <section className="ledger-empty-state">
+          <h2>账页未启</h2>
+          <p>先让 Rust 创建单局。React 只会拿到账本投影，不会持有完整规则状态。</p>
+        </section>
+      )}
     </main>
+  );
+}
+
+function renderPage(page: LedgerPage, projection: LedgerViewModel) {
+  switch (page) {
+    case "map":
+      return <MapPage projection={projection} />;
+    case "resources":
+      return <ResourcesPage projection={projection} />;
+    case "build":
+      return <BuildPage projection={projection} />;
+    case "clues":
+      return <CluesPage projection={projection} />;
+    case "ledger":
+      return <CausalityPage projection={projection} />;
+    case "scene":
+    default:
+      return <ScenePage projection={projection} />;
+  }
+}
+
+function ScenePage({ projection }: { projection: LedgerViewModel }) {
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">正文场景</p>
+      <h2>{projection.current_period}，{projection.current_node_id}</h2>
+      <p className="scene-text">{projection.scene_text}</p>
+      {projection.active_encounter_id ? (
+        <div className="danger-note">
+          <strong>遭遇压身：</strong>
+          {projection.active_encounter_known_risk ?? projection.active_encounter_id}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MapPage({ projection }: { projection: LedgerViewModel }) {
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">节点地图</p>
+      <h2>{projection.node_view.current_region_id}</h2>
+      <div className="node-ledger">
+        {projection.node_view.visible_nodes.map((node) => (
+          <div className={node.current ? "node-row is-current" : "node-row"} key={node.id}>
+            <span>{node.title}</span>
+            <small>{node.id}</small>
+            <em>安全：{node.safety}</em>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ResourcesPage({ projection }: { projection: LedgerViewModel }) {
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">物资与债务</p>
+      <h2>能用的少，欠下的会回来</h2>
+      <dl className="ledger-rows">
+        <Row label="元石" value={projection.primeval_stones} />
+        <Row label="材料" value={projection.materials} />
+        <Row label="功绩" value={projection.merit} />
+        <Row label="债务压力" value={projection.debt_pressure} />
+        <Row label="暴露" value={projection.exposure} />
+      </dl>
+    </article>
+  );
+}
+
+function BuildPage({ projection }: { projection: LedgerViewModel }) {
+  const build = projection.build_view;
+
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">空窍 / 修行 / Build</p>
+      <h2>求活路线不等于流派，本命蛊不等于核心蛊</h2>
+      <dl className="ledger-rows">
+        <Row label="求活路线" value={build.survival_route} />
+        <Row label="主修流派" value={build.main_path} />
+        <Row label="道痕保留" value={build.dao_mark_note} />
+        <Row label="核心蛊" value={build.core_gu} />
+        <Row label="辅助蛊" value={build.support_gu} />
+        <Row label="本命蛊" value={build.vital_gu} />
+        <Row label="喂养维护" value={build.maintenance_pressure} />
+        <Row label="主要缺口" value={build.gap_summary} />
+      </dl>
+    </article>
+  );
+}
+
+function CluesPage({ projection }: { projection: LedgerViewModel }) {
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">风声与线索</p>
+      <h2>只记可见因果，不亮隐藏数值</h2>
+      <dl className="ledger-rows">
+        <Row label="下一锚点压力" value={projection.next_anchor_pressure} />
+        <Row label="当前遭遇" value={projection.active_encounter_id ?? "无"} />
+        <Row label="已知风险" value={projection.active_encounter_known_risk ?? "暂无"} />
+      </dl>
+    </article>
+  );
+}
+
+function CausalityPage({ projection }: { projection: LedgerViewModel }) {
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">因果账</p>
+      <h2>最近落账</h2>
+      <ol className="causality-list">
+        {projection.ledger_entries.map((entry, index) => (
+          <li key={`${entry.kind}-${index}`}>
+            <span>{entry.kind}</span>
+            <p>{entry.text}</p>
+          </li>
+        ))}
+      </ol>
+      <div className="performance-line">
+        resolve_action {projection.performance.resolve_action_ms}ms / projection{" "}
+        {projection.performance.projection_ms}ms / save_load{" "}
+        {projection.performance.save_load_ms}ms
+      </div>
+    </article>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string | number }) {
+  return (
+    <>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </>
   );
 }

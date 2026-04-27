@@ -34,9 +34,7 @@ function App() {
         command,
       });
       setProjection(response.projection);
-      setStatus(
-        `已结算：resolve_action ${response.performance.resolve_action_ms}ms`,
-      );
+      setStatus(`已结算：resolve_action ${response.performance.resolve_action_ms}ms`);
     } catch (error) {
       setStatus(formatCommandError(error));
     }

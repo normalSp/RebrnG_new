@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
-pub const RULES_VERSION: &str = "sprint0-rules-v3";
+pub const RULES_VERSION: &str = "sprint0-rules-v4";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -150,7 +150,11 @@ pub struct BuildState {
     pub survival_route: String,
     pub main_path: Option<String>,
     pub dao_mark_note: Option<String>,
+    pub core_gu: String,
+    pub support_gu: String,
+    pub vital_gu: String,
     pub maintenance_pressure: String,
+    pub gap_summary: String,
 }
 
 impl Default for BuildState {
@@ -159,6 +163,10 @@ impl Default for BuildState {
             survival_route: "未定：仍在学堂秩序缝隙里求活".to_string(),
             main_path: None,
             dao_mark_note: None,
+            core_gu: "核心蛊：月光蛊线索未稳".to_string(),
+            support_gu: "辅助蛊：暂无".to_string(),
+            vital_gu: "本命蛊：未建立".to_string(),
+            gap_summary: "缺口：缺稳定资源、缺支撑蛊、缺安全情报".to_string(),
             maintenance_pressure: "暂无蛊虫喂养压力".to_string(),
         }
     }
@@ -392,6 +400,52 @@ pub struct PerformanceMetrics {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StatusMarkerView {
+    pub label: String,
+    pub value: String,
+    pub tone: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BuildLedgerView {
+    pub survival_route: String,
+    pub main_path: String,
+    pub dao_mark_note: String,
+    pub core_gu: String,
+    pub support_gu: String,
+    pub vital_gu: String,
+    pub maintenance_pressure: String,
+    pub gap_summary: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ActionChoiceView {
+    pub id: String,
+    pub label: String,
+    pub intent: ActionIntent,
+    pub target: Option<String>,
+    pub enabled: bool,
+    pub disabled_reason: Option<String>,
+    pub cost_hint: String,
+    pub risk_hint: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NodeSummaryView {
+    pub id: String,
+    pub title: String,
+    pub safety: String,
+    pub current: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NodeLedgerView {
+    pub current_node_id: String,
+    pub current_region_id: String,
+    pub visible_nodes: Vec<NodeSummaryView>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
     pub current_day: u8,
@@ -399,6 +453,7 @@ pub struct LedgerViewModel {
     pub window_id: String,
     pub window_type: WindowType,
     pub available_ap: u8,
+    pub next_anchor_pressure: String,
     pub current_node_id: String,
     pub primeval_stones: i32,
     pub materials: i32,
@@ -406,6 +461,10 @@ pub struct LedgerViewModel {
     pub exposure: i32,
     pub debt_pressure: i32,
     pub build_summary: String,
+    pub status_markers: Vec<StatusMarkerView>,
+    pub build_view: BuildLedgerView,
+    pub action_choices: Vec<ActionChoiceView>,
+    pub node_view: NodeLedgerView,
     pub injury_level: InjuryLevel,
     pub active_encounter_id: Option<String>,
     pub active_encounter_type: Option<EncounterType>,
@@ -1627,19 +1686,35 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
 }
 
 pub fn build_projection(state: &GameState) -> LedgerViewModel {
+    let content_bundle = starter_content_bundle();
+    build_projection_from_content(state, &content_bundle)
+}
+
+pub fn build_projection_with_content(
+    state: &GameState,
+    content_bundle: &ContentBundle,
+) -> LedgerViewModel {
+    build_projection_from_content(state, content_bundle)
+}
+
+fn build_projection_from_content(
+    state: &GameState,
+    content_bundle: &ContentBundle,
+) -> LedgerViewModel {
     let active_encounter = state.encounters.active.as_ref();
 
     LedgerViewModel {
         scene_text: state
             .ledger
             .last()
-            .map(|entry| entry.text.clone())
+            .map(clean_ledger_text)
             .unwrap_or_else(|| "账本空白，局势尚未落笔。".to_string()),
         current_day: state.time.chapter_day,
-        current_period: state.time.period.clone(),
+        current_period: display_period(&state.time.period),
         window_id: state.time.window_id.clone(),
         window_type: state.time.window_type.clone(),
         available_ap: state.time.ap,
+        next_anchor_pressure: clean_anchor_pressure(&state.time.next_anchor_pressure),
         current_node_id: state.world.current_node_id.clone(),
         primeval_stones: state.resources.primeval_stones,
         materials: state.resources.materials,
@@ -1647,6 +1722,10 @@ pub fn build_projection(state: &GameState) -> LedgerViewModel {
         exposure: state.risk.exposure,
         debt_pressure: state.debts_and_credit.pressure(),
         build_summary: state.build.survival_route.clone(),
+        status_markers: status_markers(state, active_encounter),
+        build_view: build_view(state),
+        action_choices: projected_action_choices(state, content_bundle),
+        node_view: node_view(state, content_bundle),
         injury_level: state.character.injury.level.clone(),
         active_encounter_id: active_encounter.map(|encounter| encounter.encounter_id.clone()),
         active_encounter_type: active_encounter.map(|encounter| encounter.encounter_type.clone()),
@@ -1656,6 +1735,343 @@ pub fn build_projection(state: &GameState) -> LedgerViewModel {
             .unwrap_or_default(),
         ledger_entries: state.ledger.clone(),
         performance: PerformanceMetrics::default(),
+    }
+}
+
+fn clean_ledger_text(entry: &LedgerEntry) -> String {
+    if entry.kind == "scene" {
+        "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。".to_string()
+    } else if entry.kind == "movement" || entry.text.contains("绉诲姩浠") {
+        "你转向新的节点，账本记下移动代价。".to_string()
+    } else if entry.kind == "action" && entry.text.contains("鏈堝厜") {
+        "你按下杂念运转真元，月光修行痕迹更深。".to_string()
+    } else if entry.kind == "action" && entry.text.contains("鍔熺哗") {
+        "你在功绩告示旁核对机会，记下一点可用功绩。".to_string()
+    } else if entry.kind == "action" && entry.text.contains("鑽爞") {
+        "你在药堂换来一口喘息，也把债写进账页。".to_string()
+    } else if entry.kind == "action" && entry.text.contains("榛戝競") {
+        "你在暗口换来材料，门路和风险一起上涨。".to_string()
+    } else if entry.text.starts_with("A blackmarket extortion") {
+        "黑市边路有人拦住去路，勒索的风险已经明牌。".to_string()
+    } else if entry.text.starts_with("You retreat") {
+        "你选择跑路，丢一点脸面和掩护，保住筋骨。".to_string()
+    } else if entry.text.starts_with("You harden") {
+        "你硬顶勒索，代价落在元石和伤势上。".to_string()
+    } else if entry.text.starts_with("Infirmary recovery lowers") {
+        "药堂处理重伤，伤势降为轻伤，债仍跟着你。".to_string()
+    } else if entry.text.starts_with("Infirmary recovery clears") {
+        "药堂清掉轻伤，又在债账上添了一笔。".to_string()
+    } else {
+        entry.text.clone()
+    }
+}
+
+fn display_period(period: &str) -> String {
+    match period {
+        "娓呮櫒" => "清晨",
+        "鏃ヤ腑" => "日中",
+        "鍌嶆櫄" => "傍晚",
+        "娣卞" => "深夜",
+        other => other,
+    }
+    .to_string()
+}
+
+fn clean_anchor_pressure(value: &str) -> String {
+    if value.contains("瀛﹀爞") {
+        "学堂点卯将近".to_string()
+    } else {
+        value.to_string()
+    }
+}
+
+fn status_markers(
+    state: &GameState,
+    active_encounter: Option<&ActiveEncounter>,
+) -> Vec<StatusMarkerView> {
+    vec![
+        marker("时段", &display_period(&state.time.period), "normal"),
+        marker("窗口", &format!("{:?}", state.time.window_type), "normal"),
+        marker(
+            "AP",
+            &state.time.ap.to_string(),
+            if state.time.ap == 0 {
+                "danger"
+            } else {
+                "normal"
+            },
+        ),
+        marker("地点", &state.world.current_node_id, "normal"),
+        marker(
+            "暴露",
+            &state.risk.exposure.to_string(),
+            pressure_tone(state.risk.exposure),
+        ),
+        marker(
+            "债务",
+            &state.debts_and_credit.pressure().to_string(),
+            pressure_tone(state.debts_and_credit.pressure()),
+        ),
+        marker(
+            "伤势",
+            injury_label(&state.character.injury.level),
+            injury_tone(&state.character.injury.level),
+        ),
+        marker(
+            "遭遇",
+            active_encounter
+                .map(|encounter| encounter.encounter_id.as_str())
+                .unwrap_or("无"),
+            if active_encounter.is_some() {
+                "danger"
+            } else {
+                "normal"
+            },
+        ),
+    ]
+}
+
+fn marker(label: &str, value: &str, tone: &str) -> StatusMarkerView {
+    StatusMarkerView {
+        label: label.to_string(),
+        value: value.to_string(),
+        tone: tone.to_string(),
+    }
+}
+
+fn build_view(state: &GameState) -> BuildLedgerView {
+    BuildLedgerView {
+        survival_route: state.build.survival_route.clone(),
+        main_path: state
+            .build
+            .main_path
+            .clone()
+            .unwrap_or_else(|| "主修流派：未定".to_string()),
+        dao_mark_note: state
+            .build
+            .dao_mark_note
+            .clone()
+            .unwrap_or_else(|| "道痕：凡人期保留位".to_string()),
+        core_gu: state.build.core_gu.clone(),
+        support_gu: state.build.support_gu.clone(),
+        vital_gu: state.build.vital_gu.clone(),
+        maintenance_pressure: if state.build.maintenance_pressure.contains("铔") {
+            "暂无蛊虫喂养压力".to_string()
+        } else {
+            state.build.maintenance_pressure.clone()
+        },
+        gap_summary: state.build.gap_summary.clone(),
+    }
+}
+
+fn projected_action_choices(
+    state: &GameState,
+    content_bundle: &ContentBundle,
+) -> Vec<ActionChoiceView> {
+    let mut choices = content_bundle
+        .actions
+        .iter()
+        .filter(|action| mode_permitted(&state.mode, &action.modes))
+        .map(|action| {
+            let command = ActionCommand {
+                actor: "player".to_string(),
+                intent: action.intent.clone(),
+                target: action.target.clone(),
+                declared_cost: DeclaredCost::default(),
+                context_note: None,
+            };
+            action_choice_from_command(
+                &action.id,
+                clean_action_label(action),
+                command,
+                state,
+                content_bundle,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let wait = ActionCommand {
+        actor: "player".to_string(),
+        intent: ActionIntent::Wait,
+        target: None,
+        declared_cost: DeclaredCost::default(),
+        context_note: None,
+    };
+    choices.push(action_choice_from_command(
+        "wait_current_window",
+        "等过当前时段".to_string(),
+        wait,
+        state,
+        content_bundle,
+    ));
+
+    choices
+}
+
+fn action_choice_from_command(
+    id: &str,
+    label: String,
+    command: ActionCommand,
+    state: &GameState,
+    content_bundle: &ContentBundle,
+) -> ActionChoiceView {
+    let check = availability_check(state, &command, content_bundle)
+        .and_then(|_| cost_reservation(state, &command, content_bundle).map(|_| ()));
+    let (enabled, disabled_reason) = match check {
+        Ok(()) => (true, None),
+        Err(error) => (false, Some(display_disabled_reason(&error))),
+    };
+
+    ActionChoiceView {
+        id: id.to_string(),
+        label,
+        intent: command.intent.clone(),
+        target: command.target,
+        enabled,
+        disabled_reason,
+        cost_hint: cost_hint(&command.intent),
+        risk_hint: risk_hint(&command.intent),
+    }
+}
+
+fn node_view(state: &GameState, content_bundle: &ContentBundle) -> NodeLedgerView {
+    NodeLedgerView {
+        current_node_id: state.world.current_node_id.clone(),
+        current_region_id: state.world.current_region_id.clone(),
+        visible_nodes: content_bundle
+            .nodes
+            .iter()
+            .filter(|node| mode_permitted(&state.mode, &node.modes))
+            .map(|node| NodeSummaryView {
+                id: node.id.clone(),
+                title: clean_node_title(node),
+                safety: clean_safety(&node.safety),
+                current: node.id == state.world.current_node_id,
+            })
+            .collect(),
+    }
+}
+
+fn mode_permitted(mode: &RunMode, modes: &[ModePermit]) -> bool {
+    match mode {
+        RunMode::CanonStrict => modes.contains(&ModePermit::CanonStrict),
+        RunMode::SandboxIf => modes.contains(&ModePermit::SandboxIf),
+    }
+}
+
+fn clean_action_label(action: &ContentAction) -> String {
+    match action.id.as_str() {
+        "scout_academy" => "观察学堂风声",
+        "cultivate_moonlight" => "月光修行",
+        "move_moonlight_corner" => "去月光角",
+        "move_merit_notice" => "去功绩告示",
+        "scout_merit_notice" => "查功绩告示",
+        "move_infirmary_lane" => "去药堂侧巷",
+        "recover_infirmary" => "药堂恢复",
+        "move_blackmarket_hint" => "摸黑市暗口",
+        "trade_blackmarket" => "黑市换料",
+        "retreat_blackmarket_extortion" => "跑路",
+        "confront_blackmarket_extortion" => "硬顶",
+        "move_inheritance_rumor" => "追传承残线",
+        _ => action.label.as_str(),
+    }
+    .to_string()
+}
+
+fn clean_node_title(node: &ContentNode) -> String {
+    match node.id.as_str() {
+        "academy_gate" => "学堂门前",
+        "moonlight_corner" => "月光修行角",
+        "merit_notice" => "功绩告示旁",
+        "infirmary_lane" => "药堂侧巷",
+        "blackmarket_hint" => "黑市暗口",
+        "inheritance_rumor" => "传承残线",
+        _ => node.title.as_str(),
+    }
+    .to_string()
+}
+
+fn clean_safety(safety: &str) -> String {
+    match safety {
+        "low" => "低",
+        "medium" => "中",
+        "high" => "高",
+        other => other,
+    }
+    .to_string()
+}
+
+fn display_disabled_reason(error: &CommandError) -> String {
+    if error.message.contains("active encounter") {
+        "遭遇未处理，普通行动暂不可用".to_string()
+    } else if error.message.contains("requires period") {
+        "时段不合，当前不可达".to_string()
+    } else if error.message.contains("primeval stones not enough") {
+        "元石不足".to_string()
+    } else if error.message.contains("AP not enough") {
+        "AP 不足".to_string()
+    } else if error.message.contains("recover requires") {
+        "需要先到药堂侧巷".to_string()
+    } else if error.message.contains("blackmarket trade requires") {
+        "需要在深夜抵达黑市暗口".to_string()
+    } else if error.message.contains("requires an active encounter") {
+        "当前没有可处理的遭遇".to_string()
+    } else {
+        error.message.clone()
+    }
+}
+
+fn cost_hint(intent: &ActionIntent) -> String {
+    match intent {
+        ActionIntent::Move => "按路径结算",
+        ActionIntent::Cultivate => "1 AP / 1 元石",
+        ActionIntent::Scout => "1 AP",
+        ActionIntent::Recover => "1 AP / 药堂债",
+        ActionIntent::Trade => "1 AP / 1 元石",
+        ActionIntent::Retreat => "1 AP",
+        ActionIntent::Confront => "1 AP / 1 元石",
+        ActionIntent::Wait => "吃掉当前窗口",
+    }
+    .to_string()
+}
+
+fn risk_hint(intent: &ActionIntent) -> String {
+    match intent {
+        ActionIntent::Move => "移动风险随路径变化",
+        ActionIntent::Cultivate => "资源压力",
+        ActionIntent::Scout => "低风险，换取情报",
+        ActionIntent::Recover => "债务与人情",
+        ActionIntent::Trade => "暴露上升",
+        ActionIntent::Retreat => "少量暴露，保命优先",
+        ActionIntent::Confront => "重创可续，高暴露",
+        ActionIntent::Wait => "错过窗口",
+    }
+    .to_string()
+}
+
+fn injury_label(level: &InjuryLevel) -> &'static str {
+    match level {
+        InjuryLevel::Healthy => "健康",
+        InjuryLevel::Light => "轻伤",
+        InjuryLevel::Heavy => "重伤",
+    }
+}
+
+fn injury_tone(level: &InjuryLevel) -> &'static str {
+    match level {
+        InjuryLevel::Healthy => "normal",
+        InjuryLevel::Light => "warn",
+        InjuryLevel::Heavy => "danger",
+    }
+}
+
+fn pressure_tone(value: i32) -> &'static str {
+    if value >= 4 {
+        "danger"
+    } else if value > 0 {
+        "warn"
+    } else {
+        "normal"
     }
 }
 
@@ -1686,7 +2102,7 @@ pub fn resolve_action(
     pipeline_trace.push(PipelineStep::LedgerAppend);
 
     let projection_started = Instant::now();
-    let mut projection = build_projection(&state);
+    let mut projection = build_projection_with_content(&state, content_bundle);
     pipeline_trace.push(PipelineStep::ProjectionRefresh);
     let performance = PerformanceMetrics {
         resolve_action_ms: started.elapsed().as_millis() as u64,
@@ -2241,6 +2657,79 @@ mod tests {
         assert_eq!(state.resources.primeval_stones, 3);
         assert_eq!(projection.current_node_id, "academy_gate");
         assert!(projection.scene_text.contains("学堂门前"));
+    }
+
+    #[test]
+    fn projection_separates_vital_gu_from_core_and_support_gu() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection(&state);
+
+        assert_eq!(projection.build_view.core_gu, "核心蛊：月光蛊线索未稳");
+        assert_eq!(projection.build_view.support_gu, "辅助蛊：暂无");
+        assert_eq!(projection.build_view.vital_gu, "本命蛊：未建立");
+        assert_ne!(
+            projection.build_view.vital_gu,
+            projection.build_view.core_gu
+        );
+        assert_ne!(
+            projection.build_view.vital_gu,
+            projection.build_view.support_gu
+        );
+        assert!(projection
+            .status_markers
+            .iter()
+            .any(|marker| marker.label == "AP" && marker.value == "2"));
+    }
+
+    #[test]
+    fn projection_action_choices_are_built_from_rust_rules() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection_with_content(&state, &bundle);
+
+        let scout = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "scout_academy")
+            .expect("scout action should be projected");
+        assert_eq!(scout.intent, ActionIntent::Scout);
+        assert_eq!(scout.target.as_deref(), Some("academy_gate"));
+        assert!(scout.enabled);
+
+        let wait = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "wait_current_window")
+            .expect("wait action should be projected");
+        assert_eq!(wait.intent, ActionIntent::Wait);
+        assert!(wait.enabled);
+    }
+
+    #[test]
+    fn active_encounter_projection_surfaces_only_decision_actions_as_enabled() {
+        let bundle = starter_content_bundle();
+        let state = state_at_blackmarket_extortion(&bundle);
+        let projection = build_projection_with_content(&state, &bundle);
+
+        let retreat = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.intent == ActionIntent::Retreat)
+            .expect("retreat should be projected during an encounter");
+        assert!(retreat.enabled);
+        assert_eq!(retreat.target.as_deref(), Some("blackmarket_extortion"));
+
+        let scout = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "scout_academy")
+            .expect("ordinary actions remain visible with disabled reasons");
+        assert!(!scout.enabled);
+        assert!(scout
+            .disabled_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("遭遇"));
     }
 
     #[test]

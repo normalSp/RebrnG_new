@@ -1,8 +1,8 @@
 use rebrng_game_core::{
-    build_projection as core_build_projection, create_run as core_create_run,
-    resolve_action as core_resolve_action, starter_content_bundle, ActionCommand, ActionResponse,
-    CommandError, ContentBundle, ContentManifest, GameState, LedgerViewModel, PerformanceMetrics,
-    RunMode, SaveEnvelope, SaveWriteResult,
+    build_projection_with_content as core_build_projection_with_content,
+    create_run as core_create_run, resolve_action as core_resolve_action, starter_content_bundle,
+    ActionCommand, ActionResponse, CommandError, ContentBundle, ContentManifest, GameState,
+    LedgerViewModel, PerformanceMetrics, RunMode, SaveEnvelope, SaveWriteResult,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -31,7 +31,11 @@ fn create_run(
 ) -> Result<ActionResponse, CommandError> {
     let run_mode = parse_mode(mode)?;
     let state = core_create_run(run_mode, runtime.content_bundle.manifest.version.clone());
-    let response = response_from_state(&state, PerformanceMetrics::default())?;
+    let response = response_from_state(
+        &state,
+        &runtime.content_bundle,
+        PerformanceMetrics::default(),
+    )?;
 
     let mut active_run = runtime.active_run.lock().map_err(|error| {
         CommandError::internal(
@@ -80,7 +84,7 @@ fn build_projection(
         .ok_or_else(|| CommandError::validation("当前没有 active run，请先新建单局"))?;
 
     let started = Instant::now();
-    let mut projection = core_build_projection(state);
+    let mut projection = core_build_projection_with_content(state, &runtime.content_bundle);
     projection.performance.projection_ms = started.elapsed().as_millis() as u64;
     Ok(projection)
 }
@@ -127,7 +131,7 @@ fn load_save(
         save_load_ms: started.elapsed().as_millis() as u64,
         ..PerformanceMetrics::default()
     };
-    let response = response_from_state(&state, performance)?;
+    let response = response_from_state(&state, &runtime.content_bundle, performance)?;
 
     let mut active_run = runtime.active_run.lock().map_err(|error| {
         CommandError::internal(
@@ -152,10 +156,11 @@ fn parse_mode(mode: Option<String>) -> Result<RunMode, CommandError> {
 
 fn response_from_state(
     state: &GameState,
+    content_bundle: &ContentBundle,
     mut performance: PerformanceMetrics,
 ) -> Result<ActionResponse, CommandError> {
     let projection_started = Instant::now();
-    let mut projection = core_build_projection(state);
+    let mut projection = core_build_projection_with_content(state, content_bundle);
     performance.projection_ms = projection_started.elapsed().as_millis() as u64;
     projection.performance = performance.clone();
 
