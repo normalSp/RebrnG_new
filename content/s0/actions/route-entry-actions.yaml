@@ -152,6 +152,69 @@ actions:
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: yield_academy_public_pressure
+    label: 忍让学堂压力
+    intent: yield
+    target: academy_public_pressure
+    stage: s0
+    tags: [action, encounter, academy, yield]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: argue_academy_public_pressure
+    label: 争辩学堂压力
+    intent: argue
+    target: academy_public_pressure
+    stage: s0
+    tags: [action, encounter, academy, argue]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: confront_academy_public_pressure
+    label: 硬撑学堂压力
+    intent: confront
+    target: academy_public_pressure
+    stage: s0
+    tags: [action, encounter, academy, confront]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: retreat_alley_probe
+    label: 退走巷道试探
+    intent: retreat
+    target: alley_probe
+    stage: s0
+    tags: [action, encounter, alley, retreat]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: delay_alley_probe
+    label: 拖延巷道试探
+    intent: delay
+    target: alley_probe
+    stage: s0
+    tags: [action, encounter, alley, delay]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: frame_alley_probe
+    label: 嫁祸巷道试探
+    intent: frame
+    target: alley_probe
+    stage: s0
+    tags: [action, encounter, alley, frame]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
+  - id: confront_alley_probe
+    label: 硬顶巷道试探
+    intent: confront
+    target: alley_probe
+    stage: s0
+    tags: [action, encounter, alley, confront]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: chase_inheritance_rumor
     label: 追一截传承残线
     intent: move

@@ -3,11 +3,101 @@ encounters:
     encounter_type: extortion
     trigger_node_id: blackmarket_hint
     known_risk: "边路被盯上：对方要元石，硬顶会受创。"
-    retreat_exposure_delta: 1
-    confront_primeval_stones_cost: 1
-    confront_exposure_delta: 2
-    confront_injury_level: heavy
+    decisions:
+      - intent: retreat
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 1
+        target_node_id: academy_gate
+        survival_route: "黑市退避：保命先于脸面"
+        narrative_id: s0.encounter.blackmarket_extortion.retreat
+      - intent: confront
+        ap_cost: 1
+        primeval_stones_cost: 1
+        exposure_delta: 2
+        injury_level: heavy
+        injury_ap_penalty_pending: true
+        target_node_id: academy_gate
+        survival_route: "黑市硬顶：带伤续命"
+        narrative_id: s0.encounter.blackmarket_extortion.confront
     stage: s0
     tags: [encounter, blackmarket, extortion]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+
+  - id: academy_public_pressure
+    encounter_type: public_pressure
+    trigger_node_id: moonlight_corner
+    known_risk: "学堂目光压来：修行越显眼，公开羞辱和对练压力越近。"
+    min_moonlight_marks: 2
+    decisions:
+      - intent: yield
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 1
+        survival_route: "学堂忍让：保身压脸面"
+        narrative_id: s0.encounter.academy_public_pressure.yield
+        mitigating_clue_id: rumor_academy_pressure
+        mitigated_exposure_delta: 0
+      - intent: argue
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 2
+        survival_route: "学堂争辩：被记下一笔"
+        narrative_id: s0.encounter.academy_public_pressure.argue
+        mitigating_clue_id: rumor_academy_pressure
+        mitigated_exposure_delta: 1
+      - intent: confront
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 2
+        injury_level: light
+        injury_ap_penalty_pending: true
+        survival_route: "学堂硬撑：带伤保脸面"
+        narrative_id: s0.encounter.academy_public_pressure.confront
+    stage: s0
+    tags: [encounter, academy, public_pressure]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+
+  - id: alley_probe
+    encounter_type: probe
+    trigger_node_id: clan_alley_rumor
+    known_risk: "巷道有人试探尾巴：暴露越高，越容易被借机堵住。"
+    min_exposure: 2
+    decisions:
+      - intent: retreat
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 1
+        target_node_id: academy_gate
+        survival_route: "巷道退走：断尾保身"
+        narrative_id: s0.encounter.alley_probe.retreat
+      - intent: delay
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 1
+        survival_route: "巷道拖延：用时间换缝隙"
+        narrative_id: s0.encounter.alley_probe.delay
+        mitigating_clue_id: rumor_alley_probe
+        mitigated_exposure_delta: 0
+      - intent: frame
+        ap_cost: 1
+        primeval_stones_cost: 0
+        exposure_delta: 2
+        survival_route: "巷道嫁祸：把尾巴甩给旁人"
+        narrative_id: s0.encounter.alley_probe.frame
+        clue_ids: [rumor_blackmarket_tail]
+      - intent: confront
+        ap_cost: 1
+        primeval_stones_cost: 1
+        exposure_delta: 3
+        injury_level: light
+        injury_ap_penalty_pending: true
+        target_node_id: academy_gate
+        survival_route: "巷道硬顶：带伤脱身"
+        narrative_id: s0.encounter.alley_probe.confront
+    stage: s0
+    tags: [encounter, alley, probe]
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]

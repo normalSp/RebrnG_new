@@ -35,6 +35,7 @@ fn s0_eight_round_script_reaches_anchor_with_performance_report() {
         (ActionIntent::Cultivate, Some("academy_gate")),
         (ActionIntent::Wait, None),
         (ActionIntent::Move, Some("moonlight_corner")),
+        (ActionIntent::Yield, Some("academy_public_pressure")),
         (ActionIntent::Wait, None),
         (ActionIntent::Wait, None),
     ] {

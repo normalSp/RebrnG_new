@@ -131,6 +131,60 @@ narratives:
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
     text: 你硬顶勒索，代价落在元石和伤势上。
+  - id: s0.encounter.academy_public_pressure.trigger
+    stage: s0
+    tags: [narrative, encounter, academy, public_pressure]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 月光修行的痕迹一深，学堂里的目光就压了过来。
+  - id: s0.encounter.academy_public_pressure.yield
+    stage: s0
+    tags: [narrative, encounter, academy, yield]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你忍下一句刺耳话，脸面被踩了一脚，但局面没有失控。
+  - id: s0.encounter.academy_public_pressure.argue
+    stage: s0
+    tags: [narrative, encounter, academy, argue]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你回了一句，声音不高，却足够让旁人记住这笔账。
+  - id: s0.encounter.academy_public_pressure.confront
+    stage: s0
+    tags: [narrative, encounter, academy, confront]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你硬撑住对练和羞辱，伤不重，但下一段窗口被压得更窄。
+  - id: s0.encounter.alley_probe.trigger
+    stage: s0
+    tags: [narrative, encounter, alley, probe]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 巷道里的脚步慢了半拍，有人像是在试探你身后的尾巴。
+  - id: s0.encounter.alley_probe.retreat
+    stage: s0
+    tags: [narrative, encounter, alley, retreat]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你退得很快，断尾保身，账上只多一笔暴露。
+  - id: s0.encounter.alley_probe.delay
+    stage: s0
+    tags: [narrative, encounter, alley, delay]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你拖住话头，让对方摸不准你的底，时间替你撬开一条缝。
+  - id: s0.encounter.alley_probe.frame
+    stage: s0
+    tags: [narrative, encounter, alley, frame]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你把尾巴甩向旁人，眼前脱身，后账却不会就此消失。
+  - id: s0.encounter.alley_probe.confront
+    stage: s0
+    tags: [narrative, encounter, alley, confront]
+    evidence: gameplay_extrapolated
+    modes: [canon_strict, sandbox_if]
+    text: 你硬顶巷道试探，带伤脱身，也把自己写进更多眼睛里。
   - id: s0.action.wait.default
     stage: s0
     tags: [narrative, wait]

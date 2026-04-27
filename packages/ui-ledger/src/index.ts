@@ -10,11 +10,15 @@ export type ActionIntent =
   | "trade"
   | "retreat"
   | "confront"
+  | "yield"
+  | "argue"
+  | "delay"
+  | "frame"
   | "wait";
 
 export type InjuryLevel = "healthy" | "light" | "heavy";
 
-export type EncounterType = "extortion";
+export type EncounterType = "extortion" | "public_pressure" | "probe";
 
 export interface PerformanceMetrics {
   resolve_action_ms: number;

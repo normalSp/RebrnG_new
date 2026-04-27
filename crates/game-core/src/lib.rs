@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
+pub const STARTER_CONTENT_VERSION: &str = "s0.1.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint0-rules-v7";
+pub const RULES_VERSION: &str = "sprint1-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -34,6 +34,10 @@ pub enum ActionIntent {
     Trade,
     Retreat,
     Confront,
+    Yield,
+    Argue,
+    Delay,
+    Frame,
     Wait,
 }
 
@@ -256,6 +260,8 @@ impl Default for BuildState {
 #[serde(rename_all = "snake_case")]
 pub enum EncounterType {
     Extortion,
+    PublicPressure,
+    Probe,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -269,6 +275,7 @@ pub struct ActiveEncounter {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EncounterState {
     pub active: Option<ActiveEncounter>,
+    pub resolved_encounter_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -986,14 +993,39 @@ pub struct ContentEncounterTemplate {
     pub encounter_type: EncounterType,
     pub trigger_node_id: String,
     pub known_risk: String,
-    pub retreat_exposure_delta: i32,
-    pub confront_primeval_stones_cost: i32,
-    pub confront_exposure_delta: i32,
-    pub confront_injury_level: InjuryLevel,
+    #[serde(default)]
+    pub min_exposure: Option<i32>,
+    #[serde(default)]
+    pub min_moonlight_marks: Option<u8>,
+    #[serde(default)]
+    pub required_clue_ids: Vec<String>,
+    pub decisions: Vec<ContentEncounterDecision>,
     pub stage: String,
     pub tags: Vec<String>,
     pub evidence: EvidenceLevel,
     pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentEncounterDecision {
+    pub intent: ActionIntent,
+    pub ap_cost: u8,
+    pub primeval_stones_cost: i32,
+    pub exposure_delta: i32,
+    #[serde(default)]
+    pub injury_level: Option<InjuryLevel>,
+    #[serde(default)]
+    pub injury_ap_penalty_pending: bool,
+    #[serde(default)]
+    pub target_node_id: Option<String>,
+    pub survival_route: String,
+    pub narrative_id: String,
+    #[serde(default)]
+    pub clue_ids: Vec<String>,
+    #[serde(default)]
+    pub mitigating_clue_id: Option<String>,
+    #[serde(default)]
+    pub mitigated_exposure_delta: Option<i32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1143,10 +1175,8 @@ impl ContentBundle {
             )?;
             require_non_empty("action", &action.id, "label", &action.label)?;
             if let Some(target) = &action.target {
-                let target_is_encounter_decision = matches!(
-                    action.intent,
-                    ActionIntent::Retreat | ActionIntent::Confront
-                ) && encounter_ids.contains_key(target);
+                let target_is_encounter_decision = is_encounter_decision_intent(&action.intent)
+                    && encounter_ids.contains_key(target);
                 if !node_ids.contains_key(target) && !target_is_encounter_decision {
                     return Err(CommandError::content(
                         "行动目标节点不存在",
@@ -1279,14 +1309,71 @@ impl ContentBundle {
                     ),
                 ));
             }
-            if encounter.retreat_exposure_delta < 0
-                || encounter.confront_primeval_stones_cost < 0
-                || encounter.confront_exposure_delta < 0
-            {
+            if encounter.min_exposure.is_some_and(|value| value < 0) {
                 return Err(CommandError::content(
-                    "encounter costs cannot be negative",
-                    format!("encounter '{}' costs must be >= 0", encounter.id),
+                    "encounter trigger threshold cannot be negative",
+                    format!("encounter '{}' min_exposure must be >= 0", encounter.id),
                 ));
+            }
+            if encounter.decisions.is_empty() {
+                return Err(CommandError::content(
+                    "encounter decisions cannot be empty",
+                    format!("encounter '{}' decisions must not be empty", encounter.id),
+                ));
+            }
+            let mut decision_intents = Vec::new();
+            for decision in &encounter.decisions {
+                if !is_encounter_decision_intent(&decision.intent) {
+                    return Err(CommandError::content(
+                        "encounter decision intent is invalid",
+                        format!(
+                            "encounter '{}' decision '{:?}' is not an encounter decision",
+                            encounter.id, decision.intent
+                        ),
+                    ));
+                }
+                if decision_intents.contains(&decision.intent) {
+                    return Err(CommandError::content(
+                        "encounter decision intent duplicated",
+                        format!(
+                            "encounter '{}' decision '{:?}' appears more than once",
+                            encounter.id, decision.intent
+                        ),
+                    ));
+                }
+                decision_intents.push(decision.intent.clone());
+                if decision.ap_cost > 3
+                    || decision.primeval_stones_cost < 0
+                    || decision.exposure_delta < 0
+                    || decision
+                        .mitigated_exposure_delta
+                        .is_some_and(|value| value < 0)
+                {
+                    return Err(CommandError::content(
+                        "encounter decision costs cannot be invalid",
+                        format!(
+                            "encounter '{}' decision costs are out of range",
+                            encounter.id
+                        ),
+                    ));
+                }
+                if let Some(target_node_id) = &decision.target_node_id {
+                    if !node_ids.contains_key(target_node_id) {
+                        return Err(CommandError::content(
+                            "encounter decision target node not found",
+                            format!(
+                                "encounter '{}' decision target node '{}' not found",
+                                encounter.id, target_node_id
+                            ),
+                        ));
+                    }
+                }
+                require_non_empty(
+                    "encounter decision",
+                    &encounter.id,
+                    "survival_route",
+                    &decision.survival_route,
+                )?;
             }
         }
 
@@ -1828,6 +1915,69 @@ fn starter_actions() -> Vec<ContentAction> {
             &["action", "encounter", "confront"],
         ),
         action(
+            "yield_academy_public_pressure",
+            "忍让学堂压力",
+            ActionIntent::Yield,
+            Some("academy_public_pressure"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "encounter", "academy", "yield"],
+        ),
+        action(
+            "argue_academy_public_pressure",
+            "争辩学堂压力",
+            ActionIntent::Argue,
+            Some("academy_public_pressure"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "encounter", "academy", "argue"],
+        ),
+        action(
+            "confront_academy_public_pressure",
+            "硬撑学堂压力",
+            ActionIntent::Confront,
+            Some("academy_public_pressure"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "encounter", "academy", "confront"],
+        ),
+        action(
+            "retreat_alley_probe",
+            "退走巷道试探",
+            ActionIntent::Retreat,
+            Some("alley_probe"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "encounter", "alley", "retreat"],
+        ),
+        action(
+            "delay_alley_probe",
+            "拖延巷道试探",
+            ActionIntent::Delay,
+            Some("alley_probe"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "encounter", "alley", "delay"],
+        ),
+        action(
+            "frame_alley_probe",
+            "嫁祸巷道试探",
+            ActionIntent::Frame,
+            Some("alley_probe"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "encounter", "alley", "frame"],
+        ),
+        action(
+            "confront_alley_probe",
+            "硬顶巷道试探",
+            ActionIntent::Confront,
+            Some("alley_probe"),
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["action", "encounter", "alley", "confront"],
+        ),
+        action(
             "chase_inheritance_rumor",
             "追传承残线",
             ActionIntent::Move,
@@ -2230,20 +2380,210 @@ fn movement(
 }
 
 fn starter_encounters() -> Vec<ContentEncounterTemplate> {
-    vec![ContentEncounterTemplate {
-        id: "blackmarket_extortion".to_string(),
-        encounter_type: EncounterType::Extortion,
-        trigger_node_id: "blackmarket_hint".to_string(),
-        known_risk: "边路被盯上：对方要元石，硬顶会受创。".to_string(),
-        retreat_exposure_delta: 1,
-        confront_primeval_stones_cost: 1,
-        confront_exposure_delta: 2,
-        confront_injury_level: InjuryLevel::Heavy,
-        stage: "s0".to_string(),
-        tags: strings(&["encounter", "blackmarket", "extortion"]),
-        evidence: EvidenceLevel::GameplayExtrapolated,
-        modes: all_modes(),
-    }]
+    vec![
+        ContentEncounterTemplate {
+            id: "blackmarket_extortion".to_string(),
+            encounter_type: EncounterType::Extortion,
+            trigger_node_id: "blackmarket_hint".to_string(),
+            known_risk: "边路被盯上：对方要元石，硬顶会受创。".to_string(),
+            min_exposure: None,
+            min_moonlight_marks: None,
+            required_clue_ids: vec![],
+            decisions: vec![
+                encounter_decision(
+                    ActionIntent::Retreat,
+                    1,
+                    0,
+                    1,
+                    None,
+                    false,
+                    Some("academy_gate"),
+                    "黑市退避：保命先于脸面",
+                    "s0.encounter.blackmarket_extortion.retreat",
+                    &[],
+                    None,
+                    None,
+                ),
+                encounter_decision(
+                    ActionIntent::Confront,
+                    1,
+                    1,
+                    2,
+                    Some(InjuryLevel::Heavy),
+                    true,
+                    Some("academy_gate"),
+                    "黑市硬顶：带伤续命",
+                    "s0.encounter.blackmarket_extortion.confront",
+                    &[],
+                    None,
+                    None,
+                ),
+            ],
+            stage: "s0".to_string(),
+            tags: strings(&["encounter", "blackmarket", "extortion"]),
+            evidence: EvidenceLevel::GameplayExtrapolated,
+            modes: all_modes(),
+        },
+        ContentEncounterTemplate {
+            id: "academy_public_pressure".to_string(),
+            encounter_type: EncounterType::PublicPressure,
+            trigger_node_id: "moonlight_corner".to_string(),
+            known_risk: "学堂目光压来：修行越显眼，公开羞辱和对练压力越近。".to_string(),
+            min_exposure: None,
+            min_moonlight_marks: Some(2),
+            required_clue_ids: vec![],
+            decisions: vec![
+                encounter_decision(
+                    ActionIntent::Yield,
+                    1,
+                    0,
+                    1,
+                    None,
+                    false,
+                    None,
+                    "学堂忍让：保身压脸面",
+                    "s0.encounter.academy_public_pressure.yield",
+                    &[],
+                    Some("rumor_academy_pressure"),
+                    Some(0),
+                ),
+                encounter_decision(
+                    ActionIntent::Argue,
+                    1,
+                    0,
+                    2,
+                    None,
+                    false,
+                    None,
+                    "学堂争辩：被记下一笔",
+                    "s0.encounter.academy_public_pressure.argue",
+                    &[],
+                    Some("rumor_academy_pressure"),
+                    Some(1),
+                ),
+                encounter_decision(
+                    ActionIntent::Confront,
+                    1,
+                    0,
+                    2,
+                    Some(InjuryLevel::Light),
+                    true,
+                    None,
+                    "学堂硬撑：带伤保脸面",
+                    "s0.encounter.academy_public_pressure.confront",
+                    &[],
+                    None,
+                    None,
+                ),
+            ],
+            stage: "s0".to_string(),
+            tags: strings(&["encounter", "academy", "public_pressure"]),
+            evidence: EvidenceLevel::CanonInferred,
+            modes: all_modes(),
+        },
+        ContentEncounterTemplate {
+            id: "alley_probe".to_string(),
+            encounter_type: EncounterType::Probe,
+            trigger_node_id: "clan_alley_rumor".to_string(),
+            known_risk: "巷道有人试探尾巴：暴露越高，越容易被借机堵住。".to_string(),
+            min_exposure: Some(2),
+            min_moonlight_marks: None,
+            required_clue_ids: vec![],
+            decisions: vec![
+                encounter_decision(
+                    ActionIntent::Retreat,
+                    1,
+                    0,
+                    1,
+                    None,
+                    false,
+                    Some("academy_gate"),
+                    "巷道退走：断尾保身",
+                    "s0.encounter.alley_probe.retreat",
+                    &[],
+                    None,
+                    None,
+                ),
+                encounter_decision(
+                    ActionIntent::Delay,
+                    1,
+                    0,
+                    1,
+                    None,
+                    false,
+                    None,
+                    "巷道拖延：用时间换缝隙",
+                    "s0.encounter.alley_probe.delay",
+                    &[],
+                    Some("rumor_alley_probe"),
+                    Some(0),
+                ),
+                encounter_decision(
+                    ActionIntent::Frame,
+                    1,
+                    0,
+                    2,
+                    None,
+                    false,
+                    None,
+                    "巷道嫁祸：把尾巴甩给旁人",
+                    "s0.encounter.alley_probe.frame",
+                    &["rumor_blackmarket_tail"],
+                    None,
+                    None,
+                ),
+                encounter_decision(
+                    ActionIntent::Confront,
+                    1,
+                    1,
+                    3,
+                    Some(InjuryLevel::Light),
+                    true,
+                    Some("academy_gate"),
+                    "巷道硬顶：带伤脱身",
+                    "s0.encounter.alley_probe.confront",
+                    &[],
+                    None,
+                    None,
+                ),
+            ],
+            stage: "s0".to_string(),
+            tags: strings(&["encounter", "alley", "probe"]),
+            evidence: EvidenceLevel::GameplayExtrapolated,
+            modes: all_modes(),
+        },
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn encounter_decision(
+    intent: ActionIntent,
+    ap_cost: u8,
+    primeval_stones_cost: i32,
+    exposure_delta: i32,
+    injury_level: Option<InjuryLevel>,
+    injury_ap_penalty_pending: bool,
+    target_node_id: Option<&str>,
+    survival_route: &str,
+    narrative_id: &str,
+    clue_ids: &[&str],
+    mitigating_clue_id: Option<&str>,
+    mitigated_exposure_delta: Option<i32>,
+) -> ContentEncounterDecision {
+    ContentEncounterDecision {
+        intent,
+        ap_cost,
+        primeval_stones_cost,
+        exposure_delta,
+        injury_level,
+        injury_ap_penalty_pending,
+        target_node_id: target_node_id.map(str::to_string),
+        survival_route: survival_route.to_string(),
+        narrative_id: narrative_id.to_string(),
+        clue_ids: strings(clue_ids),
+        mitigating_clue_id: mitigating_clue_id.map(str::to_string),
+        mitigated_exposure_delta,
+    }
 }
 
 fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
@@ -2401,6 +2741,69 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
             &["narrative", "encounter", "confront"],
+        ),
+        content_narrative(
+            "s0.encounter.academy_public_pressure.trigger",
+            "月光修行的痕迹一深，学堂里的目光就压了过来。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "encounter", "academy", "public_pressure"],
+        ),
+        content_narrative(
+            "s0.encounter.academy_public_pressure.yield",
+            "你忍下一句刺耳话，脸面被踩了一脚，但局面没有失控。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "encounter", "academy", "yield"],
+        ),
+        content_narrative(
+            "s0.encounter.academy_public_pressure.argue",
+            "你回了一句，声音不高，却足够让旁人记住这笔账。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "encounter", "academy", "argue"],
+        ),
+        content_narrative(
+            "s0.encounter.academy_public_pressure.confront",
+            "你硬撑住对练和羞辱，伤不重，但下一段窗口被压得更窄。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "encounter", "academy", "confront"],
+        ),
+        content_narrative(
+            "s0.encounter.alley_probe.trigger",
+            "巷道里的脚步慢了半拍，有人像是在试探你身后的尾巴。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "alley", "probe"],
+        ),
+        content_narrative(
+            "s0.encounter.alley_probe.retreat",
+            "你退得很快，断尾保身，账上只多一笔暴露。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "alley", "retreat"],
+        ),
+        content_narrative(
+            "s0.encounter.alley_probe.delay",
+            "你拖住话头，让对方摸不准你的底，时间替你撬开一条缝。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "alley", "delay"],
+        ),
+        content_narrative(
+            "s0.encounter.alley_probe.frame",
+            "你把尾巴甩向旁人，眼前脱身，后账却不会就此消失。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "alley", "frame"],
+        ),
+        content_narrative(
+            "s0.encounter.alley_probe.confront",
+            "你硬顶巷道试探，带伤脱身，也把自己写进更多眼睛里。",
+            EvidenceLevel::GameplayExtrapolated,
+            all_modes(),
+            &["narrative", "encounter", "alley", "confront"],
         ),
         content_narrative(
             "s0.action.wait.default",
@@ -2810,10 +3213,7 @@ fn node_view(state: &GameState, content_bundle: &ContentBundle) -> NodeLedgerVie
 }
 
 fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
-    if matches!(
-        action.intent,
-        ActionIntent::Retreat | ActionIntent::Confront
-    ) {
+    if is_encounter_decision_intent(&action.intent) {
         return state
             .encounters
             .active
@@ -2837,6 +3237,18 @@ fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
     }
 
     true
+}
+
+fn is_encounter_decision_intent(intent: &ActionIntent) -> bool {
+    matches!(
+        intent,
+        ActionIntent::Retreat
+            | ActionIntent::Confront
+            | ActionIntent::Yield
+            | ActionIntent::Argue
+            | ActionIntent::Delay
+            | ActionIntent::Frame
+    )
 }
 
 fn is_blackmarket_tagged(tags: &[String]) -> bool {
@@ -2871,6 +3283,13 @@ fn clean_action_label(action: &ContentAction) -> String {
         "probe_blackmarket_hint" => "黑市换料",
         "retreat_blackmarket_extortion" => "跑路",
         "confront_blackmarket_extortion" => "硬顶",
+        "yield_academy_public_pressure" => "忍让",
+        "argue_academy_public_pressure" => "争辩",
+        "confront_academy_public_pressure" => "硬撑",
+        "retreat_alley_probe" => "退走",
+        "delay_alley_probe" => "拖延",
+        "frame_alley_probe" => "嫁祸",
+        "confront_alley_probe" => "硬顶",
         "chase_inheritance_rumor" => "追传承残线",
         "verify_inheritance_rumor" => "查验传承残线",
         _ => action.label.as_str(),
@@ -2932,6 +3351,10 @@ fn cost_hint(intent: &ActionIntent) -> String {
         ActionIntent::Trade => "1 AP / 1 元石",
         ActionIntent::Retreat => "1 AP",
         ActionIntent::Confront => "1 AP / 1 元石",
+        ActionIntent::Yield => "1 AP",
+        ActionIntent::Argue => "1 AP",
+        ActionIntent::Delay => "1 AP",
+        ActionIntent::Frame => "1 AP",
         ActionIntent::Wait => "吃掉当前窗口",
     }
     .to_string()
@@ -2946,6 +3369,10 @@ fn risk_hint(intent: &ActionIntent) -> String {
         ActionIntent::Trade => "暴露上升",
         ActionIntent::Retreat => "少量暴露，保命优先",
         ActionIntent::Confront => "重创可续，高暴露",
+        ActionIntent::Yield => "压低冲突，脸面受损",
+        ActionIntent::Argue => "暴露上升，换取余地",
+        ActionIntent::Delay => "拖出缝隙，消耗窗口",
+        ActionIntent::Frame => "嫁祸脱身，后患更深",
         ActionIntent::Wait => "错过窗口",
     }
     .to_string()
@@ -3113,10 +3540,7 @@ fn availability_check(
     }
 
     if let Some(active) = &state.encounters.active {
-        if !matches!(
-            command.intent,
-            ActionIntent::Retreat | ActionIntent::Confront
-        ) {
+        if !is_encounter_decision_intent(&command.intent) {
             return Err(CommandError::validation(
                 "active encounter must be resolved before ordinary actions",
             ));
@@ -3137,13 +3561,11 @@ fn availability_check(
         require_mode(&state.mode, &encounter.modes, "encounter", &encounter.id)?;
         let action = action_by_intent_target(command.intent.clone(), Some(target), content_bundle)?;
         require_mode(&state.mode, &action.modes, "action", &action.id)?;
+        active_encounter_decision(state, content_bundle, &command.intent)?;
         return Ok(());
     }
 
-    if matches!(
-        command.intent,
-        ActionIntent::Retreat | ActionIntent::Confront
-    ) {
+    if is_encounter_decision_intent(&command.intent) {
         return Err(CommandError::validation(
             "encounter decision requires an active encounter",
         ));
@@ -3229,10 +3651,14 @@ fn cost_reservation(
         ActionIntent::Scout => (1, 0, false),
         ActionIntent::Recover => (1, 0, false),
         ActionIntent::Trade => (1, 1, false),
-        ActionIntent::Retreat => (1, 0, false),
-        ActionIntent::Confront => {
-            let encounter = active_encounter_template(state, content_bundle)?;
-            (1, encounter.confront_primeval_stones_cost, false)
+        ActionIntent::Retreat
+        | ActionIntent::Confront
+        | ActionIntent::Yield
+        | ActionIntent::Argue
+        | ActionIntent::Delay
+        | ActionIntent::Frame => {
+            let decision = active_encounter_decision(state, content_bundle, &command.intent)?;
+            (decision.ap_cost, decision.primeval_stones_cost, false)
         }
         ActionIntent::Wait => (state.time.ap, 0, true),
     };
@@ -3278,23 +3704,30 @@ fn subsystem_resolution(
             outcome.target_node_id = Some(target);
             outcome.exposure_delta = edge.exposure_delta;
             outcome.arrival_ap_penalty = edge.arrival_ap_penalty;
-            if let Some(encounter) =
-                encounter_trigger_for_node(outcome.target_node_id.as_deref(), content_bundle)
-            {
+            if let Some(encounter) = eligible_encounter_trigger(
+                state,
+                outcome.target_node_id.as_deref(),
+                state.risk.exposure + outcome.exposure_delta,
+                state.build.moonlight_cultivation_marks,
+                content_bundle,
+            ) {
                 require_mode(&state.mode, &encounter.modes, "encounter", &encounter.id)?;
                 outcome.trigger_encounter = Some(ActiveEncounter {
                     encounter_id: encounter.id.clone(),
                     encounter_type: encounter.encounter_type.clone(),
                     known_risk: encounter.known_risk.clone(),
-                    decision_intents: vec![ActionIntent::Retreat, ActionIntent::Confront],
+                    decision_intents: encounter
+                        .decisions
+                        .iter()
+                        .map(|decision| decision.intent.clone())
+                        .collect(),
                 });
                 outcome.ledger_kind = "encounter".to_string();
                 outcome.ledger_text = format!(
                     "黑市边路有人拦住去路，勒索的风险已经明牌：{}",
                     encounter.known_risk
                 );
-                outcome.narrative_id =
-                    Some("s0.encounter.blackmarket_extortion.trigger".to_string());
+                outcome.narrative_id = Some(format!("s0.encounter.{}.trigger", encounter.id));
             }
             Ok(outcome)
         }
@@ -3304,6 +3737,19 @@ fn subsystem_resolution(
                     .with_narrative_id("s0.action.cultivate.moonlight");
             outcome.survival_route = Some("月光修行：制度内求稳".to_string());
             outcome.moonlight_cultivation_delta = 1;
+            if let Some(encounter) = eligible_encounter_trigger(
+                state,
+                Some(state.world.current_node_id.as_str()),
+                state.risk.exposure,
+                state
+                    .build
+                    .moonlight_cultivation_marks
+                    .saturating_add(outcome.moonlight_cultivation_delta),
+                content_bundle,
+            ) {
+                require_mode(&state.mode, &encounter.modes, "encounter", &encounter.id)?;
+                apply_encounter_trigger(&mut outcome, encounter);
+            }
             Ok(outcome)
         }
         ActionIntent::Scout => {
@@ -3339,6 +3785,7 @@ fn subsystem_resolution(
             } else if target == "clan_alley_rumor" {
                 outcome.reveal_blackmarket_route = true;
                 outcome.remember_clue("rumor_blackmarket_tail");
+                outcome.remember_clue("rumor_alley_probe");
                 outcome.ledger_text =
                     "巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.clan_alley_rumor".to_string());
@@ -3382,27 +3829,48 @@ fn subsystem_resolution(
             Ok(outcome)
         }
         ActionIntent::Retreat => {
-            let encounter = active_encounter_template(state, content_bundle)?;
+            let decision = active_encounter_decision(state, content_bundle, &command.intent)?;
             let mut outcome =
                 SubsystemOutcome::new("encounter", "你选择跑路，丢一点脸面和掩护，保住筋骨。")
-                    .with_narrative_id("s0.encounter.blackmarket_extortion.retreat");
-            outcome.exposure_delta = encounter.retreat_exposure_delta;
+                    .with_narrative_id(&decision.narrative_id);
+            outcome.exposure_delta =
+                mitigated_exposure_delta(state, decision).unwrap_or(decision.exposure_delta);
             outcome.clear_active_encounter = true;
-            outcome.target_node_id = Some("academy_gate".to_string());
-            outcome.survival_route = Some("黑市退避：保命先于脸面".to_string());
+            outcome.target_node_id = decision.target_node_id.clone();
+            outcome.survival_route = Some(decision.survival_route.clone());
             Ok(outcome)
         }
         ActionIntent::Confront => {
-            let encounter = active_encounter_template(state, content_bundle)?;
+            let decision = active_encounter_decision(state, content_bundle, &command.intent)?;
             let mut outcome =
                 SubsystemOutcome::new("encounter", "你硬顶勒索，代价落在元石和伤势上。")
-                    .with_narrative_id("s0.encounter.blackmarket_extortion.confront");
-            outcome.exposure_delta = encounter.confront_exposure_delta;
+                    .with_narrative_id(&decision.narrative_id);
+            outcome.exposure_delta =
+                mitigated_exposure_delta(state, decision).unwrap_or(decision.exposure_delta);
             outcome.clear_active_encounter = true;
-            outcome.target_node_id = Some("academy_gate".to_string());
-            outcome.injury_level = Some(encounter.confront_injury_level.clone());
-            outcome.injury_ap_penalty_pending = Some(true);
-            outcome.survival_route = Some("黑市硬顶：带伤续命".to_string());
+            outcome.target_node_id = decision.target_node_id.clone();
+            outcome.injury_level = decision.injury_level.clone();
+            outcome.injury_ap_penalty_pending = Some(decision.injury_ap_penalty_pending);
+            outcome.survival_route = Some(decision.survival_route.clone());
+            Ok(outcome)
+        }
+        ActionIntent::Yield | ActionIntent::Argue | ActionIntent::Delay | ActionIntent::Frame => {
+            let decision = active_encounter_decision(state, content_bundle, &command.intent)?;
+            let mut outcome =
+                SubsystemOutcome::new("encounter", "你在遭遇里作出决断，代价和余波被写进账本。")
+                    .with_narrative_id(&decision.narrative_id);
+            outcome.exposure_delta =
+                mitigated_exposure_delta(state, decision).unwrap_or(decision.exposure_delta);
+            outcome.clear_active_encounter = true;
+            outcome.target_node_id = decision.target_node_id.clone();
+            outcome.injury_level = decision.injury_level.clone();
+            if decision.injury_ap_penalty_pending {
+                outcome.injury_ap_penalty_pending = Some(true);
+            }
+            outcome.survival_route = Some(decision.survival_route.clone());
+            for clue_id in &decision.clue_ids {
+                outcome.remember_clue(clue_id);
+            }
             Ok(outcome)
         }
         ActionIntent::Wait => Ok(SubsystemOutcome::new(
@@ -3444,6 +3912,18 @@ fn effect_commit(
     state.time.ap = state.time.ap.saturating_sub(outcome.arrival_ap_penalty);
 
     if outcome.clear_active_encounter {
+        if let Some(active) = &state.encounters.active {
+            if !state
+                .encounters
+                .resolved_encounter_ids
+                .contains(&active.encounter_id)
+            {
+                state
+                    .encounters
+                    .resolved_encounter_ids
+                    .push(active.encounter_id.clone());
+            }
+        }
         state.encounters.active = None;
     }
 
@@ -3597,26 +4077,87 @@ fn narrative_by_id<'a>(
         .map(|index| &content_bundle.narratives[*index])
 }
 
-fn active_encounter_template<'a>(
+fn active_encounter_decision<'a>(
     state: &GameState,
     content_bundle: &'a ContentBundle,
-) -> Result<&'a ContentEncounterTemplate, CommandError> {
+    intent: &ActionIntent,
+) -> Result<&'a ContentEncounterDecision, CommandError> {
     let active =
         state.encounters.active.as_ref().ok_or_else(|| {
             CommandError::validation("encounter decision requires active encounter")
         })?;
-    encounter_by_id(&active.encounter_id, content_bundle)
+    let encounter = encounter_by_id(&active.encounter_id, content_bundle)?;
+    encounter
+        .decisions
+        .iter()
+        .find(|decision| &decision.intent == intent)
+        .ok_or_else(|| {
+            CommandError::validation(format!(
+                "encounter '{}' does not allow decision '{intent:?}'",
+                active.encounter_id
+            ))
+        })
 }
 
-fn encounter_trigger_for_node<'a>(
+fn mitigated_exposure_delta(state: &GameState, decision: &ContentEncounterDecision) -> Option<i32> {
+    let clue_id = decision.mitigating_clue_id.as_ref()?;
+    state
+        .knowledge
+        .known_clues
+        .iter()
+        .any(|known| known == clue_id)
+        .then_some(
+            decision
+                .mitigated_exposure_delta
+                .unwrap_or(decision.exposure_delta),
+        )
+}
+
+fn apply_encounter_trigger(outcome: &mut SubsystemOutcome, encounter: &ContentEncounterTemplate) {
+    outcome.trigger_encounter = Some(ActiveEncounter {
+        encounter_id: encounter.id.clone(),
+        encounter_type: encounter.encounter_type.clone(),
+        known_risk: encounter.known_risk.clone(),
+        decision_intents: encounter
+            .decisions
+            .iter()
+            .map(|decision| decision.intent.clone())
+            .collect(),
+    });
+    outcome.ledger_kind = "encounter".to_string();
+    outcome.ledger_text = format!("遭遇压身：{}", encounter.known_risk);
+    outcome.narrative_id = Some(format!("s0.encounter.{}.trigger", encounter.id));
+}
+
+fn eligible_encounter_trigger<'a>(
+    state: &GameState,
     node_id: Option<&str>,
+    prospective_exposure: i32,
+    prospective_moonlight_marks: u8,
     content_bundle: &'a ContentBundle,
 ) -> Option<&'a ContentEncounterTemplate> {
     let node_id = node_id?;
-    content_bundle
-        .encounters
-        .iter()
-        .find(|encounter| encounter.trigger_node_id == node_id)
+    content_bundle.encounters.iter().find(|encounter| {
+        encounter.trigger_node_id == node_id
+            && !state
+                .encounters
+                .resolved_encounter_ids
+                .contains(&encounter.id)
+            && encounter
+                .min_exposure
+                .is_none_or(|min| prospective_exposure >= min)
+            && encounter
+                .min_moonlight_marks
+                .is_none_or(|min| prospective_moonlight_marks >= min)
+            && encounter.required_clue_ids.iter().all(|required| {
+                state
+                    .knowledge
+                    .known_clues
+                    .iter()
+                    .any(|known| known == required)
+            })
+            && mode_permitted(&state.mode, &encounter.modes)
+    })
 }
 
 fn action_by_intent_target<'a>(
@@ -3907,6 +4448,199 @@ mod tests {
             .filter(|clue| clue.as_str() == "rumor_family_debt")
             .count();
         assert_eq!(family_debt_count, 1);
+    }
+
+    #[test]
+    fn sprint1_phase3_bundle_contains_three_encounter_variants_and_decisions() {
+        let bundle = starter_content_bundle();
+
+        for (encounter_id, encounter_type, decision_intents) in [
+            (
+                "blackmarket_extortion",
+                EncounterType::Extortion,
+                vec![ActionIntent::Retreat, ActionIntent::Confront],
+            ),
+            (
+                "academy_public_pressure",
+                EncounterType::PublicPressure,
+                vec![
+                    ActionIntent::Yield,
+                    ActionIntent::Argue,
+                    ActionIntent::Confront,
+                ],
+            ),
+            (
+                "alley_probe",
+                EncounterType::Probe,
+                vec![
+                    ActionIntent::Retreat,
+                    ActionIntent::Delay,
+                    ActionIntent::Frame,
+                    ActionIntent::Confront,
+                ],
+            ),
+        ] {
+            let encounter = encounter_by_id(encounter_id, &bundle)
+                .unwrap_or_else(|_| panic!("missing encounter {encounter_id}"));
+            assert_eq!(encounter.encounter_type, encounter_type);
+            let actual_intents = encounter
+                .decisions
+                .iter()
+                .map(|decision| decision.intent.clone())
+                .collect::<Vec<_>>();
+            assert_eq!(actual_intents, decision_intents);
+            for decision in &encounter.decisions {
+                assert!(
+                    bundle
+                        .indexes
+                        .narrative_ids
+                        .contains_key(&decision.narrative_id),
+                    "decision {:?} for {encounter_id} points at missing narrative {}",
+                    decision.intent,
+                    decision.narrative_id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn academy_pressure_clue_mitigates_public_pressure_decision_cost() {
+        let bundle = starter_content_bundle();
+
+        let unprepared = state_at_academy_pressure_without_clue(&bundle);
+        let unprepared_yield = resolve_action(
+            unprepared,
+            command(ActionIntent::Yield, Some("academy_public_pressure")),
+            &bundle,
+        )
+        .expect("yield should resolve without the pressure clue");
+
+        let prepared = state_at_academy_pressure_with_clue(&bundle);
+        let prepared_yield = resolve_action(
+            prepared,
+            command(ActionIntent::Yield, Some("academy_public_pressure")),
+            &bundle,
+        )
+        .expect("yield should resolve with the pressure clue");
+
+        assert!(
+            prepared_yield.state.risk.exposure < unprepared_yield.state.risk.exposure,
+            "rumor_academy_pressure should reduce the visible exposure cost of yielding"
+        );
+        assert!(prepared_yield
+            .state
+            .encounters
+            .resolved_encounter_ids
+            .contains(&"academy_public_pressure".to_string()));
+    }
+
+    #[test]
+    fn alley_probe_scout_records_probe_clue_and_later_triggers_probe() {
+        let bundle = starter_content_bundle();
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.world.current_node_id = "clan_alley_rumor".to_string();
+
+        let scouted = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("clan_alley_rumor")),
+            &bundle,
+        )
+        .expect("alley scout should resolve");
+        assert!(scouted
+            .state
+            .knowledge
+            .known_clues
+            .contains(&"rumor_alley_probe".to_string()));
+        assert!(
+            scouted.state.encounters.active.is_none(),
+            "scouting should provide warning before the probe is sprung"
+        );
+
+        let mut exposed = scouted.state;
+        exposed.risk.exposure = 2;
+        let returned = resolve_action(
+            exposed,
+            command(ActionIntent::Move, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("returning to academy should resolve");
+        let probed = resolve_action(
+            returned.state,
+            command(ActionIntent::Move, Some("clan_alley_rumor")),
+            &bundle,
+        )
+        .expect("returning to the alley at high exposure should trigger probe");
+
+        let active = probed
+            .state
+            .encounters
+            .active
+            .expect("alley probe should become active");
+        assert_eq!(active.encounter_id, "alley_probe");
+        assert_eq!(active.encounter_type, EncounterType::Probe);
+        assert!(active.decision_intents.contains(&ActionIntent::Delay));
+        assert!(active.decision_intents.contains(&ActionIntent::Frame));
+    }
+
+    #[test]
+    fn resolved_encounter_does_not_retrigger_on_same_node() {
+        let bundle = starter_content_bundle();
+        let probed = state_at_alley_probe(&bundle);
+        let delayed = resolve_action(
+            probed,
+            command(ActionIntent::Delay, Some("alley_probe")),
+            &bundle,
+        )
+        .expect("delay should resolve alley probe");
+        assert!(delayed.state.encounters.active.is_none());
+        assert!(delayed
+            .state
+            .encounters
+            .resolved_encounter_ids
+            .contains(&"alley_probe".to_string()));
+
+        let returned = resolve_action(
+            delayed.state,
+            command(ActionIntent::Move, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("can leave alley after resolved probe");
+        let revisited = resolve_action(
+            returned.state,
+            command(ActionIntent::Move, Some("clan_alley_rumor")),
+            &bundle,
+        )
+        .expect("can revisit alley after resolved probe");
+
+        assert!(
+            revisited.state.encounters.active.is_none(),
+            "resolved alley probe should not immediately repeat"
+        );
+    }
+
+    #[test]
+    fn save_envelope_preserves_resolved_encounter_ids() {
+        let bundle = starter_content_bundle();
+        let probed = state_at_alley_probe(&bundle);
+        let framed = resolve_action(
+            probed,
+            command(ActionIntent::Frame, Some("alley_probe")),
+            &bundle,
+        )
+        .expect("frame should resolve alley probe");
+
+        let encoded =
+            serde_json::to_string(&SaveEnvelope::from_state("slot_0", framed.state.clone()))
+                .expect("save envelope serializes");
+        let decoded: SaveEnvelope =
+            serde_json::from_str(&encoded).expect("save envelope deserializes");
+        decoded
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect("phase 3 save should load");
+        assert_eq!(
+            decoded.snapshot.encounters.resolved_encounter_ids,
+            framed.state.encounters.resolved_encounter_ids
+        );
     }
 
     #[test]
@@ -4857,6 +5591,45 @@ mod tests {
             bundle,
         )
         .expect("blackmarket movement should trigger extortion")
+        .state
+    }
+
+    fn state_at_academy_pressure_without_clue(bundle: &ContentBundle) -> GameState {
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.world.current_node_id = "moonlight_corner".to_string();
+        state.build.moonlight_cultivation_marks = 1;
+        resolve_action(
+            state,
+            command(ActionIntent::Cultivate, Some("moonlight_corner")),
+            bundle,
+        )
+        .expect("cultivation should trigger academy pressure")
+        .state
+    }
+
+    fn state_at_academy_pressure_with_clue(bundle: &ContentBundle) -> GameState {
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.world.current_node_id = "moonlight_corner".to_string();
+        state.knowledge.record_clue("rumor_academy_pressure");
+        state.build.moonlight_cultivation_marks = 1;
+        resolve_action(
+            state,
+            command(ActionIntent::Cultivate, Some("moonlight_corner")),
+            bundle,
+        )
+        .expect("cultivation should trigger academy pressure")
+        .state
+    }
+
+    fn state_at_alley_probe(bundle: &ContentBundle) -> GameState {
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.risk.exposure = 2;
+        resolve_action(
+            state,
+            command(ActionIntent::Move, Some("clan_alley_rumor")),
+            bundle,
+        )
+        .expect("high exposure alley movement should trigger probe")
         .state
     }
 
