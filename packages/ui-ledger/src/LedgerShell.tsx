@@ -88,7 +88,7 @@ export function LedgerShell({
     <main className="ledger-shell" aria-label="RebrnG 青茅山账本">
       <header className="ledger-top">
         <div>
-          <p className="ledger-kicker">RebrnG Sprint 1</p>
+          <p className="ledger-kicker">RebrnG Sprint 2</p>
           <h1>青茅山冷账</h1>
         </div>
         <div className="ledger-run-controls" aria-label="运行控制">
@@ -113,13 +113,17 @@ export function LedgerShell({
             </div>
           ))
         ) : (
-          <div className="ledger-status-empty">尚无 active run，规则状态仍未开账。</div>
+          <div className="ledger-status-empty">
+            尚无 active run，规则状态仍未开账。
+          </div>
         )}
       </section>
 
       <div className="ledger-system-line" role="status">
         {status}
       </div>
+
+      {projection ? <WalkthroughSummary projection={projection} /> : null}
 
       {projection ? (
         <div className="ledger-layout">
@@ -153,11 +157,44 @@ export function LedgerShell({
         <section className="ledger-empty-state">
           <h2>账页未启</h2>
           <p>
-            先让 Rust 创建单局。React 只拿到账本投影，不持有完整规则状态，也不本地结算代价。
+            先让 Rust 创建单局。React 只拿到账本投影，不持有完整规则状态，也不在本地结算代价。
           </p>
         </section>
       )}
     </main>
+  );
+}
+
+function WalkthroughSummary({ projection }: { projection: LedgerViewModel }) {
+  const feedback = projection.recent_feedback?.summary ?? "尚未产生新的因果反馈";
+
+  return (
+    <section className="ledger-walkthrough-summary" aria-label="走查摘要">
+      <div>
+        <span>窗口</span>
+        <strong>
+          {projection.current_period} / {projection.available_ap} AP
+        </strong>
+        <small>{projection.window_id}</small>
+      </div>
+      <div>
+        <span>最近反馈</span>
+        <strong>{feedback}</strong>
+        <small>{projection.next_anchor_pressure}</small>
+      </div>
+      <div>
+        <span>风险</span>
+        <strong>
+          伤势 {injuryLabel(projection.injury_level)} / 暴露 {projection.exposure}
+        </strong>
+        <small>债务压力 {projection.debt_pressure}</small>
+      </div>
+      <div>
+        <span>阶段收口</span>
+        <strong>{projection.stage_closure.title}</strong>
+        <small>{projection.stage_closure.summary}</small>
+      </div>
+    </section>
   );
 }
 
@@ -176,9 +213,16 @@ function ActionGroups({
           return null;
         }
 
+        const enabledCount = groupChoices.filter((choice) => choice.enabled).length;
+
         return (
           <section className="ledger-action-group" key={group}>
-            <h3>{actionGroupLabels[group]}</h3>
+            <div className="ledger-action-group-title">
+              <h3>{actionGroupLabels[group]}</h3>
+              <small>
+                {enabledCount}/{groupChoices.length} 可用
+              </small>
+            </div>
             <div className="ledger-action-list">
               {groupChoices.map((choice) => (
                 <button
@@ -188,12 +232,17 @@ function ActionGroups({
                   key={choice.id}
                   onClick={() => onResolveAction(makeCommand(choice))}
                 >
-                  <span>{choice.label}</span>
-                  <small>{choice.cost_hint}</small>
-                  <em>{choice.risk_hint}</em>
-                  <strong>{choice.consequence_hint}</strong>
+                  <span className="ledger-action-title">
+                    <span>{choice.label}</span>
+                    <i>{toneLabel(choice.tone)}</i>
+                  </span>
+                  <span className="ledger-action-meta">
+                    <small>代价：{choice.cost_hint}</small>
+                    <em>风险：{choice.risk_hint}</em>
+                  </span>
+                  <strong>后果：{choice.consequence_hint}</strong>
                   {!choice.enabled && choice.disabled_reason ? (
-                    <b>{choice.disabled_reason}</b>
+                    <b>受阻：{choice.disabled_reason}</b>
                   ) : null}
                 </button>
               ))}
@@ -235,10 +284,10 @@ function ScenePage({ projection }: { projection: LedgerViewModel }) {
         第 {projection.current_day} 日 / {projection.current_period} /{" "}
         {projection.current_node_id}
       </h2>
-      <p className="scene-text">{projection.scene_text}</p>
       {projection.recent_feedback ? (
         <RecentFeedback feedback={projection.recent_feedback} />
       ) : null}
+      <p className="scene-text">{projection.scene_text}</p>
       <div className={`danger-note is-${projection.stage_closure.status}`}>
         <strong>{projection.stage_closure.title}</strong>
         <span>{projection.stage_closure.summary}</span>
@@ -428,6 +477,15 @@ function Row({ label, value }: { label: string; value: string | number }) {
       <dd>{value}</dd>
     </>
   );
+}
+
+function injuryLabel(injury: LedgerViewModel["injury_level"]): string {
+  const labels: Record<LedgerViewModel["injury_level"], string> = {
+    healthy: "健康",
+    light: "轻伤",
+    heavy: "重伤",
+  };
+  return labels[injury];
 }
 
 export function toneLabel(tone: ActionChoiceTone): string {
