@@ -46,7 +46,9 @@ function App() {
       const result = await invoke<SaveWriteResult>("write_save", {
         slotId: "slot_0",
       });
-      setStatus(`已写入：${result.path_hint}`);
+      setStatus(
+        `已写入：${result.path_hint} / 检查点 ${result.checkpoint_count} 个 / 当前快照 ${result.current_checkpoint_id}`,
+      );
     } catch (error) {
       setStatus(formatCommandError(error));
     }

@@ -76,6 +76,18 @@ export interface NodeLedgerView {
   visible_nodes: NodeSummaryView[];
 }
 
+export interface SaveLedgerView {
+  save_version: string;
+  rules_version: string;
+  content_version: string;
+  rng_state: string;
+  migration_state: string;
+  checkpoint_count: number;
+  current_checkpoint_id: string;
+  stage_checkpoint_ids: string[];
+  rollback_policy: string;
+}
+
 export interface DeclaredCost {
   ap: number;
   primeval_stones: number;
@@ -108,6 +120,7 @@ export interface LedgerViewModel {
   status_markers: StatusMarkerView[];
   build_view: BuildLedgerView;
   relationship_view: FactionRelationshipView;
+  save_view: SaveLedgerView;
   action_choices: ActionChoiceView[];
   node_view: NodeLedgerView;
   injury_level: InjuryLevel;
@@ -130,6 +143,9 @@ export interface SaveWriteResult {
   save_version: string;
   rules_version: string;
   content_version: string;
+  checkpoint_count: number;
+  current_checkpoint_id: string;
+  stage_checkpoint_ids: string[];
   written: boolean;
 }
 

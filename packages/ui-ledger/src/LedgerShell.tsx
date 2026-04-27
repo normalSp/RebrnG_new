@@ -10,7 +10,15 @@ export interface LedgerShellProps {
   onLoadSave: () => Promise<void>;
 }
 
-type LedgerPage = "scene" | "map" | "resources" | "build" | "relations" | "clues" | "ledger";
+type LedgerPage =
+  | "scene"
+  | "map"
+  | "resources"
+  | "build"
+  | "relations"
+  | "save"
+  | "clues"
+  | "ledger";
 
 const zeroDeclaredCost = {
   ap: 0,
@@ -24,6 +32,7 @@ const pages: Array<{ id: LedgerPage; label: string }> = [
   { id: "resources", label: "物资债务" },
   { id: "build", label: "修行 Build" },
   { id: "relations", label: "关系局势" },
+  { id: "save", label: "存档边界" },
   { id: "clues", label: "风声线索" },
   { id: "ledger", label: "因果账" },
 ];
@@ -144,6 +153,8 @@ function renderPage(page: LedgerPage, projection: LedgerViewModel) {
       return <BuildPage projection={projection} />;
     case "relations":
       return <RelationsPage projection={projection} />;
+    case "save":
+      return <SavePage projection={projection} />;
     case "clues":
       return <CluesPage projection={projection} />;
     case "ledger":
@@ -237,6 +248,31 @@ function RelationsPage({ projection }: { projection: LedgerViewModel }) {
         <Row label="药堂债" value={relation.infirmary_debt} />
         <Row label="人情债" value={relation.favor_debt} />
         <Row label="黑市门路" value={relation.blackmarket_access} />
+      </dl>
+    </article>
+  );
+}
+
+function SavePage({ projection }: { projection: LedgerViewModel }) {
+  const save = projection.save_view;
+
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">存档 / 阶段检查点</p>
+      <h2>能读回当前局势，但不把每个选择都变成回退点</h2>
+      <dl className="ledger-rows">
+        <Row label="存档格式" value={save.save_version} />
+        <Row label="规则版本" value={save.rules_version} />
+        <Row label="内容版本" value={save.content_version} />
+        <Row label="RNG 状态" value={save.rng_state} />
+        <Row label="迁移状态" value={save.migration_state} />
+        <Row label="当前快照" value={save.current_checkpoint_id} />
+        <Row label="检查点数量" value={save.checkpoint_count} />
+        <Row
+          label="阶段检查点"
+          value={save.stage_checkpoint_ids.length ? save.stage_checkpoint_ids.join(" / ") : "暂无"}
+        />
+        <Row label="回退规则" value={save.rollback_policy} />
       </dl>
     </article>
   );

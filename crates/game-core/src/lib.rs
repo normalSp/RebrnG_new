@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
-pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
+pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
 pub const RULES_VERSION: &str = "sprint0-rules-v5";
+pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
+pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -294,11 +296,34 @@ pub struct SaveMetadata {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SaveCheckpointKind {
+    StageBoundary,
+    CurrentSnapshot,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SaveRestorePolicy {
+    StageCheckpoint,
+    CurrentSnapshot,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SaveCheckpoint {
     pub checkpoint_id: String,
+    pub kind: SaveCheckpointKind,
+    pub restore_policy: SaveRestorePolicy,
     pub chapter: String,
     pub period: String,
+    pub window_id: String,
+    pub window_index: usize,
+    pub free_rounds_elapsed: u8,
     pub node_id: String,
+    pub ledger_len: usize,
+    pub rules_version: String,
+    pub content_version: String,
+    pub summary: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -313,12 +338,7 @@ pub struct SaveEnvelope {
 
 impl SaveEnvelope {
     pub fn from_state(slot_id: impl Into<String>, state: GameState) -> Self {
-        let checkpoint = SaveCheckpoint {
-            checkpoint_id: "sprint_0_current".to_string(),
-            chapter: state.chapter.clone(),
-            period: state.time.period.clone(),
-            node_id: state.world.current_node_id.clone(),
-        };
+        let checkpoints = save_checkpoints_for_state(&state);
 
         Self {
             metadata: SaveMetadata {
@@ -331,9 +351,9 @@ impl SaveEnvelope {
             },
             ledger: state.ledger.clone(),
             snapshot: state,
-            checkpoints: vec![checkpoint],
-            rng_state: "sprint_0_deterministic_seed".to_string(),
-            migration_state: "none".to_string(),
+            checkpoints,
+            rng_state: DEFAULT_RNG_STATE.to_string(),
+            migration_state: DEFAULT_MIGRATION_STATE.to_string(),
         }
     }
 
@@ -410,7 +430,181 @@ impl SaveEnvelope {
             ));
         }
 
+        if self.rng_state.trim().is_empty() {
+            return Err(CommandError::save(
+                "存档 RNG 状态缺失",
+                "rng_state must not be empty",
+            ));
+        }
+
+        if self.migration_state.trim().is_empty() {
+            return Err(CommandError::save(
+                "存档迁移状态缺失",
+                "migration_state must not be empty",
+            ));
+        }
+
+        self.validate_checkpoints(expected_content_version)?;
+
         Ok(())
+    }
+
+    fn validate_checkpoints(&self, expected_content_version: &str) -> Result<(), CommandError> {
+        if self.checkpoints.is_empty() {
+            return Err(CommandError::save(
+                "存档检查点缺失",
+                "SaveEnvelope.checkpoints must contain at least one checkpoint",
+            ));
+        }
+
+        let mut seen = BTreeSet::new();
+        for checkpoint in &self.checkpoints {
+            if checkpoint.checkpoint_id.trim().is_empty() {
+                return Err(CommandError::save(
+                    "存档检查点 ID 缺失",
+                    "checkpoint_id must not be empty",
+                ));
+            }
+            if !seen.insert(checkpoint.checkpoint_id.clone()) {
+                return Err(CommandError::save(
+                    "存档检查点重复",
+                    format!("duplicate checkpoint_id '{}'", checkpoint.checkpoint_id),
+                ));
+            }
+            if checkpoint.rules_version != RULES_VERSION {
+                return Err(CommandError::save(
+                    "检查点规则版本不一致",
+                    format!(
+                        "checkpoint '{}' expected rules_version '{}', found '{}'",
+                        checkpoint.checkpoint_id, RULES_VERSION, checkpoint.rules_version
+                    ),
+                ));
+            }
+            if checkpoint.content_version != expected_content_version {
+                return Err(CommandError::save(
+                    "检查点内容版本不一致",
+                    format!(
+                        "checkpoint '{}' expected content_version '{}', found '{}'",
+                        checkpoint.checkpoint_id,
+                        expected_content_version,
+                        checkpoint.content_version
+                    ),
+                ));
+            }
+            if checkpoint.chapter != self.snapshot.chapter {
+                return Err(CommandError::save(
+                    "检查点阶段不一致",
+                    format!(
+                        "checkpoint '{}' chapter '{}', snapshot chapter '{}'",
+                        checkpoint.checkpoint_id, checkpoint.chapter, self.snapshot.chapter
+                    ),
+                ));
+            }
+            if checkpoint.ledger_len > self.snapshot.ledger.len() {
+                return Err(CommandError::save(
+                    "检查点账本长度越界",
+                    format!(
+                        "checkpoint '{}' ledger_len {}, snapshot ledger len {}",
+                        checkpoint.checkpoint_id,
+                        checkpoint.ledger_len,
+                        self.snapshot.ledger.len()
+                    ),
+                ));
+            }
+        }
+
+        let current = self
+            .checkpoints
+            .iter()
+            .find(|checkpoint| checkpoint.kind == SaveCheckpointKind::CurrentSnapshot)
+            .ok_or_else(|| {
+                CommandError::save(
+                    "当前快照检查点缺失",
+                    "expected one current_snapshot checkpoint",
+                )
+            })?;
+
+        if current.restore_policy != SaveRestorePolicy::CurrentSnapshot {
+            return Err(CommandError::save(
+                "当前快照恢复策略不一致",
+                format!(
+                    "checkpoint '{}' restore policy must be current_snapshot",
+                    current.checkpoint_id
+                ),
+            ));
+        }
+
+        if current.node_id != self.snapshot.world.current_node_id
+            || current.window_id != self.snapshot.time.window_id
+            || current.window_index != self.snapshot.time.window_index
+            || current.free_rounds_elapsed != self.snapshot.time.free_rounds_elapsed
+            || current.period != self.snapshot.time.period
+            || current.ledger_len != self.snapshot.ledger.len()
+        {
+            return Err(CommandError::save(
+                "当前快照检查点与规则状态不一致",
+                format!(
+                    "checkpoint '{}' does not match snapshot node/window/ledger boundary",
+                    current.checkpoint_id
+                ),
+            ));
+        }
+
+        let has_stage_boundary = self.checkpoints.iter().any(|checkpoint| {
+            checkpoint.kind == SaveCheckpointKind::StageBoundary
+                && checkpoint.restore_policy == SaveRestorePolicy::StageCheckpoint
+        });
+        if !has_stage_boundary {
+            return Err(CommandError::save(
+                "阶段检查点缺失",
+                "expected at least one stage_boundary checkpoint",
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+fn save_checkpoints_for_state(state: &GameState) -> Vec<SaveCheckpoint> {
+    vec![
+        save_checkpoint_from_state(
+            format!("{}_stage", state.chapter),
+            SaveCheckpointKind::StageBoundary,
+            SaveRestorePolicy::StageCheckpoint,
+            "阶段检查点：只代表当前阶段边界，不提供每个选择回退。",
+            state,
+        ),
+        save_checkpoint_from_state(
+            "sprint_0_current",
+            SaveCheckpointKind::CurrentSnapshot,
+            SaveRestorePolicy::CurrentSnapshot,
+            "当前快照：用于读回 active run 的完整规则状态。",
+            state,
+        ),
+    ]
+}
+
+fn save_checkpoint_from_state(
+    checkpoint_id: impl Into<String>,
+    kind: SaveCheckpointKind,
+    restore_policy: SaveRestorePolicy,
+    summary: impl Into<String>,
+    state: &GameState,
+) -> SaveCheckpoint {
+    SaveCheckpoint {
+        checkpoint_id: checkpoint_id.into(),
+        kind,
+        restore_policy,
+        chapter: state.chapter.clone(),
+        period: state.time.period.clone(),
+        window_id: state.time.window_id.clone(),
+        window_index: state.time.window_index,
+        free_rounds_elapsed: state.time.free_rounds_elapsed,
+        node_id: state.world.current_node_id.clone(),
+        ledger_len: state.ledger.len(),
+        rules_version: RULES_VERSION.to_string(),
+        content_version: state.content_version.clone(),
+        summary: summary.into(),
     }
 }
 
@@ -421,6 +615,9 @@ pub struct SaveWriteResult {
     pub save_version: String,
     pub rules_version: String,
     pub content_version: String,
+    pub checkpoint_count: usize,
+    pub current_checkpoint_id: String,
+    pub stage_checkpoint_ids: Vec<String>,
     pub written: bool,
 }
 
@@ -429,13 +626,19 @@ impl SaveWriteResult {
         slot_id: impl Into<String>,
         path_hint: impl Into<String>,
         content_version: impl Into<String>,
+        stage_checkpoint_ids: Vec<String>,
+        current_checkpoint_id: impl Into<String>,
     ) -> Self {
+        let checkpoint_count = stage_checkpoint_ids.len() + 1;
         Self {
             slot_id: slot_id.into(),
             path_hint: path_hint.into(),
             save_version: SAVE_FORMAT_VERSION.to_string(),
             rules_version: RULES_VERSION.to_string(),
             content_version: content_version.into(),
+            checkpoint_count,
+            current_checkpoint_id: current_checkpoint_id.into(),
+            stage_checkpoint_ids,
             written: true,
         }
     }
@@ -522,6 +725,19 @@ pub struct NodeLedgerView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SaveLedgerView {
+    pub save_version: String,
+    pub rules_version: String,
+    pub content_version: String,
+    pub rng_state: String,
+    pub migration_state: String,
+    pub checkpoint_count: usize,
+    pub current_checkpoint_id: String,
+    pub stage_checkpoint_ids: Vec<String>,
+    pub rollback_policy: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
     pub current_day: u8,
@@ -540,6 +756,7 @@ pub struct LedgerViewModel {
     pub status_markers: Vec<StatusMarkerView>,
     pub build_view: BuildLedgerView,
     pub relationship_view: FactionRelationshipView,
+    pub save_view: SaveLedgerView,
     pub action_choices: Vec<ActionChoiceView>,
     pub node_view: NodeLedgerView,
     pub injury_level: InjuryLevel,
@@ -1803,6 +2020,7 @@ fn build_projection_from_content(
         status_markers: status_markers(state, active_encounter),
         build_view: build_view(state),
         relationship_view: relationship_view(state),
+        save_view: save_view(state),
         action_choices: projected_action_choices(state, content_bundle),
         node_view: node_view(state, content_bundle),
         injury_level: state.character.injury.level.clone(),
@@ -1834,6 +2052,32 @@ fn display_period(period: &str) -> String {
 
 fn clean_anchor_pressure(value: &str) -> String {
     value.to_string()
+}
+
+fn save_view(state: &GameState) -> SaveLedgerView {
+    let checkpoints = save_checkpoints_for_state(state);
+    let current_checkpoint_id = checkpoints
+        .iter()
+        .find(|checkpoint| checkpoint.kind == SaveCheckpointKind::CurrentSnapshot)
+        .map(|checkpoint| checkpoint.checkpoint_id.clone())
+        .unwrap_or_else(|| "sprint_0_current".to_string());
+    let stage_checkpoint_ids = checkpoints
+        .iter()
+        .filter(|checkpoint| checkpoint.kind == SaveCheckpointKind::StageBoundary)
+        .map(|checkpoint| checkpoint.checkpoint_id.clone())
+        .collect::<Vec<_>>();
+
+    SaveLedgerView {
+        save_version: SAVE_FORMAT_VERSION.to_string(),
+        rules_version: RULES_VERSION.to_string(),
+        content_version: state.content_version.clone(),
+        rng_state: DEFAULT_RNG_STATE.to_string(),
+        migration_state: DEFAULT_MIGRATION_STATE.to_string(),
+        checkpoint_count: checkpoints.len(),
+        current_checkpoint_id,
+        stage_checkpoint_ids,
+        rollback_policy: "阶段检查点只保留阶段边界与当前快照，不提供每个选择无限回退。".to_string(),
+    }
 }
 
 fn status_markers(
@@ -3218,6 +3462,38 @@ mod tests {
     }
 
     #[test]
+    fn save_envelope_records_stage_and_current_checkpoint_boundaries() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let envelope = SaveEnvelope::from_state("slot_0", state.clone());
+
+        assert_eq!(envelope.checkpoints.len(), 2);
+        assert_eq!(envelope.metadata.save_version, "sprint0-save-v2");
+
+        let stage = envelope
+            .checkpoints
+            .iter()
+            .find(|checkpoint| checkpoint.kind == SaveCheckpointKind::StageBoundary)
+            .expect("stage checkpoint should exist");
+        assert_eq!(stage.checkpoint_id, "s0_qingmao_foundation_stage");
+        assert_eq!(stage.restore_policy, SaveRestorePolicy::StageCheckpoint);
+        assert_eq!(stage.rules_version, RULES_VERSION);
+        assert_eq!(stage.content_version, STARTER_CONTENT_VERSION);
+        assert_eq!(stage.ledger_len, state.ledger.len());
+
+        let current = envelope
+            .checkpoints
+            .iter()
+            .find(|checkpoint| checkpoint.kind == SaveCheckpointKind::CurrentSnapshot)
+            .expect("current checkpoint should exist");
+        assert_eq!(current.checkpoint_id, "sprint_0_current");
+        assert_eq!(current.restore_policy, SaveRestorePolicy::CurrentSnapshot);
+        assert_eq!(current.window_id, state.time.window_id);
+        assert_eq!(current.window_index, state.time.window_index);
+        assert_eq!(current.free_rounds_elapsed, state.time.free_rounds_elapsed);
+        assert_eq!(current.node_id, state.world.current_node_id);
+    }
+
+    #[test]
     fn save_envelope_rejects_missing_rules_version() {
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
         let mut envelope = SaveEnvelope::from_state("slot_0", state);
@@ -3264,11 +3540,52 @@ mod tests {
     }
 
     #[test]
+    fn save_envelope_rejects_checkpoint_boundary_mismatch() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let mut missing = SaveEnvelope::from_state("slot_0", state.clone());
+        missing.checkpoints.clear();
+        let missing_error = missing
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("missing checkpoint should fail");
+        assert_eq!(missing_error.kind, CommandErrorKind::Save);
+        assert!(missing_error.message.contains("检查点"));
+
+        let mut duplicate = SaveEnvelope::from_state("slot_0", state.clone());
+        duplicate.checkpoints.push(duplicate.checkpoints[0].clone());
+        let duplicate_error = duplicate
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("duplicate checkpoint should fail");
+        assert_eq!(duplicate_error.kind, CommandErrorKind::Save);
+
+        let mut current_mismatch = SaveEnvelope::from_state("slot_0", state.clone());
+        current_mismatch
+            .checkpoints
+            .iter_mut()
+            .find(|checkpoint| checkpoint.kind == SaveCheckpointKind::CurrentSnapshot)
+            .expect("current checkpoint")
+            .node_id = "forged_node".to_string();
+        let current_error = current_mismatch
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("current checkpoint mismatch should fail");
+        assert_eq!(current_error.kind, CommandErrorKind::Save);
+
+        let mut version_mismatch = SaveEnvelope::from_state("slot_0", state);
+        version_mismatch.checkpoints[0].content_version = "wrong-content".to_string();
+        let version_error = version_mismatch
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect_err("checkpoint version mismatch should fail");
+        assert_eq!(version_error.kind, CommandErrorKind::Save);
+    }
+
+    #[test]
     fn save_write_result_serializes_minimum_receipt() {
         let result = SaveWriteResult::new(
             "slot_0",
             "saves/sprint0/slot_0.json",
             STARTER_CONTENT_VERSION,
+            vec!["s0_qingmao_foundation_stage".to_string()],
+            "sprint_0_current",
         );
         let json = serde_json::to_value(&result).expect("write result serializes");
 
@@ -3276,7 +3593,32 @@ mod tests {
         assert_eq!(json["save_version"], SAVE_FORMAT_VERSION);
         assert_eq!(json["rules_version"], RULES_VERSION);
         assert_eq!(json["content_version"], STARTER_CONTENT_VERSION);
+        assert_eq!(json["checkpoint_count"], 2);
+        assert_eq!(json["current_checkpoint_id"], "sprint_0_current");
+        assert_eq!(
+            json["stage_checkpoint_ids"][0],
+            "s0_qingmao_foundation_stage"
+        );
         assert_eq!(json["written"], true);
+    }
+
+    #[test]
+    fn projection_exposes_save_checkpoint_boundary() {
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection(&state);
+
+        assert_eq!(projection.save_view.save_version, SAVE_FORMAT_VERSION);
+        assert_eq!(projection.save_view.rules_version, RULES_VERSION);
+        assert_eq!(
+            projection.save_view.content_version,
+            STARTER_CONTENT_VERSION
+        );
+        assert_eq!(
+            projection.save_view.current_checkpoint_id,
+            "sprint_0_current"
+        );
+        assert_eq!(projection.save_view.stage_checkpoint_ids.len(), 1);
+        assert!(projection.save_view.rollback_policy.contains("阶段检查点"));
     }
 
     #[test]

@@ -247,10 +247,25 @@ fn write_save_to_root(
         )
     })?;
 
+    let stage_checkpoint_ids = envelope
+        .checkpoints
+        .iter()
+        .filter(|checkpoint| checkpoint.kind == rebrng_game_core::SaveCheckpointKind::StageBoundary)
+        .map(|checkpoint| checkpoint.checkpoint_id.clone())
+        .collect::<Vec<_>>();
+    let current_checkpoint_id = envelope
+        .checkpoints
+        .iter()
+        .find(|checkpoint| checkpoint.kind == rebrng_game_core::SaveCheckpointKind::CurrentSnapshot)
+        .map(|checkpoint| checkpoint.checkpoint_id.clone())
+        .unwrap_or_else(|| "sprint_0_current".to_string());
+
     Ok(SaveWriteResult::new(
         slot_id,
         save_path_hint(slot_id)?,
         state.content_version.clone(),
+        stage_checkpoint_ids,
+        current_checkpoint_id,
     ))
 }
 
@@ -333,6 +348,12 @@ mod tests {
             load_save_from_root(&root, "slot_0", STARTER_CONTENT_VERSION).expect("load save");
 
         assert!(result.written);
+        assert_eq!(result.current_checkpoint_id, "sprint_0_current");
+        assert_eq!(
+            result.stage_checkpoint_ids,
+            vec!["s0_qingmao_foundation_stage".to_string()]
+        );
+        assert_eq!(result.checkpoint_count, 2);
         assert_eq!(loaded.snapshot, state);
         assert_eq!(loaded.metadata.slot_id, "slot_0");
 
