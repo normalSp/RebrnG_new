@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.1.1";
+pub const STARTER_CONTENT_VERSION: &str = "s0.1.2";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint1-rules-v1";
+pub const RULES_VERSION: &str = "sprint1-rules-v2";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -2159,7 +2159,7 @@ fn starter_windows() -> Vec<ContentWindow> {
         window("day1_evening_free", 1, "傍晚", 2),
         window("day1_deep_night_free", 1, "深夜", 1),
         window("day2_morning_free", 2, "清晨", 2),
-        window("day2_midday_free", 2, "日中", 3),
+        window("day2_midday_free", 2, "日中", 2),
         window("day2_evening_free", 2, "傍晚", 2),
         window("day2_deep_night_free", 2, "深夜", 1),
     ]
@@ -3663,7 +3663,7 @@ fn cost_hint(intent: &ActionIntent) -> String {
             ActionIntent::Move => "按路径结算",
             ActionIntent::Cultivate => "1 AP / 1 元石",
             ActionIntent::Scout => "1 AP",
-            ActionIntent::Recover => "1 AP / 药堂债",
+            ActionIntent::Recover => "1-2 AP / 药堂债",
             ActionIntent::Trade => "1 AP / 1 元石",
             ActionIntent::Retreat => "1 AP",
             ActionIntent::Confront => "1 AP / 1 元石",
@@ -3680,7 +3680,7 @@ fn cost_hint(intent: &ActionIntent) -> String {
         ActionIntent::Move => "按路径结算",
         ActionIntent::Cultivate => "1 AP / 1 元石",
         ActionIntent::Scout => "1 AP",
-        ActionIntent::Recover => "1 AP / 药堂债",
+        ActionIntent::Recover => "1-2 AP / 药堂债",
         ActionIntent::Trade => "1 AP / 1 元石",
         ActionIntent::Retreat => "1 AP",
         ActionIntent::Confront => "1 AP / 1 元石",
@@ -4014,7 +4014,7 @@ fn cost_reservation(
         }
         ActionIntent::Cultivate => (1, 1, false),
         ActionIntent::Scout => (1, 0, false),
-        ActionIntent::Recover => (1, 0, false),
+        ActionIntent::Recover => (recover_ap_cost(&state.character.injury.level), 0, false),
         ActionIntent::Trade => (1, 1, false),
         ActionIntent::Retreat
         | ActionIntent::Confront
@@ -4047,6 +4047,13 @@ fn cost_reservation(
         primeval_stones,
         consume_window,
     })
+}
+
+fn recover_ap_cost(injury_level: &InjuryLevel) -> u8 {
+    match injury_level {
+        InjuryLevel::Healthy => 1,
+        InjuryLevel::Light | InjuryLevel::Heavy => 2,
+    }
 }
 
 fn subsystem_resolution(

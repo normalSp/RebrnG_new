@@ -268,3 +268,44 @@ fn sprint1_inheritance_temptation_path_withdraws_from_high_risk_if_rumor() {
     );
     assert_eq!(run.state().time.window_id, "s0_anchor_pending");
 }
+
+#[test]
+fn sprint1_phase8_day2_midday_returns_to_two_ap_baseline() {
+    let bundle = starter_content_bundle();
+    let day2_midday = bundle
+        .windows
+        .iter()
+        .find(|window| window.id == "day2_midday_free")
+        .expect("day2 midday window exists");
+
+    assert_eq!(
+        day2_midday.default_ap, 2,
+        "Phase 8 keeps the late slice tight instead of adding a 3 AP catch-up window"
+    );
+}
+
+#[test]
+fn sprint1_phase8_injury_recovery_cannot_clear_heavy_wound_in_one_window() {
+    let mut run = AcceptanceRun::new(RunMode::CanonStrict);
+
+    run.act(ActionIntent::Scout, Some("academy_gate"));
+    run.wait_until_period("深夜");
+    run.act(ActionIntent::Move, Some("blackmarket_hint"));
+    run.act(ActionIntent::Confront, Some("blackmarket_extortion"));
+    assert_eq!(run.state().character.injury.level, InjuryLevel::Heavy);
+
+    run.act(ActionIntent::Move, Some("infirmary_lane"));
+    let recovery_window_before = run.state().time.window_id.clone();
+    let free_rounds_before = run.state().time.free_rounds_elapsed;
+    run.act(ActionIntent::Recover, Some("infirmary_lane"));
+    assert_eq!(run.state().character.injury.level, InjuryLevel::Light);
+    assert_ne!(
+        run.state().time.window_id,
+        recovery_window_before,
+        "treating a heavy wound should consume the remaining recovery window"
+    );
+    assert!(
+        run.state().time.free_rounds_elapsed > free_rounds_before,
+        "heavy treatment should advance the 8-window clock"
+    );
+}

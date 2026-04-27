@@ -48,7 +48,7 @@ windows:
     day: 2
     period: 日中
     window_type: free
-    default_ap: 3
+    default_ap: 2
     stage: s0
     tags: [window, free, opportunity]
     evidence: canon_inferred
