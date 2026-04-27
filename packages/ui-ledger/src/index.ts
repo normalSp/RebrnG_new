@@ -45,6 +45,13 @@ export interface BuildLedgerView {
   gap_summary: string;
 }
 
+export interface FactionRelationshipView {
+  family_pressure: string;
+  infirmary_debt: string;
+  favor_debt: string;
+  blackmarket_access: string;
+}
+
 export interface ActionChoiceView {
   id: string;
   label: string;
@@ -100,6 +107,7 @@ export interface LedgerViewModel {
   build_summary: string;
   status_markers: StatusMarkerView[];
   build_view: BuildLedgerView;
+  relationship_view: FactionRelationshipView;
   action_choices: ActionChoiceView[];
   node_view: NodeLedgerView;
   injury_level: InjuryLevel;

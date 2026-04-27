@@ -63,7 +63,7 @@ actions:
     modes: [canon_strict, sandbox_if]
     importance: standard
   - id: retreat_blackmarket_extortion
-    label: retreat from blackmarket extortion
+    label: 跑路避开勒索
     intent: retreat
     target: blackmarket_extortion
     stage: s0
@@ -72,7 +72,7 @@ actions:
     modes: [canon_strict, sandbox_if]
     importance: standard
   - id: confront_blackmarket_extortion
-    label: confront blackmarket extortion
+    label: 硬顶边路勒索
     intent: confront
     target: blackmarket_extortion
     stage: s0

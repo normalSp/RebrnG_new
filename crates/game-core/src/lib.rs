@@ -5,7 +5,7 @@ use std::time::Instant;
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
 pub const STARTER_CONTENT_VERSION: &str = "s0.0.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v1";
-pub const RULES_VERSION: &str = "sprint0-rules-v4";
+pub const RULES_VERSION: &str = "sprint0-rules-v5";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -145,14 +145,81 @@ pub struct CharacterState {
     pub injury: InjuryState,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct KnowledgeState {
+    pub blackmarket_route_known: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GuSlotKind {
+    Core,
+    Support,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GuSlotState {
+    pub slot: GuSlotKind,
+    pub display_name: String,
+    pub instance_id: Option<String>,
+    pub role_note: String,
+}
+
+impl GuSlotState {
+    fn core(display_name: &str, role_note: &str) -> Self {
+        Self {
+            slot: GuSlotKind::Core,
+            display_name: display_name.to_string(),
+            instance_id: None,
+            role_note: role_note.to_string(),
+        }
+    }
+
+    fn support(display_name: &str, role_note: &str) -> Self {
+        Self {
+            slot: GuSlotKind::Support,
+            display_name: display_name.to_string(),
+            instance_id: None,
+            role_note: role_note.to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum VitalGuStatus {
+    #[default]
+    NotEstablished,
+    Established,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VitalGuState {
+    pub status: VitalGuStatus,
+    pub instance_id: Option<String>,
+    pub binding_scope: String,
+    pub binding_risk: String,
+}
+
+impl Default for VitalGuState {
+    fn default() -> Self {
+        Self {
+            status: VitalGuStatus::NotEstablished,
+            instance_id: None,
+            binding_scope: "未绑定".to_string(),
+            binding_risk: "未暴露".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildState {
     pub survival_route: String,
     pub main_path: Option<String>,
     pub dao_mark_note: Option<String>,
-    pub core_gu: String,
-    pub support_gu: String,
-    pub vital_gu: String,
+    pub core_gu: GuSlotState,
+    pub support_gu: GuSlotState,
+    pub vital_gu: VitalGuState,
     pub maintenance_pressure: String,
     pub gap_summary: String,
 }
@@ -163,9 +230,9 @@ impl Default for BuildState {
             survival_route: "未定：仍在学堂秩序缝隙里求活".to_string(),
             main_path: None,
             dao_mark_note: None,
-            core_gu: "核心蛊：月光蛊线索未稳".to_string(),
-            support_gu: "辅助蛊：暂无".to_string(),
-            vital_gu: "本命蛊：未建立".to_string(),
+            core_gu: GuSlotState::core("月光蛊线索未稳", "当前路线核心候选"),
+            support_gu: GuSlotState::support("暂无", "尚无辅助蛊承托"),
+            vital_gu: VitalGuState::default(),
             gap_summary: "缺口：缺稳定资源、缺支撑蛊、缺安全情报".to_string(),
             maintenance_pressure: "暂无蛊虫喂养压力".to_string(),
         }
@@ -209,6 +276,7 @@ pub struct GameState {
     pub debts_and_credit: DebtAndCreditState,
     pub risk: RiskState,
     pub character: CharacterState,
+    pub knowledge: KnowledgeState,
     pub encounters: EncounterState,
     pub build: BuildState,
     pub ledger: Vec<LedgerEntry>,
@@ -419,6 +487,14 @@ pub struct BuildLedgerView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FactionRelationshipView {
+    pub family_pressure: String,
+    pub infirmary_debt: String,
+    pub favor_debt: String,
+    pub blackmarket_access: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ActionChoiceView {
     pub id: String,
     pub label: String,
@@ -463,6 +539,7 @@ pub struct LedgerViewModel {
     pub build_summary: String,
     pub status_markers: Vec<StatusMarkerView>,
     pub build_view: BuildLedgerView,
+    pub relationship_view: FactionRelationshipView,
     pub action_choices: Vec<ActionChoiceView>,
     pub node_view: NodeLedgerView,
     pub injury_level: InjuryLevel,
@@ -1676,6 +1753,7 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
         debts_and_credit: DebtAndCreditState::default(),
         risk: RiskState::default(),
         character: CharacterState::default(),
+        knowledge: KnowledgeState::default(),
         encounters: EncounterState::default(),
         build: BuildState::default(),
         ledger: vec![LedgerEntry {
@@ -1724,6 +1802,7 @@ fn build_projection_from_content(
         build_summary: state.build.survival_route.clone(),
         status_markers: status_markers(state, active_encounter),
         build_view: build_view(state),
+        relationship_view: relationship_view(state),
         action_choices: projected_action_choices(state, content_bundle),
         node_view: node_view(state, content_bundle),
         injury_level: state.character.injury.level.clone(),
@@ -1733,56 +1812,28 @@ fn build_projection_from_content(
         active_encounter_decisions: active_encounter
             .map(|encounter| encounter.decision_intents.clone())
             .unwrap_or_default(),
-        ledger_entries: state.ledger.clone(),
+        ledger_entries: state
+            .ledger
+            .iter()
+            .map(|entry| LedgerEntry {
+                kind: entry.kind.clone(),
+                text: clean_ledger_text(entry),
+            })
+            .collect(),
         performance: PerformanceMetrics::default(),
     }
 }
 
 fn clean_ledger_text(entry: &LedgerEntry) -> String {
-    if entry.kind == "scene" {
-        "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。".to_string()
-    } else if entry.kind == "movement" || entry.text.contains("绉诲姩浠") {
-        "你转向新的节点，账本记下移动代价。".to_string()
-    } else if entry.kind == "action" && entry.text.contains("鏈堝厜") {
-        "你按下杂念运转真元，月光修行痕迹更深。".to_string()
-    } else if entry.kind == "action" && entry.text.contains("鍔熺哗") {
-        "你在功绩告示旁核对机会，记下一点可用功绩。".to_string()
-    } else if entry.kind == "action" && entry.text.contains("鑽爞") {
-        "你在药堂换来一口喘息，也把债写进账页。".to_string()
-    } else if entry.kind == "action" && entry.text.contains("榛戝競") {
-        "你在暗口换来材料，门路和风险一起上涨。".to_string()
-    } else if entry.text.starts_with("A blackmarket extortion") {
-        "黑市边路有人拦住去路，勒索的风险已经明牌。".to_string()
-    } else if entry.text.starts_with("You retreat") {
-        "你选择跑路，丢一点脸面和掩护，保住筋骨。".to_string()
-    } else if entry.text.starts_with("You harden") {
-        "你硬顶勒索，代价落在元石和伤势上。".to_string()
-    } else if entry.text.starts_with("Infirmary recovery lowers") {
-        "药堂处理重伤，伤势降为轻伤，债仍跟着你。".to_string()
-    } else if entry.text.starts_with("Infirmary recovery clears") {
-        "药堂清掉轻伤，又在债账上添了一笔。".to_string()
-    } else {
-        entry.text.clone()
-    }
+    entry.text.clone()
 }
 
 fn display_period(period: &str) -> String {
-    match period {
-        "娓呮櫒" => "清晨",
-        "鏃ヤ腑" => "日中",
-        "鍌嶆櫄" => "傍晚",
-        "娣卞" => "深夜",
-        other => other,
-    }
-    .to_string()
+    period.to_string()
 }
 
 fn clean_anchor_pressure(value: &str) -> String {
-    if value.contains("瀛﹀爞") {
-        "学堂点卯将近".to_string()
-    } else {
-        value.to_string()
-    }
+    value.to_string()
 }
 
 fn status_markers(
@@ -1852,15 +1903,49 @@ fn build_view(state: &GameState) -> BuildLedgerView {
             .dao_mark_note
             .clone()
             .unwrap_or_else(|| "道痕：凡人期保留位".to_string()),
-        core_gu: state.build.core_gu.clone(),
-        support_gu: state.build.support_gu.clone(),
-        vital_gu: state.build.vital_gu.clone(),
-        maintenance_pressure: if state.build.maintenance_pressure.contains("铔") {
-            "暂无蛊虫喂养压力".to_string()
-        } else {
-            state.build.maintenance_pressure.clone()
-        },
+        core_gu: gu_slot_display("核心蛊", &state.build.core_gu),
+        support_gu: gu_slot_display("辅助蛊", &state.build.support_gu),
+        vital_gu: vital_gu_display(&state.build.vital_gu),
+        maintenance_pressure: state.build.maintenance_pressure.clone(),
         gap_summary: state.build.gap_summary.clone(),
+    }
+}
+
+fn gu_slot_display(label: &str, slot: &GuSlotState) -> String {
+    format!("{label}：{}", slot.display_name)
+}
+
+fn vital_gu_display(vital: &VitalGuState) -> String {
+    match vital.status {
+        VitalGuStatus::NotEstablished => "本命蛊：未建立".to_string(),
+        VitalGuStatus::Established => vital
+            .instance_id
+            .as_ref()
+            .map(|id| format!("本命蛊：已绑定 {id}"))
+            .unwrap_or_else(|| "本命蛊：已建立，实例未登记".to_string()),
+    }
+}
+
+fn relationship_view(state: &GameState) -> FactionRelationshipView {
+    FactionRelationshipView {
+        family_pressure: format!("家族秩序：{}", family_pressure_label(state.risk.exposure)),
+        infirmary_debt: format!("药堂债：{}", state.debts_and_credit.infirmary_debt),
+        favor_debt: format!("人情债：{}", state.debts_and_credit.favor_debt),
+        blackmarket_access: if state.knowledge.blackmarket_route_known {
+            "黑市门路：已听到暗口风声".to_string()
+        } else {
+            "黑市门路：未解锁".to_string()
+        },
+    }
+}
+
+fn family_pressure_label(exposure: i32) -> &'static str {
+    if exposure >= 5 {
+        "高压盯防"
+    } else if exposure >= 2 {
+        "有人留意"
+    } else {
+        "低压监视"
     }
 }
 
@@ -1872,6 +1957,7 @@ fn projected_action_choices(
         .actions
         .iter()
         .filter(|action| mode_permitted(&state.mode, &action.modes))
+        .filter(|action| action_is_projectable(state, action))
         .map(|action| {
             let command = ActionCommand {
                 actor: "player".to_string(),
@@ -1942,6 +2028,9 @@ fn node_view(state: &GameState, content_bundle: &ContentBundle) -> NodeLedgerVie
             .nodes
             .iter()
             .filter(|node| mode_permitted(&state.mode, &node.modes))
+            .filter(|node| {
+                !is_blackmarket_tagged(&node.tags) || state.knowledge.blackmarket_route_known
+            })
             .map(|node| NodeSummaryView {
                 id: node.id.clone(),
                 title: clean_node_title(node),
@@ -1950,6 +2039,25 @@ fn node_view(state: &GameState, content_bundle: &ContentBundle) -> NodeLedgerVie
             })
             .collect(),
     }
+}
+
+fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
+    if matches!(
+        action.intent,
+        ActionIntent::Retreat | ActionIntent::Confront
+    ) {
+        return state
+            .encounters
+            .active
+            .as_ref()
+            .is_some_and(|active| action.target.as_deref() == Some(active.encounter_id.as_str()));
+    }
+
+    !is_blackmarket_tagged(&action.tags) || state.knowledge.blackmarket_route_known
+}
+
+fn is_blackmarket_tagged(tags: &[String]) -> bool {
+    tags.iter().any(|tag| tag == "blackmarket")
 }
 
 fn mode_permitted(mode: &RunMode, modes: &[ModePermit]) -> bool {
@@ -2149,6 +2257,7 @@ struct SubsystemOutcome {
     clear_active_encounter: bool,
     injury_level: Option<InjuryLevel>,
     injury_ap_penalty_pending: Option<bool>,
+    reveal_blackmarket_route: bool,
 }
 
 impl SubsystemOutcome {
@@ -2170,6 +2279,7 @@ impl SubsystemOutcome {
             clear_active_encounter: false,
             injury_level: None,
             injury_ap_penalty_pending: None,
+            reveal_blackmarket_route: false,
         }
     }
 }
@@ -2233,6 +2343,9 @@ fn availability_check(
     }
 
     let target = target_or_current(state, command)?;
+    if target == "blackmarket_hint" && !state.knowledge.blackmarket_route_known {
+        return Err(CommandError::validation("黑市门路未明"));
+    }
 
     if command.intent == ActionIntent::Move {
         let edge = movement_edge(state, &target, content_bundle)?;
@@ -2351,7 +2464,7 @@ fn subsystem_resolution(
                 });
                 outcome.ledger_kind = "encounter".to_string();
                 outcome.ledger_text = format!(
-                    "A blackmarket extortion blocks the path: {}",
+                    "黑市边路有人拦住去路，勒索的风险已经明牌：{}",
                     encounter.known_risk
                 );
             }
@@ -2365,7 +2478,12 @@ fn subsystem_resolution(
         }
         ActionIntent::Scout => {
             let mut outcome = SubsystemOutcome::new("action", "你没有急着下注，先听风声、记人脸。");
-            if target_or_current(state, command)? == "merit_notice" {
+            let target = target_or_current(state, command)?;
+            if target == "academy_gate" {
+                outcome.reveal_blackmarket_route = true;
+                outcome.ledger_text =
+                    "你在学堂门前听见几句低声风声，暗口二字被记进线索页。".to_string();
+            } else if target == "merit_notice" {
                 outcome.merit_delta = 1;
                 outcome.ledger_text = "你在功绩告示旁核对机会，记下一点可用功绩。".to_string();
             }
@@ -2380,16 +2498,12 @@ fn subsystem_resolution(
                 InjuryLevel::Heavy => {
                     outcome.injury_level = Some(InjuryLevel::Light);
                     outcome.injury_ap_penalty_pending = Some(false);
-                    outcome.ledger_text =
-                        "Infirmary recovery lowers heavy injury to light, but the debt follows you."
-                            .to_string();
+                    outcome.ledger_text = "药堂处理重伤，伤势降为轻伤，债仍跟着你。".to_string();
                 }
                 InjuryLevel::Light => {
                     outcome.injury_level = Some(InjuryLevel::Healthy);
                     outcome.injury_ap_penalty_pending = Some(false);
-                    outcome.ledger_text =
-                        "Infirmary recovery clears light injury, with another mark on the debt ledger."
-                            .to_string();
+                    outcome.ledger_text = "药堂清掉轻伤，又在债账上添了一笔。".to_string();
                 }
                 InjuryLevel::Healthy => {}
             }
@@ -2404,29 +2518,24 @@ fn subsystem_resolution(
         }
         ActionIntent::Retreat => {
             let encounter = active_encounter_template(state, content_bundle)?;
-            let mut outcome = SubsystemOutcome::new(
-                "encounter",
-                "You retreat from the extortion, losing face and cover but keeping your bones intact.",
-            );
+            let mut outcome =
+                SubsystemOutcome::new("encounter", "你选择跑路，丢一点脸面和掩护，保住筋骨。");
             outcome.exposure_delta = encounter.retreat_exposure_delta;
             outcome.clear_active_encounter = true;
             outcome.target_node_id = Some("academy_gate".to_string());
-            outcome.survival_route = Some("blackmarket retreat: survival before pride".to_string());
+            outcome.survival_route = Some("黑市退避：保命先于脸面".to_string());
             Ok(outcome)
         }
         ActionIntent::Confront => {
             let encounter = active_encounter_template(state, content_bundle)?;
-            let mut outcome = SubsystemOutcome::new(
-                "encounter",
-                "You harden your face against the extortion. The price is paid in stones and blood.",
-            );
+            let mut outcome =
+                SubsystemOutcome::new("encounter", "你硬顶勒索，代价落在元石和伤势上。");
             outcome.exposure_delta = encounter.confront_exposure_delta;
             outcome.clear_active_encounter = true;
             outcome.target_node_id = Some("academy_gate".to_string());
             outcome.injury_level = Some(encounter.confront_injury_level.clone());
             outcome.injury_ap_penalty_pending = Some(true);
-            outcome.survival_route =
-                Some("blackmarket hard stand: wounded but not broken".to_string());
+            outcome.survival_route = Some("黑市硬顶：带伤续命".to_string());
             Ok(outcome)
         }
         ActionIntent::Wait => Ok(SubsystemOutcome::new(
@@ -2480,6 +2589,10 @@ fn effect_commit(
 
     if let Some(survival_route) = &outcome.survival_route {
         state.build.survival_route = survival_route.clone();
+    }
+
+    if outcome.reveal_blackmarket_route {
+        state.knowledge.blackmarket_route_known = true;
     }
 
     if reserved_cost.consume_window || state.time.ap == 0 {
@@ -2664,6 +2777,10 @@ mod tests {
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
         let projection = build_projection(&state);
 
+        assert_eq!(state.build.vital_gu.status, VitalGuStatus::NotEstablished);
+        assert_eq!(state.build.vital_gu.instance_id, None);
+        assert_eq!(state.build.vital_gu.binding_scope, "未绑定");
+        assert_eq!(state.build.vital_gu.binding_risk, "未暴露");
         assert_eq!(projection.build_view.core_gu, "核心蛊：月光蛊线索未稳");
         assert_eq!(projection.build_view.support_gu, "辅助蛊：暂无");
         assert_eq!(projection.build_view.vital_gu, "本命蛊：未建立");
@@ -2679,6 +2796,113 @@ mod tests {
             .status_markers
             .iter()
             .any(|marker| marker.label == "AP" && marker.value == "2"));
+    }
+
+    #[test]
+    fn blackmarket_route_is_hidden_until_knowledge_unlock() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection_with_content(&state, &bundle);
+
+        assert!(!state.knowledge.blackmarket_route_known);
+        assert!(projection
+            .action_choices
+            .iter()
+            .all(|choice| !choice.id.contains("blackmarket")));
+        assert!(projection
+            .node_view
+            .visible_nodes
+            .iter()
+            .all(|node| node.id != "blackmarket_hint"));
+
+        let mut night = state.clone();
+        set_deep_night(&mut night);
+        let hidden_error = resolve_action(
+            night,
+            command(ActionIntent::Move, Some("blackmarket_hint")),
+            &bundle,
+        )
+        .expect_err("blackmarket route should not be directly usable before knowledge unlock");
+        assert_eq!(hidden_error.kind, CommandErrorKind::Validation);
+        assert!(hidden_error.message.contains("黑市门路未明"));
+
+        let scouted = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("academy scouting should unlock a blackmarket hint");
+        assert!(scouted.state.knowledge.blackmarket_route_known);
+
+        let unlocked_projection = build_projection_with_content(&scouted.state, &bundle);
+        assert!(unlocked_projection
+            .action_choices
+            .iter()
+            .any(|choice| choice.id == "move_blackmarket_hint"));
+        assert!(unlocked_projection
+            .node_view
+            .visible_nodes
+            .iter()
+            .any(|node| node.id == "blackmarket_hint"));
+    }
+
+    #[test]
+    fn relationship_projection_tracks_s0_pressure_and_blackmarket_access() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection_with_content(&state, &bundle);
+
+        assert_eq!(
+            projection.relationship_view.family_pressure,
+            "家族秩序：低压监视"
+        );
+        assert_eq!(projection.relationship_view.infirmary_debt, "药堂债：0");
+        assert_eq!(projection.relationship_view.favor_debt, "人情债：0");
+        assert_eq!(
+            projection.relationship_view.blackmarket_access,
+            "黑市门路：未解锁"
+        );
+
+        let unlocked = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("academy scouting should refresh relationship projection");
+
+        assert_eq!(
+            unlocked
+                .response
+                .projection
+                .relationship_view
+                .blackmarket_access,
+            "黑市门路：已听到暗口风声"
+        );
+    }
+
+    #[test]
+    fn encounter_ledger_projection_does_not_leak_english_fallback_text() {
+        let bundle = starter_content_bundle();
+        let encountered = state_at_blackmarket_extortion(&bundle);
+        let projection = build_projection_with_content(&encountered, &bundle);
+
+        assert_no_user_visible_english(&projection.ledger_entries);
+
+        let retreated = resolve_action(
+            encountered.clone(),
+            command(ActionIntent::Retreat, Some("blackmarket_extortion")),
+            &bundle,
+        )
+        .expect("retreat should resolve with Chinese ledger text");
+        assert_no_user_visible_english(&retreated.response.projection.ledger_entries);
+
+        let confronted = resolve_action(
+            encountered,
+            command(ActionIntent::Confront, Some("blackmarket_extortion")),
+            &bundle,
+        )
+        .expect("confront should resolve with Chinese ledger text");
+        assert_no_user_visible_english(&confronted.response.projection.ledger_entries);
     }
 
     #[test]
@@ -3193,6 +3417,7 @@ mod tests {
         assert_eq!(recovered.state.debts_and_credit.favor_debt, 1);
 
         let mut trader = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        trader.knowledge.blackmarket_route_known = true;
         trader.world.current_node_id = "blackmarket_hint".to_string();
         set_deep_night(&mut trader);
         let traded = resolve_action(
@@ -3210,6 +3435,7 @@ mod tests {
     fn blackmarket_deep_night_movement_triggers_extortion_without_resetting_ap() {
         let bundle = starter_content_bundle();
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.knowledge.blackmarket_route_known = true;
         set_deep_night(&mut state);
 
         let result = resolve_action(
@@ -3267,7 +3493,7 @@ mod tests {
         assert_eq!(retreated.state.world.current_node_id, "academy_gate");
         assert_eq!(retreated.state.time.window_id, "day2_morning_free");
         assert_eq!(retreated.state.time.ap, 2);
-        assert!(retreated.state.build.survival_route.contains("retreat"));
+        assert!(retreated.state.build.survival_route.contains("退避"));
 
         let confronted = resolve_action(
             encountered,
@@ -3361,6 +3587,7 @@ mod tests {
 
     fn state_at_blackmarket_extortion(bundle: &ContentBundle) -> GameState {
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        state.knowledge.blackmarket_route_known = true;
         set_deep_night(&mut state);
         resolve_action(
             state,
@@ -3386,5 +3613,19 @@ mod tests {
         state.time.window_index = 3;
         state.time.period = "深夜".to_string();
         state.time.ap = 1;
+    }
+
+    fn assert_no_user_visible_english(entries: &[LedgerEntry]) {
+        let forbidden_fragments = [
+            format!("{} {}", "A", "blackmarket"),
+            format!("{} {}", "You", "retreat"),
+            format!("{} {}", "You", "harden"),
+            format!("{} {}", "Infirmary", "recovery"),
+        ];
+        for entry in entries {
+            for fragment in &forbidden_fragments {
+                assert!(!entry.text.contains(fragment), "{}", entry.text);
+            }
+        }
     }
 }

@@ -10,7 +10,7 @@ export interface LedgerShellProps {
   onLoadSave: () => Promise<void>;
 }
 
-type LedgerPage = "scene" | "map" | "resources" | "build" | "clues" | "ledger";
+type LedgerPage = "scene" | "map" | "resources" | "build" | "relations" | "clues" | "ledger";
 
 const zeroDeclaredCost = {
   ap: 0,
@@ -23,6 +23,7 @@ const pages: Array<{ id: LedgerPage; label: string }> = [
   { id: "map", label: "节点" },
   { id: "resources", label: "物资债务" },
   { id: "build", label: "修行 Build" },
+  { id: "relations", label: "关系局势" },
   { id: "clues", label: "风声线索" },
   { id: "ledger", label: "因果账" },
 ];
@@ -141,6 +142,8 @@ function renderPage(page: LedgerPage, projection: LedgerViewModel) {
       return <ResourcesPage projection={projection} />;
     case "build":
       return <BuildPage projection={projection} />;
+    case "relations":
+      return <RelationsPage projection={projection} />;
     case "clues":
       return <CluesPage projection={projection} />;
     case "ledger":
@@ -217,6 +220,23 @@ function BuildPage({ projection }: { projection: LedgerViewModel }) {
         <Row label="本命蛊" value={build.vital_gu} />
         <Row label="喂养维护" value={build.maintenance_pressure} />
         <Row label="主要缺口" value={build.gap_summary} />
+      </dl>
+    </article>
+  );
+}
+
+function RelationsPage({ projection }: { projection: LedgerViewModel }) {
+  const relation = projection.relationship_view;
+
+  return (
+    <article className="ledger-page">
+      <p className="ledger-page-label">关系局势</p>
+      <h2>庇护、利用、债与门路，都先记在同一本账里</h2>
+      <dl className="ledger-rows">
+        <Row label="家族秩序" value={relation.family_pressure} />
+        <Row label="药堂债" value={relation.infirmary_debt} />
+        <Row label="人情债" value={relation.favor_debt} />
+        <Row label="黑市门路" value={relation.blackmarket_access} />
       </dl>
     </article>
   );
