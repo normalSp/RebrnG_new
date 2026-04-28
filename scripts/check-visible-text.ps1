@@ -62,6 +62,18 @@ foreach ($target in $TargetRoots) {
         }
 
         $raw = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
+        if (($file.Extension -eq ".yaml" -or $file.Extension -eq ".yml") -and $normalized.Contains("\content\")) {
+            $unicodeEscape = [regex]::Match($raw, '\\u[0-9A-Fa-f]{4}')
+            if ($unicodeEscape.Success) {
+                $line = ($raw.Substring(0, $unicodeEscape.Index).Split("`n")).Count
+                $relative = $file.FullName
+                if ($relative.StartsWith($Root)) {
+                    $relative = $relative.Substring($Root.Length).TrimStart("\", "/")
+                }
+                $Hits.Add("${relative}:${line} contains Unicode escape; content YAML should use raw UTF-8 text")
+            }
+        }
+
         foreach ($forbidden in $ForbiddenFragments) {
             if ($raw.Contains($forbidden.Value)) {
                 $index = $raw.IndexOf($forbidden.Value)
