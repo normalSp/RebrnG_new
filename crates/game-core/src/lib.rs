@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.7.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.8.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint8-rules-v1";
+pub const RULES_VERSION: &str = "sprint9-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -31,6 +31,7 @@ pub enum ActionIntent {
     Cultivate,
     Scout,
     Recover,
+    RecoverEssence,
     Trade,
     Retreat,
     Confront,
@@ -210,6 +211,26 @@ fn aptitude_step_bounds(grade: &AptitudeGrade) -> (u8, u8) {
     }
 }
 
+fn essence_recovery_for_grade(grade: &AptitudeGrade) -> u8 {
+    match grade {
+        AptitudeGrade::Unknown => 0,
+        AptitudeGrade::D => 4,
+        AptitudeGrade::C => 7,
+        AptitudeGrade::B => 11,
+        AptitudeGrade::A => 15,
+    }
+}
+
+fn wall_flush_for_grade(grade: &AptitudeGrade) -> u8 {
+    match grade {
+        AptitudeGrade::Unknown => 0,
+        AptitudeGrade::D => 6,
+        AptitudeGrade::C => 8,
+        AptitudeGrade::B => 11,
+        AptitudeGrade::A => 14,
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PrimevalEssenceQuality {
@@ -292,8 +313,12 @@ pub struct MortalApertureState {
     pub opening_steps: u8,
     pub primeval_sea_capacity_percent: u8,
     pub primeval_essence_current: u8,
+    #[serde(default)]
+    pub essence_recovery_per_window: u8,
     pub primeval_essence_quality: PrimevalEssenceQuality,
     pub aperture_wall_state: ApertureWallState,
+    #[serde(default)]
+    pub aperture_wall_progress: u8,
     pub minor_realm: MinorRealm,
     pub recovery_profile: String,
     pub opening_phase: OpeningRitePhase,
@@ -307,8 +332,10 @@ impl Default for MortalApertureState {
             opening_steps: 0,
             primeval_sea_capacity_percent: 0,
             primeval_essence_current: 0,
+            essence_recovery_per_window: 0,
             primeval_essence_quality: PrimevalEssenceQuality::None,
             aperture_wall_state: ApertureWallState::None,
+            aperture_wall_progress: 0,
             minor_realm: MinorRealm::None,
             recovery_profile: "空窍尚未开辟，真元未生。".to_string(),
             opening_phase: OpeningRitePhase::NotStarted,
@@ -318,10 +345,12 @@ impl Default for MortalApertureState {
 
 impl MortalApertureState {
     fn opened_profile(grade: AptitudeGrade, opening_steps: u8, capacity: u8) -> Self {
+        let essence_recovery = essence_recovery_for_grade(&grade);
         let recovery_profile = format!(
-            "{}资质，元海约{}%，恢复与后续冲刷效率受此影响。",
+            "{}资质，元海约{}%，每个窗口自然恢复约{}点真元，后续冲刷效率受此影响。",
             grade.label(),
-            capacity
+            capacity,
+            essence_recovery
         );
         Self {
             opened: true,
@@ -329,8 +358,10 @@ impl MortalApertureState {
             opening_steps,
             primeval_sea_capacity_percent: capacity,
             primeval_essence_current: capacity,
+            essence_recovery_per_window: essence_recovery,
             primeval_essence_quality: PrimevalEssenceQuality::Bronze,
             aperture_wall_state: ApertureWallState::LightMembrane,
+            aperture_wall_progress: 0,
             minor_realm: MinorRealm::RankOneInitial,
             recovery_profile,
             opening_phase: OpeningRitePhase::Completed,
@@ -342,6 +373,38 @@ impl MortalApertureState {
             opening_phase: OpeningRitePhase::NotStarted,
             ..Self::default()
         }
+    }
+
+    fn recover_essence(&mut self) -> u8 {
+        if !self.opened {
+            return 0;
+        }
+        let before = self.primeval_essence_current;
+        self.primeval_essence_current = self
+            .primeval_essence_current
+            .saturating_add(self.essence_recovery_per_window)
+            .min(self.primeval_sea_capacity_percent);
+        self.primeval_essence_current.saturating_sub(before)
+    }
+
+    fn spend_essence(&mut self, amount: u8) {
+        self.primeval_essence_current = self.primeval_essence_current.saturating_sub(amount);
+    }
+
+    fn flush_wall(&mut self) -> bool {
+        if !self.opened {
+            return false;
+        }
+        self.aperture_wall_progress = self
+            .aperture_wall_progress
+            .saturating_add(wall_flush_for_grade(&self.aptitude_grade));
+        if self.minor_realm == MinorRealm::RankOneInitial && self.aperture_wall_progress >= 100 {
+            self.aperture_wall_progress = 0;
+            self.minor_realm = MinorRealm::RankOneMiddle;
+            self.aperture_wall_state = ApertureWallState::WaterMembrane;
+            return true;
+        }
+        false
     }
 }
 
@@ -1201,8 +1264,10 @@ pub struct ApertureLedgerView {
     pub primeval_sea: String,
     pub primeval_essence: String,
     pub wall_state: String,
+    pub wall_progress: String,
     pub minor_realm: String,
     pub recovery_profile: String,
+    pub essence_recovery: String,
     pub opening_rite_phase: String,
 }
 
@@ -3393,6 +3458,15 @@ fn starter_actions() -> Vec<ContentAction> {
             &["action", "gu", "moonlight", "inspect"],
         ),
         action(
+            "recover_primeval_essence",
+            "调息回元",
+            ActionIntent::RecoverEssence,
+            Some("academy_gate"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "aperture", "essence", "recover"],
+        ),
+        action(
             "cultivate_moonlight",
             "月光修行",
             ActionIntent::Cultivate,
@@ -4336,6 +4410,20 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "cultivate", "moonlight"],
+        ),
+        content_narrative(
+            "s0.action.cultivate.breakthrough",
+            "真元牵动月光蛊，月华顺着光膜反复冲刷。最后一层薄滞被磨开时，空窍壁由光膜转为水膜，你从一转初阶推进到一转中阶。进境落账，压力也会随之落账。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "cultivate", "aperture", "breakthrough"],
+        ),
+        content_narrative(
+            "s0.action.recover_essence.default",
+            "你收束杂念，按住空窍里浮动的青铜真元。调息不能替你增加元海上限，只能把当前真元慢慢回到资质允许的水位。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "aperture", "essence", "recover"],
         ),
         content_narrative(
             "s0.action.scout.default",
@@ -5655,8 +5743,10 @@ fn aperture_view(state: &GameState) -> ApertureLedgerView {
             primeval_sea: "元海：未生".to_string(),
             primeval_essence: "真元：未生".to_string(),
             wall_state: "空窍壁：未成".to_string(),
+            wall_progress: "冲刷进度：未开".to_string(),
             minor_realm: "境界：未入一转".to_string(),
             recovery_profile: aperture.recovery_profile.clone(),
+            essence_recovery: "自然恢复：0/窗口".to_string(),
             opening_rite_phase: opening_phase_label(&aperture.opening_phase).to_string(),
         };
     }
@@ -5683,8 +5773,10 @@ fn aperture_view(state: &GameState) -> ApertureLedgerView {
             aperture.primeval_essence_quality.label()
         ),
         wall_state: format!("空窍壁：{}", aperture.aperture_wall_state.label()),
+        wall_progress: format!("冲刷进度：{}%", aperture.aperture_wall_progress),
         minor_realm: format!("境界：{}", aperture.minor_realm.label()),
         recovery_profile: aperture.recovery_profile.clone(),
+        essence_recovery: format!("自然恢复：{}/窗口", aperture.essence_recovery_per_window),
         opening_rite_phase: opening_phase_label(&aperture.opening_phase).to_string(),
     }
 }
@@ -5907,6 +5999,9 @@ fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
         ActionIntent::InspectGu => {
             return state.gu_inventory.has_gu("moonlight_gu");
         }
+        ActionIntent::RecoverEssence => {
+            return state.character.mortal_aperture.opened;
+        }
         _ => {}
     }
 
@@ -5985,6 +6080,7 @@ fn action_choice_group(intent: &ActionIntent) -> ActionChoiceGroup {
     match intent {
         ActionIntent::Move => ActionChoiceGroup::Movement,
         ActionIntent::Cultivate
+        | ActionIntent::RecoverEssence
         | ActionIntent::ClaimGu
         | ActionIntent::RefineGu
         | ActionIntent::InspectGu
@@ -6027,9 +6123,10 @@ fn action_choice_tone(command: &ActionCommand, enabled: bool) -> ActionChoiceTon
         | ActionIntent::Argue
         | ActionIntent::Delay => ActionChoiceTone::Risky,
         ActionIntent::Confront | ActionIntent::Frame => ActionChoiceTone::Danger,
-        ActionIntent::Cultivate | ActionIntent::RefineGu | ActionIntent::Wait => {
-            ActionChoiceTone::Normal
-        }
+        ActionIntent::Cultivate
+        | ActionIntent::RecoverEssence
+        | ActionIntent::RefineGu
+        | ActionIntent::Wait => ActionChoiceTone::Normal,
     }
 }
 
@@ -6046,6 +6143,7 @@ fn consequence_hint(id: &str, intent: &ActionIntent, target: Option<&str>) -> St
             _ => "更换节点，路径风险按 Rust 规则结算".to_string(),
         },
         ActionIntent::Cultivate => "借已炼化月光蛊推进修行痕迹，消耗元石与窗口".to_string(),
+        ActionIntent::RecoverEssence => "调息回元，按资质恢复当前真元".to_string(),
         ActionIntent::ClaimGu => "领取制度内月光蛊，建立后续炼化入口".to_string(),
         ActionIntent::RefineGu => "消耗窗口炼化月光蛊，取得稳定控制权".to_string(),
         ActionIntent::InspectGu => "查看月光蛊喂养维护压力，不消耗 AP".to_string(),
@@ -6089,6 +6187,7 @@ fn clean_action_label(action: &ContentAction) -> String {
             "claim_moonlight_gu" => "领取月光蛊",
             "refine_moonlight_gu" => "炼化月光蛊",
             "inspect_moonlight_gu_feeding" => "检查月光蛊喂养",
+            "recover_primeval_essence" => "调息回元",
             "scout_academy" => "观察学堂风声",
             "cultivate_moonlight" => "月光修行",
             "cultivate_moonlight_corner" => "借月光角修行",
@@ -6126,6 +6225,7 @@ fn clean_action_label(action: &ContentAction) -> String {
         "claim_moonlight_gu" => "领取月光蛊",
         "refine_moonlight_gu" => "炼化月光蛊",
         "inspect_moonlight_gu_feeding" => "检查月光蛊喂养",
+        "recover_primeval_essence" => "调息回元",
         "scout_academy" => "观察学堂风声",
         "cultivate_moonlight" => "月光修行",
         "cultivate_moonlight_corner" => "借月光角修行",
@@ -6231,6 +6331,8 @@ fn display_disabled_reason(error: &CommandError) -> String {
             "时段不合，当前不可达".to_string()
         } else if error.message.contains("primeval stones not enough") {
             "元石不足".to_string()
+        } else if error.message.contains("真元不足") {
+            "真元不足".to_string()
         } else if error.message.contains("AP not enough") {
             "AP 不足，当前窗口已被压尽".to_string()
         } else if error.message.contains("recover requires") {
@@ -6252,6 +6354,8 @@ fn display_disabled_reason(error: &CommandError) -> String {
         "时段不合，当前不可达".to_string()
     } else if error.message.contains("primeval stones not enough") {
         "元石不足".to_string()
+    } else if error.message.contains("真元不足") {
+        "真元不足".to_string()
     } else if error.message.contains("AP not enough") {
         "AP 不足".to_string()
     } else if error.message.contains("recover requires") {
@@ -6268,9 +6372,10 @@ fn display_disabled_reason(error: &CommandError) -> String {
 fn cost_hint(intent: &ActionIntent) -> String {
     match intent {
         ActionIntent::Move => "按路径结算",
-        ActionIntent::Cultivate => "1 AP / 1 元石",
+        ActionIntent::Cultivate => "1 AP / 1 元石 / 10 真元",
+        ActionIntent::RecoverEssence => "1 AP / 回元",
         ActionIntent::ClaimGu => "0 AP",
-        ActionIntent::RefineGu => "1 AP",
+        ActionIntent::RefineGu => "1 AP / 8 真元",
         ActionIntent::InspectGu => "0 AP",
         ActionIntent::Scout => "1 AP",
         ActionIntent::Recover => "1-2 AP / 药堂债",
@@ -6292,7 +6397,8 @@ fn cost_hint(intent: &ActionIntent) -> String {
 fn risk_hint(intent: &ActionIntent) -> String {
     match intent {
         ActionIntent::Move => "移动风险随路径变化",
-        ActionIntent::Cultivate => "资源压力",
+        ActionIntent::Cultivate => "元石与真元压力",
+        ActionIntent::RecoverEssence => "低风险，消耗窗口回元",
         ActionIntent::ClaimGu => "低风险，制度内领取",
         ActionIntent::RefineGu => "窗口压力，炼化归属",
         ActionIntent::InspectGu => "低风险，确认维护压力",
@@ -6392,6 +6498,7 @@ pub fn resolve_action(
 struct ReservedCost {
     ap: u8,
     primeval_stones: i32,
+    primeval_essence: u8,
     consume_window: bool,
 }
 
@@ -6410,6 +6517,9 @@ struct SubsystemOutcome {
     trading_credit_delta: i32,
     exposure_delta: i32,
     moonlight_cultivation_delta: u8,
+    aperture_wall_flush_delta: u8,
+    recover_primeval_essence: bool,
+    minor_realm_breakthrough: bool,
     arrival_ap_penalty: u8,
     trigger_encounter: Option<ActiveEncounter>,
     clear_active_encounter: bool,
@@ -6439,6 +6549,9 @@ impl SubsystemOutcome {
             trading_credit_delta: 0,
             exposure_delta: 0,
             moonlight_cultivation_delta: 0,
+            aperture_wall_flush_delta: 0,
+            recover_primeval_essence: false,
+            minor_realm_breakthrough: false,
             arrival_ap_penalty: 0,
             trigger_encounter: None,
             clear_active_encounter: false,
@@ -6521,6 +6634,7 @@ fn availability_check(
         ActionIntent::ClaimGu
             | ActionIntent::RefineGu
             | ActionIntent::InspectGu
+            | ActionIntent::RecoverEssence
             | ActionIntent::Cultivate
     )) && !state.character.mortal_aperture.opened
     {
@@ -6681,7 +6795,11 @@ fn availability_check(
 fn action_requires_current_node(intent: &ActionIntent) -> bool {
     matches!(
         intent,
-        ActionIntent::Cultivate | ActionIntent::Scout | ActionIntent::Recover | ActionIntent::Trade
+        ActionIntent::Cultivate
+            | ActionIntent::RecoverEssence
+            | ActionIntent::Scout
+            | ActionIntent::Recover
+            | ActionIntent::Trade
     )
 }
 
@@ -6696,22 +6814,23 @@ fn cost_reservation(
         ));
     }
 
-    let (ap, primeval_stones, consume_window) = match command.intent {
+    let (ap, primeval_stones, primeval_essence, consume_window) = match command.intent {
         ActionIntent::Move => {
             let target = target_or_current(state, command)?;
             let edge = movement_edge(state, &target, content_bundle)?;
-            (edge.ap_cost, 0, false)
+            (edge.ap_cost, 0, 0, false)
         }
-        ActionIntent::Cultivate => (1, 1, false),
-        ActionIntent::ClaimGu => (0, 0, false),
-        ActionIntent::RefineGu => (1, 0, false),
-        ActionIntent::InspectGu => (0, 0, false),
+        ActionIntent::Cultivate => (1, 1, 10, false),
+        ActionIntent::ClaimGu => (0, 0, 0, false),
+        ActionIntent::RefineGu => (1, 0, 8, false),
+        ActionIntent::InspectGu => (0, 0, 0, false),
+        ActionIntent::RecoverEssence => (1, 0, 0, false),
         ActionIntent::EnterOpeningCave
         | ActionIntent::CrossOpeningRiver
-        | ActionIntent::ReceiveHopeGu => (0, 0, false),
-        ActionIntent::Scout => (1, 0, false),
-        ActionIntent::Recover => (recover_ap_cost(&state.character.injury.level), 0, false),
-        ActionIntent::Trade => (1, 1, false),
+        | ActionIntent::ReceiveHopeGu => (0, 0, 0, false),
+        ActionIntent::Scout => (1, 0, 0, false),
+        ActionIntent::Recover => (recover_ap_cost(&state.character.injury.level), 0, 0, false),
+        ActionIntent::Trade => (1, 1, 0, false),
         ActionIntent::Retreat
         | ActionIntent::Confront
         | ActionIntent::Yield
@@ -6719,9 +6838,9 @@ fn cost_reservation(
         | ActionIntent::Delay
         | ActionIntent::Frame => {
             let decision = active_encounter_decision(state, content_bundle, &command.intent)?;
-            (decision.ap_cost, decision.primeval_stones_cost, false)
+            (decision.ap_cost, decision.primeval_stones_cost, 0, false)
         }
-        ActionIntent::Wait => (state.time.ap, 0, true),
+        ActionIntent::Wait => (state.time.ap, 0, 0, true),
     };
 
     if ap > state.time.ap {
@@ -6738,9 +6857,17 @@ fn cost_reservation(
         )));
     }
 
+    if primeval_essence > state.character.mortal_aperture.primeval_essence_current {
+        return Err(CommandError::validation(format!(
+            "真元不足：需要 {primeval_essence}，当前 {}",
+            state.character.mortal_aperture.primeval_essence_current
+        )));
+    }
+
     Ok(ReservedCost {
         ap,
         primeval_stones,
+        primeval_essence,
         consume_window,
     })
 }
@@ -6831,13 +6958,29 @@ fn subsystem_resolution(
             Ok(outcome)
         }
         ActionIntent::Cultivate => {
+            let flush_delta = wall_flush_for_grade(&state.character.mortal_aperture.aptitude_grade);
+            let will_breakthrough = state.character.mortal_aperture.minor_realm
+                == MinorRealm::RankOneInitial
+                && state
+                    .character
+                    .mortal_aperture
+                    .aperture_wall_progress
+                    .saturating_add(flush_delta)
+                    >= 100;
             let mut outcome = SubsystemOutcome::new(
                 "action",
                 "你扣下一枚元石，催动空窍里已经炼化的月光蛊。月华没有替你省下代价，只在真元一次次牵引里留下更清楚的修行痕迹。",
             )
             .with_narrative_id("s0.action.cultivate.moonlight");
+            if will_breakthrough {
+                outcome.ledger_text =
+                    "真元冲刷突破空窍壁膜，你从一转初阶推进到一转中阶。".to_string();
+                outcome.narrative_id = Some("s0.action.cultivate.breakthrough".to_string());
+                outcome.minor_realm_breakthrough = true;
+            }
             outcome.survival_route = Some("月光修行：制度内求稳".to_string());
             outcome.moonlight_cultivation_delta = 1;
+            outcome.aperture_wall_flush_delta = flush_delta;
             if let Some(encounter) = eligible_encounter_trigger(
                 state,
                 Some(state.world.current_node_id.as_str()),
@@ -6878,6 +7021,16 @@ fn subsystem_resolution(
             "你把月光蛊的状态重新过账：一转，月道，当前喂养压力尚稳，损伤也未露头。稳不等于无负担，只是这笔账暂时没有追到当前窗口上。",
         )
         .with_narrative_id("s0.gu.moonlight.inspect")),
+        ActionIntent::RecoverEssence => {
+            let mut outcome = SubsystemOutcome::new(
+                "action",
+                "你收束心神调息回元，当前真元按资质缓慢回涨，但元海上限不会因此改变。",
+            )
+            .with_narrative_id("s0.action.recover_essence.default");
+            outcome.recover_primeval_essence = true;
+            outcome.survival_route = Some("调息回元：空窍节奏".to_string());
+            Ok(outcome)
+        }
         ActionIntent::Scout => {
             let mut outcome = SubsystemOutcome::new("action", "你没有急着下注，先听风声、记人脸。")
                 .with_narrative_id("s0.action.scout.default");
@@ -7019,6 +7172,10 @@ fn effect_commit(
 ) {
     state.time.ap = state.time.ap.saturating_sub(reserved_cost.ap);
     state.resources.primeval_stones -= reserved_cost.primeval_stones;
+    state
+        .character
+        .mortal_aperture
+        .spend_essence(reserved_cost.primeval_essence);
     state.resources.materials += outcome.materials_delta;
     state.resources.merit += outcome.merit_delta;
     state.debts_and_credit.infirmary_debt += outcome.infirmary_debt_delta;
@@ -7030,6 +7187,12 @@ fn effect_commit(
         .build
         .moonlight_cultivation_marks
         .saturating_add(outcome.moonlight_cultivation_delta);
+    if outcome.aperture_wall_flush_delta > 0 {
+        state.character.mortal_aperture.flush_wall();
+    }
+    if outcome.recover_primeval_essence {
+        state.character.mortal_aperture.recover_essence();
+    }
 
     if outcome.claim_moonlight_gu && !state.gu_inventory.has_gu("moonlight_gu") {
         state
@@ -7117,7 +7280,11 @@ fn effect_commit(
     }
 
     if !is_opening_rite_anchor(state) && (reserved_cost.consume_window || state.time.ap == 0) {
+        let skip_auto_essence_recovery = outcome.recover_primeval_essence;
         advance_window(state, content_bundle);
+        if !skip_auto_essence_recovery {
+            state.character.mortal_aperture.recover_essence();
+        }
     }
 }
 

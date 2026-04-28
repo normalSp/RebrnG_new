@@ -637,7 +637,9 @@ function BuildPage({ projection }: { projection: LedgerViewModel }) {
           <Row label="涉水步数" value={aperture.opening_steps} />
           <Row label="元海容量" value={aperture.primeval_sea} />
           <Row label="当前真元" value={aperture.primeval_essence} />
+          <Row label="自然恢复" value={aperture.essence_recovery} />
           <Row label="空窍壁" value={aperture.wall_state} />
+          <Row label="冲刷进度" value={aperture.wall_progress} />
           <Row label="小境界" value={aperture.minor_realm} />
           <Row label="恢复说明" value={aperture.recovery_profile} />
         </dl>
@@ -666,6 +668,7 @@ function ApertureSummary({
         <Row label="资质" value={aperture.aptitude} />
         <Row label="元海" value={aperture.primeval_sea} />
         <Row label="真元" value={aperture.primeval_essence} />
+        <Row label="冲刷" value={aperture.wall_progress} />
       </dl>
       {!compact ? <p className="clue-summary">{aperture.summary}</p> : null}
     </section>

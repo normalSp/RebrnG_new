@@ -17,6 +17,7 @@ export type ActionIntent =
   | "cultivate"
   | "scout"
   | "recover"
+  | "recover_essence"
   | "trade"
   | "retreat"
   | "confront"
@@ -88,8 +89,10 @@ export interface ApertureLedgerView {
   primeval_sea: string;
   primeval_essence: string;
   wall_state: string;
+  wall_progress: string;
   minor_realm: string;
   recovery_profile: string;
+  essence_recovery: string;
   opening_rite_phase: string;
 }
 

@@ -64,6 +64,15 @@ actions:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     importance: standard
+  - id: recover_primeval_essence
+    label: 调息回元
+    intent: recover_essence
+    target: academy_gate
+    stage: s0
+    tags: [action, aperture, essence, recover]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: cultivate_moonlight
     label: 月光修行
     intent: cultivate

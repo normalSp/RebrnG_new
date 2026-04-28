@@ -100,6 +100,18 @@ narratives:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
     text: 你借月光角避开几道视线，把已炼化的月光蛊压进更稳的真元节奏里。这里比学堂前院安静，却不替你免掉消耗；一枚元石从账上划走，月光修行痕迹只向前挪了一寸。
+  - id: s0.action.cultivate.breakthrough
+    stage: s0
+    tags: [narrative, cultivate, aperture, breakthrough]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 真元牵动月光蛊，月华顺着光膜反复冲刷。最后一层薄滞被磨开时，空窍壁由光膜转为水膜，你从一转初阶推进到一转中阶。进境落账，压力也会随之落账。
+  - id: s0.action.recover_essence.default
+    stage: s0
+    tags: [narrative, aperture, essence, recover]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你收束杂念，按住空窍里浮动的青铜真元。调息不能替你增加元海上限，只能把当前真元慢慢回到资质允许的水位。
   - id: s0.action.scout.default
     stage: s0
     tags: [narrative, scout]

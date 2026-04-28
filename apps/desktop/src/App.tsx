@@ -173,6 +173,8 @@ function describeResolvedAction(
         return "已记录风声线索";
       case "recover":
         return "已恢复并记下债务";
+      case "recover_essence":
+        return "已调息回元";
       case "trade":
         return "已完成交易并抬高暴露";
       case "retreat":
