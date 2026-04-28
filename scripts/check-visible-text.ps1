@@ -37,7 +37,17 @@ $ForbiddenFragments = @(
     @{ Name = "known mojibake marker U+93BB"; Value = [string][char]0x93BB },
     @{ Name = "known mojibake marker U+7487"; Value = [string][char]0x7487 },
     @{ Name = "known mojibake marker U+7459"; Value = [string][char]0x7459 },
-    @{ Name = "known mojibake marker U+6434"; Value = [string][char]0x6434 }
+    @{ Name = "known mojibake marker U+6434"; Value = [string][char]0x6434 },
+    @{ Name = "known mojibake marker U+7035"; Value = [string][char]0x7035 },
+    @{ Name = "known mojibake marker U+93AC"; Value = [string][char]0x93AC },
+    @{ Name = "known mojibake marker U+93C2"; Value = [string][char]0x93C2 },
+    @{ Name = "known mojibake marker U+934A"; Value = [string][char]0x934A },
+    @{ Name = "known mojibake marker U+7ECC"; Value = [string][char]0x7ECC },
+    @{ Name = "known mojibake marker U+9417"; Value = [string][char]0x9417 },
+    @{ Name = "known mojibake marker U+6DC7"; Value = [string][char]0x6DC7 },
+    @{ Name = "known mojibake marker U+59F9"; Value = [string][char]0x59F9 },
+    @{ Name = "known mojibake marker U+59AB"; Value = [string][char]0x59AB },
+    @{ Name = "known mojibake marker U+9480"; Value = [string][char]0x9480 }
 )
 
 $Hits = New-Object System.Collections.Generic.List[string]

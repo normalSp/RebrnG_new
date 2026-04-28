@@ -101,10 +101,10 @@ export function LedgerShell({
     <main className="ledger-shell" aria-label="RebrnG 青茅山人生重开账本">
       <header className="ledger-top">
         <div>
-          <p className="ledger-kicker">RebrnG Sprint 3</p>
+          <p className="ledger-kicker">RebrnG Sprint 4</p>
           <h1>青茅山冷账</h1>
           <p className="ledger-subtitle">
-            对话流为主阅读层，账本明细保留规则真相的边界。
+            对话流负责沉浸反馈，账本明细保留规则真相。蛊虫、债务、暴露和选择代价都要落在同一本账里。
           </p>
         </div>
         <div className="ledger-run-controls" aria-label="运行控制">
@@ -229,7 +229,7 @@ function RunWorkspace({
   return (
     <div className="dialogue-workspace">
       <section className="dialogue-main">
-        <DialoguePanel dialogue={projection.dialogue} />
+        <DialoguePanel dialogue={projection.dialogue} guEntries={projection.gu_view.entries} />
         <ActionGroups choices={projection.action_choices} onResolveAction={onResolveAction} />
       </section>
       <LedgerDetailPanel projection={projection} />
@@ -237,7 +237,13 @@ function RunWorkspace({
   );
 }
 
-function DialoguePanel({ dialogue }: { dialogue: DialogueTimelineView }) {
+function DialoguePanel({
+  dialogue,
+  guEntries = [],
+}: {
+  dialogue: DialogueTimelineView;
+  guEntries?: string[];
+}) {
   return (
     <article className={`dialogue-panel is-${dialogue.tone}`} aria-label="对话流正文">
       <p className="ledger-page-label">对话流</p>
@@ -253,6 +259,13 @@ function DialoguePanel({ dialogue }: { dialogue: DialogueTimelineView }) {
         <ResultChip label="结果摘要" value={dialogue.previous_result_summary ?? "等待第一笔因果"} />
         <ResultChip label="最新落账" value={dialogue.latest_ledger_delta ?? "暂无新增账目"} />
       </div>
+
+      {guEntries.length ? (
+        <div className="dialogue-gu-strip" aria-label="蛊虫状态摘要">
+          <strong>蛊虫账</strong>
+          <span>{guEntries.slice(0, 3).join(" / ")}</span>
+        </div>
+      ) : null}
 
       <div className="dialogue-boundary">
         <strong>{dialogue.mode_gate_hint}</strong>
@@ -551,6 +564,7 @@ function OverviewPage({ projection }: { projection: LedgerViewModel }) {
         <Row label="暴露" value={projection.exposure} />
         <Row label="伤势" value={injuryLabel(projection.injury_level)} />
       </dl>
+      <GuSummary projection={projection} compact />
       <div className={`danger-note is-${projection.stage_closure.status}`}>
         <strong>{projection.stage_closure.title}</strong>
         <span>{projection.stage_closure.summary}</span>
@@ -610,7 +624,42 @@ function BuildPage({ projection }: { projection: LedgerViewModel }) {
         <Row label="喂养维护" value={build.maintenance_pressure} />
         <Row label="主要缺口" value={build.gap_summary} />
       </dl>
+      <GuSummary projection={projection} />
     </article>
+  );
+}
+
+function GuSummary({
+  projection,
+  compact = false,
+}: {
+  projection: LedgerViewModel;
+  compact?: boolean;
+}) {
+  const gu = projection.gu_view;
+
+  return (
+    <section className={compact ? "gu-ledger-panel is-compact" : "gu-ledger-panel"}>
+      <div className="gu-ledger-heading">
+        <p className="ledger-page-label">蛊虫账</p>
+        <strong>持有数量：{gu.owned_count}</strong>
+      </div>
+      <dl className="ledger-rows compact">
+        <Row label="月光蛊" value={gu.moonlight_gu_status} />
+        <Row label="容器" value={gu.moonlight_container} />
+        <Row label="损伤" value={gu.moonlight_condition} />
+        <Row label="喂养压力" value={gu.moonlight_feeding} />
+        <Row label="核心候选" value={gu.core_gu_candidate} />
+        <Row label="本命蛊" value={gu.vital_gu_status} />
+      </dl>
+      {!compact ? (
+        <div className="gu-entry-list">
+          {gu.entries.map((entry) => (
+            <span key={entry}>{entry}</span>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -620,7 +669,7 @@ function RelationsPage({ projection }: { projection: LedgerViewModel }) {
   return (
     <article className="ledger-page">
       <p className="ledger-page-label">关系局势</p>
-      <h2>庇护、利用、债与门路，都先记在同一本账里。</h2>
+      <h2>庇护、利用、债与门路，先记在同一本账里。</h2>
       <dl className="ledger-rows">
         <Row label="家族秩序" value={relation.family_pressure} />
         <Row label="药堂债" value={relation.infirmary_debt} />

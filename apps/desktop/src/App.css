@@ -274,6 +274,28 @@ button:disabled {
   color: var(--rg-ink);
 }
 
+.dialogue-gu-strip {
+  align-items: start;
+  background: rgba(42, 37, 29, 0.88);
+  border: 1px solid rgba(143, 109, 46, 0.48);
+  color: #efe6cf;
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 12px;
+}
+
+.dialogue-gu-strip strong {
+  color: #ddb666;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+}
+
+.dialogue-gu-strip span {
+  color: rgba(239, 230, 207, 0.82);
+  font-size: 0.9rem;
+}
+
 .choice-dock {
   background: rgba(233, 224, 198, 0.68);
   border: 1px solid var(--rg-line);
@@ -552,9 +574,53 @@ button:disabled {
 .latest-ledger-entry,
 .clue-access-note,
 .clue-row,
-.danger-note {
+.danger-note,
+.gu-ledger-panel {
   margin-top: 14px;
   padding: 12px;
+}
+
+.gu-ledger-panel {
+  background: rgba(42, 37, 29, 0.08);
+  border: 1px solid rgba(143, 109, 46, 0.42);
+}
+
+.gu-ledger-panel.is-compact {
+  margin-top: 14px;
+}
+
+.gu-ledger-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--rg-line-soft);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+.gu-ledger-heading .ledger-page-label {
+  margin: 0;
+}
+
+.gu-ledger-heading strong {
+  color: var(--rg-gold);
+  font-size: 0.86rem;
+}
+
+.gu-entry-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gu-entry-list span {
+  background: rgba(42, 37, 29, 0.86);
+  border: 1px solid rgba(239, 230, 207, 0.18);
+  color: #efe6cf;
+  font-size: 0.82rem;
+  padding: 5px 8px;
 }
 
 .latest-ledger-entry span,
