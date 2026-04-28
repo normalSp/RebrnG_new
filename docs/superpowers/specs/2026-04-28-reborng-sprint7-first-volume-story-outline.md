@@ -4,6 +4,8 @@ Status: frozen candidate
 Date: 2026-04-28  
 Scope: Sprint 7
 
+Sprint 7.1 refinement: 第一卷详细剧情生产以 `2026-04-28-reborng-first-volume-story-bible.md` 和 `first-volume-story-beats.json` 为准；本文件保留为 Sprint 7 开篇长正文试制范围说明。
+
 ## Summary
 
 Sprint 7 的目标不是继续横向扩机制，而是先把《蛊真人》第一卷在游戏里的呈现母骨架定下来。当前项目已经有 8 自由窗口、月光蛊状态、四路线文本和 DeepSeek 离线候选工具，但还缺少“第一卷如何分章推进、玩家能影响什么、原著硬事实不能改什么”的统一剧情合同。

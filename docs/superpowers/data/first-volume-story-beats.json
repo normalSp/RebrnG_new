@@ -1,0 +1,747 @@
+{
+  "schema_version": "story-beats-v1",
+  "title": "RebrnG 第一卷《魔性不改》剧情圣经结构化表",
+  "source": {
+    "local_file": "reverend-insanity.txt",
+    "volume": "第一卷 魔性不改",
+    "chapter_range": "第一节至第一百九十九节",
+    "next_volume_marker": "第二卷 魔子出山"
+  },
+  "design_defaults": {
+    "player_identity": "玩家不是方源，也不替代方源；玩家是同届或邻近秩序中的新人蛊师。",
+    "canon_strict_role": "承受余波、经营缝隙、争取生存资格。",
+    "sandbox_if_role": "允许有限偏移，但必须有代价、失败形态和锚点压力。",
+    "current_s0_position": "第一卷前 10-15% 的可玩切片。"
+  },
+  "beats": [
+    {
+      "beat_id": "v1_b01_rebirth_opening_rite",
+      "title": "重生前夜与开窍大典",
+      "source_range": {
+        "start_chapter": "第一节 纵身亡魔心仍不悔",
+        "end_chapter": "第六节 未来的路，会很精彩"
+      },
+      "play_unit": "设置层 + 强制锚点窗口",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "方源回归、方正对照、家族期待和希望蛊开窍是第一卷入口。"
+        },
+        {
+          "type": "pressure",
+          "summary": "开窍结果决定家族账册中的培养、利用和审视。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "作为同届少年进入开窍大典。",
+          "通过出身、天赋和开窍结果确定初始资源与关注度。",
+          "不能替代方源或方正的开窍硬事实。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "强天赋或异常梦兆",
+            "required_cost": "更高关注度或锚点压力",
+            "fail_state": "被学堂或家族提前盯上",
+            "anchor_pressure": "不得改变方源与方正对照"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "跳过开窍",
+        "未开窍修行",
+        "开局稳定获得本命蛊",
+        "开局获得完整传承",
+        "替代方源或方正关键结果"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "空窍容量与资质",
+          "reason": "开窍结果需要从叙事标签升级为可计算状态。"
+        },
+        {
+          "system": "强制锚点窗口",
+          "reason": "开窍大典应成为第一卷入口，不是背景说明。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.opening_rite.player_result",
+          "slot_type": "anchor_scene",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "玩家参与开窍大典",
+            "方源与方正结果保持原著锚点"
+          ],
+          "redlines": [
+            "不得生成本命蛊",
+            "不得给完整传承",
+            "不得改写方源"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b02_academy_and_gu_basics",
+      "title": "学堂入账与蛊师常识",
+      "source_range": {
+        "start_chapter": "第七节 蛊师有九转，花酒留遗藏",
+        "end_chapter": "第十节 天有不测风云，炼蛊别具艰辛"
+      },
+      "play_unit": "自由窗口 + 学堂课程锚点",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "九转体系、花酒传闻和月光蛊制度资源进入叙事。"
+        },
+        {
+          "type": "pressure",
+          "summary": "学堂教学同时也是分类、比较和审计。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "学习蛊师体系和家族历史说法。",
+          "领取月光蛊并承担炼化压力。",
+          "从花酒传闻感到危险诱惑，但不能接触核心真相。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "听到旁支版本的花酒传闻",
+            "required_cost": "风声记录导致被注意",
+            "fail_state": "线索被判定为假或误导",
+            "anchor_pressure": "不得提前揭穿完整历史真相"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "把月光蛊写成普通装备",
+        "跳过炼化",
+        "直接获得花酒行者真相",
+        "把学堂写成传统导师制"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "蛊师常识图鉴",
+          "reason": "玩家需要理解九转、真元、炼化、喂养等基本概念。"
+        },
+        {
+          "system": "学堂课程锚点",
+          "reason": "课程应承担世界观教学与制度压力。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.academy.gu_master_basics",
+          "slot_type": "knowledge_scene",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "玩家已开窍并进入学堂",
+            "月光蛊是稳定制度资源"
+          ],
+          "redlines": [
+            "不得给花酒核心真相",
+            "不得取消学堂压迫"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b03_moonlight_gu_and_liquor_worm_lure",
+      "title": "月光蛊与酒虫诱惑",
+      "source_range": {
+        "start_chapter": "第十一节 不过是色诱罢了",
+        "end_chapter": "第十八节 就让往事如烟飘散"
+      },
+      "play_unit": "自由窗口 + 高风险线索",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "方源寻找酒虫，月光蛊作为保底，本命蛊概念出现。"
+        },
+        {
+          "type": "adjacent",
+          "summary": "玩家可感知酒虫诱惑，但不能抢走核心机缘。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "稳定推进月光蛊领取、炼化、修行。",
+          "通过风声知道酒虫价值和危险。",
+          "不能稳定获得酒虫。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "追踪酒香残线或酒虫假影",
+            "required_cost": "元石消耗、暴露或夜间风险",
+            "fail_state": "线索中断、被人盯上或误入危险节点",
+            "anchor_pressure": "不得夺走方源发现酒虫的主线"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "稳定获得酒虫",
+        "成为花酒遗藏核心发现者",
+        "酒虫无代价入手",
+        "本命蛊稳定建立"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "酒虫 GuSpec",
+          "reason": "酒虫是第一卷关键诱惑，但需高门槛控制。"
+        },
+        {
+          "system": "真假线索",
+          "reason": "酒虫线必须能产生诱惑、误导和撤退价值。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.liquor_worm.rumor_false_trail",
+          "slot_type": "rumor_result",
+          "mode": "sandbox_if",
+          "evidence": "sandbox_if",
+          "state_assumptions": [
+            "玩家主动追酒虫残线",
+            "原著核心机缘保持保护"
+          ],
+          "redlines": [
+            "不得稳定获得酒虫",
+            "不得给花酒核心入口"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b04_flower_wine_truth",
+      "title": "花酒遗藏与历史真相",
+      "source_range": {
+        "start_chapter": "第十三节 月下竹林，一点珠雪",
+        "end_chapter": "第十八节 就让往事如烟飘散"
+      },
+      "play_unit": "锚点邻近事件 + IF 残线",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "方源发现花酒尸骸、酒虫、留影存声蛊和被篡改的历史。"
+        },
+        {
+          "type": "optional_reference",
+          "summary": "玩家可通过外围证据感知历史裂缝。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "接触外围传闻、假入口或旧史矛盾。",
+          "不能进入核心密洞或夺取主奖励。",
+          "可因靠近传承余波而增加风险。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "发现破碎旁证或非核心残留",
+            "required_cost": "高层怀疑、方源余波或锚点压力",
+            "fail_state": "被清洗、被嫁祸或路线断裂",
+            "anchor_pressure": "方源仍保留核心发现事实"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "完整获得花酒遗藏",
+        "拿走酒虫",
+        "拿走留影存声核心证据",
+        "公开改写家族历史真相"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "传承门禁",
+          "reason": "同一传承必须支持外围、残线、核心多层访问。"
+        },
+        {
+          "system": "历史真相风险",
+          "reason": "揭露真相会引来高层追索。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.flower_wine.outer_evidence",
+          "slot_type": "if_clue",
+          "mode": "sandbox_if",
+          "evidence": "sandbox_if",
+          "state_assumptions": [
+            "玩家接触花酒外围残线",
+            "核心遗藏仍由锚点保护"
+          ],
+          "redlines": [
+            "不得给酒虫",
+            "不得给完整留影",
+            "不得公开翻案"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b05_early_academy_competition",
+      "title": "早期学堂竞争",
+      "source_range": {
+        "start_chapter": "第十九节 六转本命春秋蝉！",
+        "end_chapter": "第三十八节 魔头在光明中行走"
+      },
+      "play_unit": "自由窗口 + 遭遇决断 + 阶段考核",
+      "canon_anchor": [
+        {
+          "type": "pressure",
+          "summary": "月刃训练、近战、勒索、班头和组织本质共同构成早期压迫。"
+        },
+        {
+          "type": "fixed",
+          "summary": "方源的关键学堂表现不能被玩家替代。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "在制度内求活，通过月光、功绩、药堂、黑市缝隙分化路线。",
+          "面对忍让、争辩、硬顶、撤退等短决断。",
+          "不能爽文式横扫学堂。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "局部反制同辈或嫁祸",
+            "required_cost": "名声、暴露、组织债或伤势",
+            "fail_state": "被学堂重点盯防",
+            "anchor_pressure": "不得取代方源班头线"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "取代方源班头线",
+        "稳定压倒学堂秩序",
+        "打脸式无代价胜利",
+        "无视组织审计"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "名声与同辈关系",
+          "reason": "公开压力需要长期后果。"
+        },
+        {
+          "system": "非致命对练",
+          "reason": "学堂冲突不是完整生死战。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.academy.public_pressure_chain",
+          "slot_type": "encounter_chain",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "玩家月光修行痕迹可见",
+            "学堂公开压力已经触发"
+          ],
+          "redlines": [
+            "不得爽文打脸",
+            "不得消除后续压力"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b06_caravan_jia_jinsheng_case",
+      "title": "商队与贾金生事件",
+      "source_range": {
+        "start_chapter": "第三十九节 蛤蟆商队",
+        "end_chapter": "第五十八节 家族里不是只有规矩"
+      },
+      "play_unit": "锚点窗口 + 交易/调查子循环",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "商队入山、赌石机会、贾金生死亡和调查压力形成外部势力冲击。"
+        },
+        {
+          "type": "pressure",
+          "summary": "外来交易不是免费机会，而会带来证词、嫌疑和追索。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "接触商队交易、外来风声和审查压力。",
+          "可成为旁观者、误会对象或边缘证人。",
+          "不能掌控贾金生核心案。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "卷入侧证、误导调查或被怀疑",
+            "required_cost": "交易记录、嫌疑、组织压力",
+            "fail_state": "被调查、被勒索或路线受限",
+            "anchor_pressure": "贾金生核心事实保持不变"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "改写贾金生死亡核心事实",
+        "稳定夺取原著赌石收益",
+        "控制商队调查结论",
+        "无风险外来交易"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "商队交易",
+          "reason": "外来资源需要区别于黑市和宝黄天。"
+        },
+        {
+          "system": "调查与嫌疑",
+          "reason": "贾金生事件需要证词、嫌疑和追索状态。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.caravan.edge_witness",
+          "slot_type": "anchor_adjacent",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "商队已到青茅山",
+            "玩家接触外来交易或风声"
+          ],
+          "redlines": [
+            "不得改变贾金生案",
+            "不得给稳定赌石核心收益"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b07_flower_wine_inheritance_progression",
+      "title": "花酒传承推进",
+      "source_range": {
+        "start_chapter": "第六十节 壁破现甬道，传承岂易与？",
+        "end_chapter": "第八十一节 二转初阶！"
+      },
+      "play_unit": "高风险传承残线 + 阶段奖励门禁",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "方源推进花酒传承，获得战力关键收益并突破。"
+        },
+        {
+          "type": "adjacent",
+          "summary": "玩家只可追外围线索或被传承诱惑。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "追查外围红圈、假线或被传承余波影响。",
+          "不能稳定获取白豕蛊、玉皮蛊或核心奖励。",
+          "可因传承传闻承担暴露和追索。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "残线分支或边缘收益",
+            "required_cost": "重伤、债务、追杀或锚点压力",
+            "fail_state": "假线、陷阱、被高层盯上",
+            "anchor_pressure": "不得抹掉方源传承推进"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "稳定获得白豕蛊",
+        "稳定获得玉皮蛊",
+        "进入花酒核心密室",
+        "替代方源传承进度"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "传承奖励替代池",
+          "reason": "IF 分支需要非核心、可损失、可追索的边缘奖励。"
+        },
+        {
+          "system": "蛊虫战力成长",
+          "reason": "白豕、玉皮等应推动后续力道/防御接口。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.inheritance.outer_red_mark",
+          "slot_type": "if_route",
+          "mode": "sandbox_if",
+          "evidence": "sandbox_if",
+          "state_assumptions": [
+            "玩家追查花酒外围线索",
+            "核心奖励受锚点保护"
+          ],
+          "redlines": [
+            "不得稳定发核心蛊",
+            "不得替代方源突破"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b08_year_end_exam_clan_suppression",
+      "title": "年末考核与家族打压",
+      "source_range": {
+        "start_chapter": "第八十二节 年末考核开始",
+        "end_chapter": "第九十二节 未来遥遥在望"
+      },
+      "play_unit": "阶段考核 + 名声/派系结算",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "方源战力显露、方正对照加强、家族怀疑与打压升温。"
+        },
+        {
+          "type": "pressure",
+          "summary": "组织不只讲规矩，也讲控制、忠诚和可利用性。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "参与自身考核并承受排名、名声、资源审计。",
+          "可藏拙、争名或借外力，但不替代方源表现。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "改变自身排名、局部关系或派系站位",
+            "required_cost": "被怀疑、资源追索、同辈敌意",
+            "fail_state": "被刁难、打压或资源封锁",
+            "anchor_pressure": "方源核心表现保持"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "取代方源考核表现",
+        "轻易化解家族怀疑",
+        "无代价获得高名声",
+        "抹掉方正对照压力"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "考核系统",
+          "reason": "阶段压力需要可结算的排名与奖励/惩罚。"
+        },
+        {
+          "system": "派系压力",
+          "reason": "家族打压需要组织关系与资源门禁。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.exam.player_result",
+          "slot_type": "stage_resolution",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "玩家完成年末考核",
+            "方源核心表现不被替代"
+          ],
+          "redlines": [
+            "不得替代方源",
+            "不得无代价高名声"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b09_beast_tide_wild_growth",
+      "title": "小兽潮与山野成长",
+      "source_range": {
+        "start_chapter": "第九十三节 小兽潮",
+        "end_chapter": "第一百二十八节 严冬不肃杀，何以见阳春！"
+      },
+      "play_unit": "扩展节点图 + 山野遭遇 + 长跳时",
+      "canon_anchor": [
+        {
+          "type": "pressure",
+          "summary": "山野、兽潮、猴群、炼蛊艰难和二转推进让生存压力外扩。"
+        },
+        {
+          "type": "fixed",
+          "summary": "方源关键成长和机缘推进保持。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "从山寨节点扩到山野。",
+          "通过侦查、撤退、补给和伤势管理求活。",
+          "不能稳定解除兽潮大势。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "提前探到征兆或局部救援边缘人物",
+            "required_cost": "伤势、资源损耗、时间窗口",
+            "fail_state": "迷路、蛊虫受损、重伤或资产丢失",
+            "anchor_pressure": "兽潮大势保持"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "把兽潮写成刷怪收益",
+        "稳定解除兽潮威胁",
+        "跳过山野死亡压力",
+        "无损获取方源成长收益"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "山野风险表",
+          "reason": "山野行动需要环境、野兽、补给和撤退风险。"
+        },
+        {
+          "system": "蛊虫损伤",
+          "reason": "战败后果需要作用到蛊虫实例。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.wilds.beast_tide_omen",
+          "slot_type": "risk_scene",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "玩家开始进入山野节点",
+            "兽潮压力逐步显现"
+          ],
+          "redlines": [
+            "不得刷怪化",
+            "不得稳定规避兽潮"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b10_bai_ning_bing_three_clans_pressure",
+      "title": "白凝冰与三寨压力",
+      "source_range": {
+        "start_chapter": "第一百二十九节 锯齿金蜈",
+        "end_chapter": "第一百四十八节 局面"
+      },
+      "play_unit": "高阶压力事件 + 不可战胜遭遇",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "白凝冰、北冥冰魄、青书牺牲和三寨强压明确世界强度边界。"
+        },
+        {
+          "type": "pressure",
+          "summary": "玩家早期不能与强者同层竞争，只能承受余波。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "承受白凝冰和三寨冲突余波。",
+          "通过逃生、借势、避险保命。",
+          "不能击败、控制或收服白凝冰。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "短暂遭遇、被利用或误伤后逃生",
+            "required_cost": "重伤、组织债、路线断裂",
+            "fail_state": "重创可续、蛊虫损伤、被迫迁移",
+            "anchor_pressure": "白凝冰强度和核心走向保持"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "稳定击败白凝冰",
+        "收服白凝冰",
+        "让玩家早期成为三寨核心棋手",
+        "抹掉青书牺牲压力结构"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "guarded NPC",
+          "reason": "强者 NPC 需要不可轻易绑定或击败的保护模型。"
+        },
+        {
+          "system": "不可战胜遭遇逃生",
+          "reason": "高阶压力应强调撤退和代价，而不是战斗胜利。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.bai_ning_bing.pressure_glimpse",
+          "slot_type": "pressure_scene",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "玩家接近三寨压力段",
+            "白凝冰作为强者压力出现"
+          ],
+          "redlines": [
+            "不得攻略化白凝冰",
+            "不得战胜白凝冰"
+          ]
+        }
+      ]
+    },
+    {
+      "beat_id": "v1_b11_qingmao_finale_departure",
+      "title": "青茅山终局",
+      "source_range": {
+        "start_chapter": "第一百四十九节 群狼袭寨",
+        "end_chapter": "第一百九十九节 走向各自的命运"
+      },
+      "play_unit": "终局锚点 + 阶段结算 + 跨地图迁移",
+      "canon_anchor": [
+        {
+          "type": "fixed",
+          "summary": "狼潮、一代古月、血湖、鹤灾、方源脱离构成第一卷硬终局。"
+        },
+        {
+          "type": "pressure",
+          "summary": "玩家阶段成功是活下来并取得脱离资格，不是赢下青茅山。"
+        }
+      ],
+      "player_scope": {
+        "canon_strict": [
+          "保住自身资产、蛊虫、线索和最低限度行动能力。",
+          "以伤痕、债务、关系断裂或路线代价脱离青茅山。",
+          "不能阻止核心灾变。"
+        ],
+        "sandbox_if": [
+          {
+            "allowed_deviation": "局部人物余波、资产迁移或路线结果偏移",
+            "required_cost": "长期追索、锚点压力、资产损失",
+            "fail_state": "死亡、被组织清算、蛊虫损毁或被迫流亡",
+            "anchor_pressure": "青茅山终局大势保持"
+          }
+        ]
+      },
+      "forbidden_changes": [
+        "无代价改写青茅山终局",
+        "阻止核心灾变",
+        "抢走一代古月或方源主导权",
+        "无损带走核心原著机缘"
+      ],
+      "mechanic_gaps": [
+        {
+          "system": "阶段结算",
+          "reason": "终局需要死亡、脱离、资产迁移和长期追索分层。"
+        },
+        {
+          "system": "跨地图迁移",
+          "reason": "第一卷结束后需要进入第二卷空间。"
+        }
+      ],
+      "narrative_slots": [
+        {
+          "target_content_id": "v1.qingmao_finale.departure_qualification",
+          "slot_type": "stage_closure",
+          "mode": "canon_strict",
+          "evidence": "canon_inferred",
+          "state_assumptions": [
+            "青茅山终局锚点已触发",
+            "玩家未死亡且具备脱离条件"
+          ],
+          "redlines": [
+            "不得改写青茅山大势",
+            "不得让玩家赢下青茅山"
+          ]
+        }
+      ]
+    }
+  ]
+}
+
