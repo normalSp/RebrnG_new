@@ -9,6 +9,10 @@
     "content:build": "cargo run -p rebrng-content-tools -- build-s0 --input content/s0 --output target/rebrng-content/s0.bundle.json",
     "desktop:build": "pnpm --filter @rebrng/desktop tauri build",
     "desktop:dev": "pnpm --filter @rebrng/desktop tauri dev",
+    "deepseek:generate": "node scripts/deepseek-candidates.mjs generate --mock --out .local/deepseek-candidates",
+    "deepseek:review": "node scripts/deepseek-candidates.mjs review --dir .local/deepseek-candidates",
+    "deepseek:validate": "node scripts/deepseek-candidates.mjs validate --dir .local/deepseek-candidates",
+    "deepseek:test": "node --test scripts/deepseek-candidates.test.mjs",
     "check": "pnpm -r build && cargo test --workspace"
   }
 }

@@ -8,6 +8,7 @@
 - [2026-04-27-reborng-mortal-gu-refinement-killer-move-contract-spec.md](./2026-04-27-reborng-mortal-gu-refinement-killer-move-contract-spec.md)
 - [2026-04-28-reborng-sprint3-development-outline.md](./2026-04-28-reborng-sprint3-development-outline.md)
 - [2026-04-28-reborng-sprint3-phase6-offline-narrative-expansion-freeze.md](./2026-04-28-reborng-sprint3-phase6-offline-narrative-expansion-freeze.md)
+- [2026-04-28-reborng-deepseek-v4-pro-offline-candidate-guide.md](./2026-04-28-reborng-deepseek-v4-pro-offline-candidate-guide.md)
 - [2026-04-26-reborng-logical-architecture-design.md](./2026-04-26-reborng-logical-architecture-design.md)
 - [2026-04-26-reborng-technical-architecture-design.md](./2026-04-26-reborng-technical-architecture-design.md)
 
@@ -124,6 +125,8 @@ UI 边界：
 ## Phase 5：DeepSeek 离线候选工具
 
 目标：建立离线候选文本生产入口，服务后续沉浸文本扩写，不影响 runtime。
+
+具体使用方法、prompt 顺序、`canon_cards` 抽卡格式、候选 JSON schema、审校流程和 hosted API 安全边界，详见 [DeepSeek V4-Pro 离线候选使用指导](./2026-04-28-reborng-deepseek-v4-pro-offline-candidate-guide.md)。
 
 工具要求：
 - 只读取本地环境变量：`DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL`、`DEEPSEEK_MODEL`。
