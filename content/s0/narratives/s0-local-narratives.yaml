@@ -4,19 +4,19 @@ narratives:
     tags: [narrative, gu, moonlight, claim]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你在学堂名册下领到月光蛊。它还只是随身之物，真正可用前仍需炼化归属。
+    text: 你按学堂名册领取月光蛊。负责登记的族人没有多说一句，只把蛊虫与你的名字并排记下。它现在只是随身之物，不是你的力量；账上多了一只蛊，也多了一条未完成的归属。想让它回应真元，还得把一个自由窗口压进炼化里。
   - id: s0.gu.moonlight.refine
     stage: s0
     tags: [narrative, gu, moonlight, refine]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你把真元压入月光蛊，炼化归属初成。它进入空窍，终于能支撑月光修行。
+    text: 你把一段窗口沉进空窍，顺着月光蛊的冷意一点点磨去外来的抗拒。炼化归属初成后，它从随身之物转入空窍，终于能随你的真元牵动。账本没有把这记成奖励，只记成一只可用之蛊，以及后续喂养、损伤和修行代价都要落到你身上的开始。
   - id: s0.gu.moonlight.inspect
     stage: s0
     tags: [narrative, gu, moonlight, inspect]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你检查月光蛊的喂养维护压力：当前稳定，但后续仍要记账。
+    text: 你把月光蛊的状态重新过账：一转，月道，当前喂养压力尚稳，损伤也未露头。稳不等于无负担，只是这笔账暂时没有追到当前窗口上；以后资源、恢复和路线取舍变窄时，它会换一种方式提醒你。
   - id: s0.scene.opening.academy_gate
     stage: s0
     tags: [narrative, opening, academy]
@@ -46,13 +46,13 @@ narratives:
     tags: [narrative, cultivate, moonlight]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你借已炼化的月光蛊运转真元，月光修行痕迹更深，元石也少了一枚。
+    text: 你扣下一枚元石，催动空窍里已经炼化的月光蛊。月华没有替你省下代价，只在真元一次次牵引里留下更清楚的修行痕迹。学堂的比较不会因此消失，但下一次有人看向你的空窍账时，你至少少了一分空口解释的余地。
   - id: s0.action.cultivate.moonlight_corner
     stage: s0
     tags: [narrative, cultivate, moonlight]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你借月光角避开几道视线，真元运转更稳，账上仍记下一枚元石的缺口。
+    text: 你借月光角避开几道视线，把已炼化的月光蛊压进更稳的真元节奏里。这里比学堂前院安静，却不替你免掉消耗；一枚元石从账上划走，月光修行痕迹只向前挪了一寸。
   - id: s0.action.scout.default
     stage: s0
     tags: [narrative, scout]

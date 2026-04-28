@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.3.1";
+pub const STARTER_CONTENT_VERSION: &str = "s0.4.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
 pub const RULES_VERSION: &str = "sprint4-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
@@ -3875,21 +3875,21 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
     vec![
         content_narrative(
             "s0.gu.moonlight.claim",
-            "你在学堂名册下领到月光蛊。它还只是随身之物，真正可用前仍需炼化归属。",
+            "你按学堂名册领取月光蛊。负责登记的族人没有多说一句，只把蛊虫与你的名字并排记下。它现在只是随身之物，不是你的力量；账上多了一只蛊，也多了一条未完成的归属。想让它回应真元，还得把一个自由窗口压进炼化里。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "gu", "moonlight", "claim"],
         ),
         content_narrative(
             "s0.gu.moonlight.refine",
-            "你把真元压入月光蛊，炼化归属初成。它进入空窍，终于能支撑月光修行。",
+            "你把一段窗口沉进空窍，顺着月光蛊的冷意一点点磨去外来的抗拒。炼化归属初成后，它从随身之物转入空窍，终于能随你的真元牵动。账本没有把这记成奖励，只记成一只可用之蛊，以及后续喂养、损伤和修行代价都要落到你身上的开始。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "gu", "moonlight", "refine"],
         ),
         content_narrative(
             "s0.gu.moonlight.inspect",
-            "你检查月光蛊的喂养维护压力：当前稳定，但后续仍要记账。",
+            "你把月光蛊的状态重新过账：一转，月道，当前喂养压力尚稳，损伤也未露头。稳不等于无负担，只是这笔账暂时没有追到当前窗口上；以后资源、恢复和路线取舍变窄时，它会换一种方式提醒你。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "gu", "moonlight", "inspect"],
@@ -3924,14 +3924,14 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.cultivate.moonlight",
-            "你借已炼化的月光蛊运转真元，月光修行痕迹更深，元石也少了一枚。",
+            "你扣下一枚元石，催动空窍里已经炼化的月光蛊。月华没有替你省下代价，只在真元一次次牵引里留下更清楚的修行痕迹。学堂的比较不会因此消失，但下一次有人看向你的空窍账时，你至少少了一分空口解释的余地。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "cultivate", "moonlight"],
         ),
         content_narrative(
             "s0.action.cultivate.moonlight_corner",
-            "你借月光角避开几道视线，真元运转更稳，账上仍记下一枚元石的缺口。",
+            "你借月光角避开几道视线，把已炼化的月光蛊压进更稳的真元节奏里。这里比学堂前院安静，却不替你免掉消耗；一枚元石从账上划走，月光修行痕迹只向前挪了一寸。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "cultivate", "moonlight"],
@@ -4970,7 +4970,7 @@ fn stage_closure_view(state: &GameState) -> StageClosureView {
             status: StageClosureStatus::InProgress,
             title: "尚未收口".to_string(),
             summary: format!(
-                "自由窗口已过 {}/8，阶段锚点尚未落下。",
+                "自由窗口已过 {}/8，阶段锚点尚未落下。月光蛊、元石、债务与暴露仍在账上等你继续取舍。",
                 state.time.free_rounds_elapsed
             ),
         };
@@ -4988,14 +4988,14 @@ fn stage_closure_view(state: &GameState) -> StageClosureView {
         return StageClosureView {
             status: StageClosureStatus::FoundationEstablished,
             title: "站稳一转根基".to_string(),
-            summary: "月光修行留下足够痕迹，资源、债务和风险仍在，但一转根基已经站住。".to_string(),
+            summary: "月光蛊已经在空窍里留下足够清楚的修行痕迹，资源、债务和风险仍在，但你不再只是账本上一个刚开窍的名字。一转根基暂时站住了，后续喂养和制度压力也从这里开始追账。".to_string(),
         };
     }
 
     StageClosureView {
         status: StageClosureStatus::InProgress,
         title: "锚点待判".to_string(),
-        summary: "自由窗口已经耗尽，但当前根基不足以记为阶段成功。".to_string(),
+        summary: "自由窗口已经耗尽，但当前根基不足以记为阶段成功。若月光蛊尚未炼化、修行痕迹不足，学堂只会把这些缺口记成下一阶段的压力。".to_string(),
     }
 }
 
@@ -5911,7 +5911,15 @@ fn availability_check(
     if command.intent == ActionIntent::Cultivate
         && !state.gu_inventory.has_refined_gu("moonlight_gu")
     {
-        return Err(CommandError::validation("月光蛊尚未炼化，不能稳定修行"));
+        return Err(CommandError::validation(
+            "月光蛊尚未真正归你驱使；没有炼化归属，修行只会变成空窍里的牵扯，不能稳定推进月光痕迹",
+        ));
+    }
+
+    if command.intent == ActionIntent::Cultivate && state.resources.primeval_stones < 1 {
+        return Err(CommandError::validation(
+            "元石见底，月光蛊再听话也不能替你凭空补足消耗",
+        ));
     }
 
     if let Some(active) = &state.encounters.active {
@@ -5971,7 +5979,9 @@ fn availability_check(
                     return Err(CommandError::validation("领取月光蛊需要在学堂前院"));
                 }
                 if state.gu_inventory.has_gu("moonlight_gu") {
-                    return Err(CommandError::validation("月光蛊已经领取"));
+                    return Err(CommandError::validation(
+                        "月光蛊已经在账上，重复领取只会暴露你对制度账目的无知",
+                    ));
                 }
             }
             ActionIntent::RefineGu => {
@@ -5979,7 +5989,9 @@ fn availability_check(
                     return Err(CommandError::validation("尚未拥有月光蛊"));
                 };
                 if gu.refinement == RefinementState::Refined {
-                    return Err(CommandError::validation("月光蛊已经炼化"));
+                    return Err(CommandError::validation(
+                        "月光蛊已经归入空窍，重复炼化不会多出一份控制权",
+                    ));
                 }
             }
             ActionIntent::InspectGu if !state.gu_inventory.has_gu("moonlight_gu") => {
@@ -6158,9 +6170,11 @@ fn subsystem_resolution(
             Ok(outcome)
         }
         ActionIntent::Cultivate => {
-            let mut outcome =
-                SubsystemOutcome::new("action", "你按下杂念运转真元，月光修行痕迹更深。")
-                    .with_narrative_id("s0.action.cultivate.moonlight");
+            let mut outcome = SubsystemOutcome::new(
+                "action",
+                "你扣下一枚元石，催动空窍里已经炼化的月光蛊。月华没有替你省下代价，只在真元一次次牵引里留下更清楚的修行痕迹。",
+            )
+            .with_narrative_id("s0.action.cultivate.moonlight");
             outcome.survival_route = Some("月光修行：制度内求稳".to_string());
             outcome.moonlight_cultivation_delta = 1;
             if let Some(encounter) = eligible_encounter_trigger(
@@ -6181,7 +6195,7 @@ fn subsystem_resolution(
         ActionIntent::ClaimGu => {
             let mut outcome = SubsystemOutcome::new(
                 "gu",
-                "你在学堂名册下领到月光蛊。它还只是随身之物，真正可用前仍需炼化归属。",
+                "你按学堂名册领取月光蛊。它现在只是随身之物，不是你的力量；账上多了一只蛊，也多了一条未完成的归属。",
             )
             .with_narrative_id("s0.gu.moonlight.claim");
             outcome.claim_moonlight_gu = true;
@@ -6191,7 +6205,7 @@ fn subsystem_resolution(
         ActionIntent::RefineGu => {
             let mut outcome = SubsystemOutcome::new(
                 "gu",
-                "你把真元压入月光蛊，炼化归属初成。它进入空窍，终于能支撑月光修行。",
+                "你把一段窗口沉进空窍，顺着月光蛊的冷意一点点磨去外来的抗拒。炼化归属初成后，它从随身之物转入空窍，终于能随你的真元牵动。",
             )
             .with_narrative_id("s0.gu.moonlight.refine");
             outcome.refine_moonlight_gu = true;
@@ -6200,7 +6214,7 @@ fn subsystem_resolution(
         }
         ActionIntent::InspectGu => Ok(SubsystemOutcome::new(
             "gu",
-            "你检查月光蛊的喂养维护压力：当前稳定，但后续仍要记账。",
+            "你把月光蛊的状态重新过账：一转，月道，当前喂养压力尚稳，损伤也未露头。稳不等于无负担，只是这笔账暂时没有追到当前窗口上。",
         )
         .with_narrative_id("s0.gu.moonlight.inspect")),
         ActionIntent::Scout => {
@@ -6784,7 +6798,7 @@ mod tests {
         assert!(!cultivate.enabled);
         assert_eq!(
             cultivate.disabled_reason.as_deref(),
-            Some("月光蛊尚未炼化，不能稳定修行")
+            Some("月光蛊尚未真正归你驱使；没有炼化归属，修行只会变成空窍里的牵扯，不能稳定推进月光痕迹")
         );
 
         let error = resolve_action(
@@ -6794,7 +6808,7 @@ mod tests {
         )
         .expect_err("cultivation without refined moonlight gu must fail");
         assert_eq!(error.kind, CommandErrorKind::Validation);
-        assert!(error.message.contains("月光蛊尚未炼化"));
+        assert!(error.message.contains("月光蛊尚未真正归你驱使"));
     }
 
     #[test]
