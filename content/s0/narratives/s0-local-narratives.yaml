@@ -1,4 +1,31 @@
 narratives:
+  - id: s0.opening_rite.enter_cave
+    stage: s0
+    tags: [narrative, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+    text: >-
+      地下溶洞的湿气扑到脸上，水声和脚步声挤在一起。族老站在高处，目光不像祝福，更像是在清点一批刚被推入制度账册的少年。
+
+      你跟着队伍向里走，花海的微光在水面上抖动。开窍大典不是背景，它决定你有没有空窍、元海有多深，也决定后续月光蛊能否真正被炼化。
+  - id: s0.opening_rite.cross_river
+    stage: s0
+    tags: [narrative, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+    text: >-
+      暗河没过脚踝，又一点点漫过小腿。越往前，水压越重，周围同龄人的呼吸也越急。开窍大典以涉水步数判断资质：十余步多为丁等，二十余步多为丙等，三十余步可入乙等，四十余步才有甲等气象。
+
+      你没有看见数值条，只看见希望蛊在花海中惊起。它们像一群被命数驱赶的微光，等待有人走到足够远的地方。
+  - id: s0.opening_rite.receive_hope_gu
+    stage: s0
+    tags: [narrative, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+    text: >-
+      希望蛊没入体内的一瞬，腹中像被凿开一处幽微海眼。空窍初成，元海随资质落定，青铜真元在里面泛起薄光。
+
+      从这一刻开始，你才有资格谈炼化、喂养和操控蛊虫。月光蛊不再只是学堂发下的物件，而会成为你能否站稳一转根基的第一笔硬账。
   - id: s0.gu.moonlight.claim
     stage: s0
     tags: [narrative, gu, moonlight, claim]

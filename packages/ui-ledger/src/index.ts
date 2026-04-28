@@ -24,6 +24,9 @@ export type ActionIntent =
   | "argue"
   | "delay"
   | "frame"
+  | "enter_opening_cave"
+  | "cross_opening_river"
+  | "receive_hope_gu"
   | "claim_gu"
   | "refine_gu"
   | "inspect_gu"
@@ -75,6 +78,19 @@ export interface GuLedgerView {
   core_gu_candidate: string;
   vital_gu_status: string;
   entries: string[];
+}
+
+export interface ApertureLedgerView {
+  opened: boolean;
+  summary: string;
+  aptitude: string;
+  opening_steps: string;
+  primeval_sea: string;
+  primeval_essence: string;
+  wall_state: string;
+  minor_realm: string;
+  recovery_profile: string;
+  opening_rite_phase: string;
 }
 
 export interface FactionRelationshipView {
@@ -304,6 +320,7 @@ export interface LedgerViewModel {
   status_markers: StatusMarkerView[];
   build_view: BuildLedgerView;
   gu_view: GuLedgerView;
+  aperture_view: ApertureLedgerView;
   relationship_view: FactionRelationshipView;
   save_view: SaveLedgerView;
   action_choices: ActionChoiceView[];

@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.6.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.7.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint4-rules-v1";
+pub const RULES_VERSION: &str = "sprint8-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -38,6 +38,9 @@ pub enum ActionIntent {
     Argue,
     Delay,
     Frame,
+    EnterOpeningCave,
+    CrossOpeningRiver,
+    ReceiveHopeGu,
     ClaimGu,
     RefineGu,
     InspectGu,
@@ -79,6 +82,21 @@ impl Default for TimeState {
             window_type: WindowType::Free,
             ap: 2,
             next_anchor_pressure: "学堂点卯将近".to_string(),
+        }
+    }
+}
+
+impl TimeState {
+    fn opening_rite_anchor() -> Self {
+        Self {
+            window_id: "s0_opening_rite_anchor".to_string(),
+            window_index: 0,
+            free_rounds_elapsed: 0,
+            chapter_day: 1,
+            period: "开窍大典".to_string(),
+            window_type: WindowType::Anchor,
+            ap: 0,
+            next_anchor_pressure: "完成开窍后进入学堂账册".to_string(),
         }
     }
 }
@@ -149,9 +167,202 @@ pub struct InjuryState {
     pub ap_penalty_pending: bool,
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AptitudeGrade {
+    #[default]
+    Unknown,
+    D,
+    C,
+    B,
+    A,
+}
+
+impl AptitudeGrade {
+    fn label(&self) -> &'static str {
+        match self {
+            AptitudeGrade::Unknown => "未定",
+            AptitudeGrade::D => "丁等",
+            AptitudeGrade::C => "丙等",
+            AptitudeGrade::B => "乙等",
+            AptitudeGrade::A => "甲等",
+        }
+    }
+
+    fn step_range(&self) -> &'static str {
+        match self {
+            AptitudeGrade::Unknown => "未定",
+            AptitudeGrade::D => "10-19步",
+            AptitudeGrade::C => "20-29步",
+            AptitudeGrade::B => "30-39步",
+            AptitudeGrade::A => "40-49步",
+        }
+    }
+}
+
+fn aptitude_step_bounds(grade: &AptitudeGrade) -> (u8, u8) {
+    match grade {
+        AptitudeGrade::Unknown => (0, 0),
+        AptitudeGrade::D => (10, 19),
+        AptitudeGrade::C => (20, 29),
+        AptitudeGrade::B => (30, 39),
+        AptitudeGrade::A => (40, 49),
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PrimevalEssenceQuality {
+    #[default]
+    None,
+    Bronze,
+    RedIron,
+    WhiteSilver,
+}
+
+impl PrimevalEssenceQuality {
+    fn label(&self) -> &'static str {
+        match self {
+            PrimevalEssenceQuality::None => "未生真元",
+            PrimevalEssenceQuality::Bronze => "青铜真元",
+            PrimevalEssenceQuality::RedIron => "赤铁真元",
+            PrimevalEssenceQuality::WhiteSilver => "白银真元",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApertureWallState {
+    #[default]
+    None,
+    LightMembrane,
+    WaterMembrane,
+    StoneMembrane,
+}
+
+impl ApertureWallState {
+    fn label(&self) -> &'static str {
+        match self {
+            ApertureWallState::None => "空窍未成",
+            ApertureWallState::LightMembrane => "光膜",
+            ApertureWallState::WaterMembrane => "水膜",
+            ApertureWallState::StoneMembrane => "石膜",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MinorRealm {
+    #[default]
+    None,
+    RankOneInitial,
+    RankOneMiddle,
+    RankOneUpper,
+    RankOnePeak,
+}
+
+impl MinorRealm {
+    fn label(&self) -> &'static str {
+        match self {
+            MinorRealm::None => "未入一转",
+            MinorRealm::RankOneInitial => "一转初阶",
+            MinorRealm::RankOneMiddle => "一转中阶",
+            MinorRealm::RankOneUpper => "一转高阶",
+            MinorRealm::RankOnePeak => "一转巅峰",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OpeningRitePhase {
+    #[default]
+    NotStarted,
+    EnteredCave,
+    CrossedRiver,
+    Completed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MortalApertureState {
+    pub opened: bool,
+    pub aptitude_grade: AptitudeGrade,
+    pub opening_steps: u8,
+    pub primeval_sea_capacity_percent: u8,
+    pub primeval_essence_current: u8,
+    pub primeval_essence_quality: PrimevalEssenceQuality,
+    pub aperture_wall_state: ApertureWallState,
+    pub minor_realm: MinorRealm,
+    pub recovery_profile: String,
+    pub opening_phase: OpeningRitePhase,
+}
+
+impl Default for MortalApertureState {
+    fn default() -> Self {
+        Self {
+            opened: false,
+            aptitude_grade: AptitudeGrade::Unknown,
+            opening_steps: 0,
+            primeval_sea_capacity_percent: 0,
+            primeval_essence_current: 0,
+            primeval_essence_quality: PrimevalEssenceQuality::None,
+            aperture_wall_state: ApertureWallState::None,
+            minor_realm: MinorRealm::None,
+            recovery_profile: "空窍尚未开辟，真元未生。".to_string(),
+            opening_phase: OpeningRitePhase::NotStarted,
+        }
+    }
+}
+
+impl MortalApertureState {
+    fn opened_profile(grade: AptitudeGrade, opening_steps: u8, capacity: u8) -> Self {
+        let recovery_profile = format!(
+            "{}资质，元海约{}%，恢复与后续冲刷效率受此影响。",
+            grade.label(),
+            capacity
+        );
+        Self {
+            opened: true,
+            aptitude_grade: grade,
+            opening_steps,
+            primeval_sea_capacity_percent: capacity,
+            primeval_essence_current: capacity,
+            primeval_essence_quality: PrimevalEssenceQuality::Bronze,
+            aperture_wall_state: ApertureWallState::LightMembrane,
+            minor_realm: MinorRealm::RankOneInitial,
+            recovery_profile,
+            opening_phase: OpeningRitePhase::Completed,
+        }
+    }
+
+    fn pending_anchor() -> Self {
+        Self {
+            opening_phase: OpeningRitePhase::NotStarted,
+            ..Self::default()
+        }
+    }
+}
+
+fn mortal_aperture_from_aptitude_score(score: i32) -> MortalApertureState {
+    let (grade, steps, capacity) = if score >= 9 {
+        (AptitudeGrade::A, 45, 88)
+    } else if score >= 6 {
+        (AptitudeGrade::B, 36, 66)
+    } else if score >= 3 {
+        (AptitudeGrade::C, 27, 44)
+    } else {
+        (AptitudeGrade::D, 14, 25)
+    };
+    MortalApertureState::opened_profile(grade, steps, capacity)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CharacterState {
     pub aperture_opened: bool,
+    #[serde(default)]
+    pub mortal_aperture: MortalApertureState,
     pub injury: InjuryState,
 }
 
@@ -159,6 +370,15 @@ impl CharacterState {
     fn opened_aperture() -> Self {
         Self {
             aperture_opened: true,
+            mortal_aperture: MortalApertureState::opened_profile(AptitudeGrade::C, 27, 44),
+            injury: InjuryState::default(),
+        }
+    }
+
+    fn pending_opening_rite() -> Self {
+        Self {
+            aperture_opened: false,
+            mortal_aperture: MortalApertureState::pending_anchor(),
             injury: InjuryState::default(),
         }
     }
@@ -973,6 +1193,20 @@ pub struct GuLedgerView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ApertureLedgerView {
+    pub opened: bool,
+    pub summary: String,
+    pub aptitude: String,
+    pub opening_steps: String,
+    pub primeval_sea: String,
+    pub primeval_essence: String,
+    pub wall_state: String,
+    pub minor_realm: String,
+    pub recovery_profile: String,
+    pub opening_rite_phase: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FactionRelationshipView {
     pub family_pressure: String,
     pub infirmary_debt: String,
@@ -1109,6 +1343,7 @@ pub struct LedgerViewModel {
     pub status_markers: Vec<StatusMarkerView>,
     pub build_view: BuildLedgerView,
     pub gu_view: GuLedgerView,
+    pub aperture_view: ApertureLedgerView,
     pub relationship_view: FactionRelationshipView,
     pub save_view: SaveLedgerView,
     pub action_choices: Vec<ActionChoiceView>,
@@ -1427,6 +1662,14 @@ pub struct ContentOpeningRiteOutcome {
     pub summary: String,
     pub aperture_opened: bool,
     pub displayed_grade: String,
+    pub aptitude_grade: AptitudeGrade,
+    pub opening_steps_min: u8,
+    pub opening_steps_max: u8,
+    pub primeval_sea_capacity_percent: u8,
+    pub primeval_essence_quality: PrimevalEssenceQuality,
+    pub aperture_wall_state: ApertureWallState,
+    pub minor_realm: MinorRealm,
+    pub recovery_profile: String,
     pub attention_delta: i32,
     pub resource_package_id: String,
     pub stage: String,
@@ -2040,10 +2283,63 @@ impl ContentBundle {
                 "displayed_grade",
                 &outcome.displayed_grade,
             )?;
+            require_non_empty(
+                "opening_rite_outcome",
+                &outcome.id,
+                "recovery_profile",
+                &outcome.recovery_profile,
+            )?;
             if !outcome.aperture_opened {
                 return Err(CommandError::content(
                     "开窍大典结果必须打开空窍",
                     format!("opening outcome '{}' has aperture_opened=false", outcome.id),
+                ));
+            }
+            if outcome.aptitude_grade == AptitudeGrade::Unknown {
+                return Err(CommandError::content(
+                    "开窍结果必须给出资质等级",
+                    format!(
+                        "opening outcome '{}' has unknown aptitude grade",
+                        outcome.id
+                    ),
+                ));
+            }
+            let (min_step, max_step) = aptitude_step_bounds(&outcome.aptitude_grade);
+            if outcome.opening_steps_min < min_step
+                || outcome.opening_steps_max > max_step
+                || outcome.opening_steps_min > outcome.opening_steps_max
+            {
+                return Err(CommandError::content(
+                    "开窍结果步数不符合资质区间",
+                    format!(
+                        "opening outcome '{}' steps {}-{} outside {}-{}",
+                        outcome.id,
+                        outcome.opening_steps_min,
+                        outcome.opening_steps_max,
+                        min_step,
+                        max_step
+                    ),
+                ));
+            }
+            if !(1..=100).contains(&outcome.primeval_sea_capacity_percent) {
+                return Err(CommandError::content(
+                    "开窍结果元海容量必须在 1-100 之间",
+                    format!(
+                        "opening outcome '{}' capacity {}",
+                        outcome.id, outcome.primeval_sea_capacity_percent
+                    ),
+                ));
+            }
+            if outcome.primeval_essence_quality == PrimevalEssenceQuality::None
+                || outcome.aperture_wall_state == ApertureWallState::None
+                || outcome.minor_realm == MinorRealm::None
+            {
+                return Err(CommandError::content(
+                    "开窍结果必须给出初始真元、壁膜与小境界",
+                    format!(
+                        "opening outcome '{}' has incomplete aperture profile",
+                        outcome.id
+                    ),
                 ));
             }
             if !initial_resource_package_ids.contains_key(&outcome.resource_package_id) {
@@ -2902,6 +3198,14 @@ fn starter_opening_rite_outcomes() -> Vec<ContentOpeningRiteOutcome> {
         summary: "空窍已经开启，族中学堂秩序随之压下；自由窗口从根基未稳之后开始。".to_string(),
         aperture_opened: true,
         displayed_grade: "普通可训".to_string(),
+        aptitude_grade: AptitudeGrade::B,
+        opening_steps_min: 30,
+        opening_steps_max: 39,
+        primeval_sea_capacity_percent: 66,
+        primeval_essence_quality: PrimevalEssenceQuality::Bronze,
+        aperture_wall_state: ApertureWallState::LightMembrane,
+        minor_realm: MinorRealm::RankOneInitial,
+        recovery_profile: "元海初成，青铜真元恢复受资质与元石压力制约。".to_string(),
         attention_delta: 1,
         resource_package_id: "s0_opening_plain_supplies".to_string(),
         stage: "s0".to_string(),
@@ -2913,6 +3217,30 @@ fn starter_opening_rite_outcomes() -> Vec<ContentOpeningRiteOutcome> {
 
 fn starter_nodes() -> Vec<ContentNode> {
     vec![
+        node(
+            "opening_rite_cave",
+            "开窍地下溶洞",
+            "anchor",
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["node", "opening_rite", "anchor"],
+        ),
+        node(
+            "opening_rite_river",
+            "开窍暗河",
+            "anchor",
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["node", "opening_rite", "anchor"],
+        ),
+        node(
+            "hope_gu",
+            "希望蛊花海",
+            "anchor",
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["node", "opening_rite", "anchor"],
+        ),
         node(
             "academy_gate",
             "学堂门前",
@@ -3001,6 +3329,33 @@ fn node(
 
 fn starter_actions() -> Vec<ContentAction> {
     vec![
+        action(
+            "enter_opening_cave",
+            "进入地下溶洞",
+            ActionIntent::EnterOpeningCave,
+            Some("opening_rite_cave"),
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["action", "opening_rite", "anchor"],
+        ),
+        action(
+            "cross_opening_river",
+            "涉水前行",
+            ActionIntent::CrossOpeningRiver,
+            Some("opening_rite_river"),
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["action", "opening_rite", "anchor"],
+        ),
+        action(
+            "receive_hope_gu",
+            "接纳希望蛊",
+            ActionIntent::ReceiveHopeGu,
+            Some("hope_gu"),
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["action", "opening_rite", "anchor"],
+        ),
         action(
             "scout_academy",
             "观察学堂风声",
@@ -3874,6 +4229,36 @@ fn encounter_decision(
 fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
     vec![
         content_narrative(
+            "s0.opening_rite.enter_cave",
+            concat!(
+                "地下溶洞的湿气扑到脸上，水声和脚步声挤在一起。族老站在高处，目光不像祝福，更像是在清点一批刚被推入制度账册的少年。\n\n",
+                "你跟着队伍向里走，花海的微光在水面上抖动。开窍大典不是背景，它决定你有没有空窍、元海有多深，也决定后续月光蛊能否真正被炼化。"
+            ),
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["narrative", "opening_rite", "anchor"],
+        ),
+        content_narrative(
+            "s0.opening_rite.cross_river",
+            concat!(
+                "暗河没过脚踝，又一点点漫过小腿。越往前，水压越重，周围同龄人的呼吸也越急。原著里的开窍大典以涉水步数判断资质：十余步多为丁等，二十余步多为丙等，三十余步可入乙等，四十余步才有甲等气象。\n\n",
+                "你没有看见数值条，只看见希望蛊在花海中惊起。它们像一群被命数驱赶的微光，等待有人走到足够远的地方。"
+            ),
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["narrative", "opening_rite", "anchor"],
+        ),
+        content_narrative(
+            "s0.opening_rite.receive_hope_gu",
+            concat!(
+                "希望蛊没入体内的一瞬，腹中像被凿开一处幽微海眼。空窍初成，元海随资质落定，青铜真元在里面泛起薄光。\n\n",
+                "从这一刻开始，你才有资格谈炼化、喂养和操控蛊虫。月光蛊不再只是学堂发下的物件，而会成为你能否站稳一转根基的第一笔硬账。"
+            ),
+            EvidenceLevel::CanonExplicit,
+            all_modes(),
+            &["narrative", "opening_rite", "anchor"],
+        ),
+        content_narrative(
             "s0.gu.moonlight.claim",
             concat!(
                 "你按学堂名册领取月光蛊。负责登记的族人把木匣推到你面前，匣盖内侧刻着编号，旁边还有一行细小的登记痕：姓名、出身、空窍已开、待炼化。\n\n",
@@ -4482,7 +4867,9 @@ pub fn confirm_setup_run(
     };
     state.risk.exposure =
         resource_preview.exposure + origin.attention_delta + opening.attention_delta;
-    state.character.aperture_opened = opening.aperture_opened;
+    state.time = TimeState::opening_rite_anchor();
+    state.world.current_node_id = "opening_rite_cave".to_string();
+    state.character = CharacterState::pending_opening_rite();
     state.setup_summary = Some(SetupSummary {
         origin_id: origin.id.clone(),
         origin_title: origin.title.clone(),
@@ -4780,6 +5167,7 @@ fn build_projection_from_content(
         status_markers: status_markers(state, active_encounter, content_bundle),
         build_view: build_view(state),
         gu_view: gu_view(state),
+        aperture_view: aperture_view(state),
         relationship_view: relationship_view(state),
         save_view: save_view(state),
         action_choices,
@@ -4821,6 +5209,30 @@ fn s0_dialogue_view(
 ) -> DialogueTimelineView {
     let latest_ledger_delta = state.ledger.last().map(clean_ledger_text);
     let mut paragraphs = Vec::new();
+
+    if is_opening_rite_anchor(state) {
+        paragraphs.push("开窍大典已经压到眼前。你尚未拥有空窍，也不能真正炼化或驱使蛊虫；此刻要先进入地下溶洞，涉水走过希望蛊花海。".to_string());
+        paragraphs.push(scene_text.to_string());
+        paragraphs.push(format!(
+            "当前开窍阶段：{}。下一步只会推进强制锚点，不消耗 8 个自由窗口 AP。",
+            opening_phase_label(&state.character.mortal_aperture.opening_phase)
+        ));
+        return DialogueTimelineView {
+            stage_title: "开窍大典：地下溶洞".to_string(),
+            paragraphs,
+            previous_choice_title: recent_feedback
+                .map(|feedback| format!("上一笔因果：{}", feedback.source_kind)),
+            previous_result_summary: recent_feedback.map(|feedback| feedback.summary.clone()),
+            available_actions_summary: action_choices
+                .iter()
+                .map(|choice| choice.label.clone())
+                .collect(),
+            latest_ledger_delta,
+            mode_gate_hint: mode_gate_hint(&state.mode),
+            source_summary: "规则状态 + 内容 bundle + 因果账本派生；运行时 AI 未接入。".to_string(),
+            tone: ActionChoiceTone::Safe,
+        };
+    }
 
     if let Some(summary) = &state.setup_summary {
         paragraphs.push(format!(
@@ -5232,6 +5644,60 @@ fn gu_view(state: &GameState) -> GuLedgerView {
     }
 }
 
+fn aperture_view(state: &GameState) -> ApertureLedgerView {
+    let aperture = &state.character.mortal_aperture;
+    if !aperture.opened {
+        return ApertureLedgerView {
+            opened: false,
+            summary: "尚未开窍，需先完成开窍大典。".to_string(),
+            aptitude: "资质：未定".to_string(),
+            opening_steps: "步数：未行".to_string(),
+            primeval_sea: "元海：未生".to_string(),
+            primeval_essence: "真元：未生".to_string(),
+            wall_state: "空窍壁：未成".to_string(),
+            minor_realm: "境界：未入一转".to_string(),
+            recovery_profile: aperture.recovery_profile.clone(),
+            opening_rite_phase: opening_phase_label(&aperture.opening_phase).to_string(),
+        };
+    }
+
+    ApertureLedgerView {
+        opened: true,
+        summary: format!(
+            "{}，元海约{}%，{}。",
+            aperture.aptitude_grade.label(),
+            aperture.primeval_sea_capacity_percent,
+            aperture.minor_realm.label()
+        ),
+        aptitude: format!("资质：{}", aperture.aptitude_grade.label()),
+        opening_steps: format!(
+            "步数：{}（{}）",
+            aperture.opening_steps,
+            aperture.aptitude_grade.step_range()
+        ),
+        primeval_sea: format!("元海：{}%", aperture.primeval_sea_capacity_percent),
+        primeval_essence: format!(
+            "真元：{} / {}%，{}",
+            aperture.primeval_essence_current,
+            aperture.primeval_sea_capacity_percent,
+            aperture.primeval_essence_quality.label()
+        ),
+        wall_state: format!("空窍壁：{}", aperture.aperture_wall_state.label()),
+        minor_realm: format!("境界：{}", aperture.minor_realm.label()),
+        recovery_profile: aperture.recovery_profile.clone(),
+        opening_rite_phase: opening_phase_label(&aperture.opening_phase).to_string(),
+    }
+}
+
+fn opening_phase_label(phase: &OpeningRitePhase) -> &'static str {
+    match phase {
+        OpeningRitePhase::NotStarted => "尚未入洞",
+        OpeningRitePhase::EnteredCave => "已入地下溶洞",
+        OpeningRitePhase::CrossedRiver => "已涉过花海暗河",
+        OpeningRitePhase::Completed => "开窍完成",
+    }
+}
+
 fn gu_container_label(container: &GuContainer) -> &'static str {
     match container {
         GuContainer::Held => "随身",
@@ -5318,20 +5784,22 @@ fn projected_action_choices(
         })
         .collect::<Vec<_>>();
 
-    let wait = ActionCommand {
-        actor: "player".to_string(),
-        intent: ActionIntent::Wait,
-        target: None,
-        declared_cost: DeclaredCost::default(),
-        context_note: None,
-    };
-    choices.push(action_choice_from_command(
-        "wait_current_window",
-        "等过当前时段".to_string(),
-        wait,
-        state,
-        content_bundle,
-    ));
+    if !is_opening_rite_anchor(state) {
+        let wait = ActionCommand {
+            actor: "player".to_string(),
+            intent: ActionIntent::Wait,
+            target: None,
+            declared_cost: DeclaredCost::default(),
+            context_note: None,
+        };
+        choices.push(action_choice_from_command(
+            "wait_current_window",
+            "等过当前时段".to_string(),
+            wait,
+            state,
+            content_bundle,
+        ));
+    }
 
     choices
 }
@@ -5377,6 +5845,9 @@ fn node_view(state: &GameState, content_bundle: &ContentBundle) -> NodeLedgerVie
             .iter()
             .filter(|node| mode_permitted(&state.mode, &node.modes))
             .filter(|node| {
+                !node.tags.iter().any(|tag| tag == "opening_rite") || is_opening_rite_anchor(state)
+            })
+            .filter(|node| {
                 !is_blackmarket_tagged(&node.tags) || state.knowledge.blackmarket_route_known
             })
             .map(|node| NodeSummaryView {
@@ -5390,6 +5861,14 @@ fn node_view(state: &GameState, content_bundle: &ContentBundle) -> NodeLedgerVie
 }
 
 fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
+    if is_opening_rite_intent(&action.intent) {
+        return opening_action_projectable(state, &action.intent);
+    }
+
+    if is_opening_rite_anchor(state) {
+        return false;
+    }
+
     if is_encounter_decision_intent(&action.intent) {
         return state
             .encounters
@@ -5415,7 +5894,8 @@ fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
 
     match action.intent {
         ActionIntent::ClaimGu => {
-            return state.world.current_node_id == "academy_gate"
+            return state.character.mortal_aperture.opened
+                && state.world.current_node_id == "academy_gate"
                 && !state.gu_inventory.has_gu("moonlight_gu");
         }
         ActionIntent::RefineGu => {
@@ -5459,6 +5939,37 @@ fn is_gu_action_intent(intent: &ActionIntent) -> bool {
     )
 }
 
+fn is_opening_rite_intent(intent: &ActionIntent) -> bool {
+    matches!(
+        intent,
+        ActionIntent::EnterOpeningCave
+            | ActionIntent::CrossOpeningRiver
+            | ActionIntent::ReceiveHopeGu
+    )
+}
+
+fn is_opening_rite_anchor(state: &GameState) -> bool {
+    state.time.window_id == "s0_opening_rite_anchor"
+        && state.time.window_type == WindowType::Anchor
+        && !state.character.mortal_aperture.opened
+}
+
+fn opening_action_projectable(state: &GameState, intent: &ActionIntent) -> bool {
+    if !is_opening_rite_anchor(state) {
+        return false;
+    }
+
+    matches!(
+        (&state.character.mortal_aperture.opening_phase, intent),
+        (OpeningRitePhase::NotStarted, ActionIntent::EnterOpeningCave)
+            | (
+                OpeningRitePhase::EnteredCave,
+                ActionIntent::CrossOpeningRiver
+            )
+            | (OpeningRitePhase::CrossedRiver, ActionIntent::ReceiveHopeGu)
+    )
+}
+
 fn is_blackmarket_tagged(tags: &[String]) -> bool {
     tags.iter().any(|tag| tag == "blackmarket")
 }
@@ -5476,7 +5987,10 @@ fn action_choice_group(intent: &ActionIntent) -> ActionChoiceGroup {
         ActionIntent::Cultivate
         | ActionIntent::ClaimGu
         | ActionIntent::RefineGu
-        | ActionIntent::InspectGu => ActionChoiceGroup::Cultivation,
+        | ActionIntent::InspectGu
+        | ActionIntent::EnterOpeningCave
+        | ActionIntent::CrossOpeningRiver
+        | ActionIntent::ReceiveHopeGu => ActionChoiceGroup::Cultivation,
         ActionIntent::Scout => ActionChoiceGroup::Information,
         ActionIntent::Recover => ActionChoiceGroup::Recovery,
         ActionIntent::Trade => ActionChoiceGroup::Trade,
@@ -5499,7 +6013,10 @@ fn action_choice_tone(command: &ActionCommand, enabled: bool) -> ActionChoiceTon
         ActionIntent::Scout
         | ActionIntent::Retreat
         | ActionIntent::ClaimGu
-        | ActionIntent::InspectGu => ActionChoiceTone::Safe,
+        | ActionIntent::InspectGu
+        | ActionIntent::EnterOpeningCave
+        | ActionIntent::CrossOpeningRiver
+        | ActionIntent::ReceiveHopeGu => ActionChoiceTone::Safe,
         ActionIntent::Move => match command.target.as_deref() {
             Some("blackmarket_hint") | Some("inheritance_rumor") => ActionChoiceTone::Risky,
             _ => ActionChoiceTone::Normal,
@@ -5556,6 +6073,9 @@ fn consequence_hint(id: &str, intent: &ActionIntent, target: Option<&str>) -> St
         ActionIntent::Argue => "争辩换取余地，暴露会上升".to_string(),
         ActionIntent::Delay => "拖延争取缝隙，消耗窗口".to_string(),
         ActionIntent::Frame => "嫁祸脱身，短期解围但后患更深".to_string(),
+        ActionIntent::EnterOpeningCave => "进入开窍大典地下溶洞，不消耗自由窗口。".to_string(),
+        ActionIntent::CrossOpeningRiver => "涉水前行，资质步数与元海容量将被记入账册。".to_string(),
+        ActionIntent::ReceiveHopeGu => "希望蛊入体，空窍与元海落定后进入学堂自由窗口。".to_string(),
         ActionIntent::Wait => "放弃剩余安排，推进到下一窗口".to_string(),
     }
 }
@@ -5563,6 +6083,9 @@ fn consequence_hint(id: &str, intent: &ActionIntent, target: Option<&str>) -> St
 fn clean_action_label(action: &ContentAction) -> String {
     if !action.id.is_empty() {
         return match action.id.as_str() {
+            "enter_opening_cave" => "进入地下溶洞",
+            "cross_opening_river" => "涉水前行",
+            "receive_hope_gu" => "接纳希望蛊",
             "claim_moonlight_gu" => "领取月光蛊",
             "refine_moonlight_gu" => "炼化月光蛊",
             "inspect_moonlight_gu_feeding" => "检查月光蛊喂养",
@@ -5639,6 +6162,9 @@ fn clean_action_label(action: &ContentAction) -> String {
 fn clean_node_title(node: &ContentNode) -> String {
     if !node.id.is_empty() {
         return match node.id.as_str() {
+            "opening_rite_cave" => "开窍地下溶洞",
+            "opening_rite_river" => "开窍暗河",
+            "hope_gu" => "希望蛊花海",
             "academy_gate" => "学堂门前",
             "moonlight_corner" => "月光修行角",
             "merit_notice" => "功绩告示处",
@@ -5755,6 +6281,9 @@ fn cost_hint(intent: &ActionIntent) -> String {
         ActionIntent::Argue => "1 AP",
         ActionIntent::Delay => "1 AP",
         ActionIntent::Frame => "1 AP",
+        ActionIntent::EnterOpeningCave => "0 AP / 强制锚点",
+        ActionIntent::CrossOpeningRiver => "0 AP / 强制锚点",
+        ActionIntent::ReceiveHopeGu => "0 AP / 强制锚点",
         ActionIntent::Wait => "吃掉当前窗口",
     }
     .to_string()
@@ -5776,6 +6305,9 @@ fn risk_hint(intent: &ActionIntent) -> String {
         ActionIntent::Argue => "暴露上升，换取余地",
         ActionIntent::Delay => "拖出缝隙，消耗窗口",
         ActionIntent::Frame => "嫁祸脱身，后患更深",
+        ActionIntent::EnterOpeningCave => "开窍锚点，决定后续空窍状态",
+        ActionIntent::CrossOpeningRiver => "资质步数与关注度压力",
+        ActionIntent::ReceiveHopeGu => "空窍开辟，进入蛊师账册",
         ActionIntent::Wait => "错过窗口",
     }
     .to_string()
@@ -5886,6 +6418,8 @@ struct SubsystemOutcome {
     reveal_blackmarket_route: bool,
     claim_moonlight_gu: bool,
     refine_moonlight_gu: bool,
+    opening_phase: Option<OpeningRitePhase>,
+    complete_opening_rite: bool,
     clue_ids: Vec<String>,
 }
 
@@ -5913,6 +6447,8 @@ impl SubsystemOutcome {
             reveal_blackmarket_route: false,
             claim_moonlight_gu: false,
             refine_moonlight_gu: false,
+            opening_phase: None,
+            complete_opening_rite: false,
             clue_ids: Vec::new(),
         }
     }
@@ -5940,9 +6476,56 @@ fn availability_check(
         ));
     }
 
-    if state.time.window_type == WindowType::Anchor && command.intent != ActionIntent::Wait {
+    if is_opening_rite_anchor(state) && !is_opening_rite_intent(&command.intent) {
+        return Err(CommandError::validation(
+            "开窍大典尚未完成，不能接触、炼化或驱使蛊虫",
+        ));
+    }
+
+    if state.time.window_type == WindowType::Anchor
+        && command.intent != ActionIntent::Wait
+        && !is_opening_rite_intent(&command.intent)
+    {
         return Err(CommandError::validation(
             "anchor window is pending; free actions are closed",
+        ));
+    }
+
+    if is_opening_rite_intent(&command.intent) {
+        if !is_opening_rite_anchor(state) {
+            return Err(CommandError::validation("当前不在开窍大典锚点中"));
+        }
+        if !opening_action_projectable(state, &command.intent) {
+            return Err(CommandError::validation("开窍大典步骤尚未轮到此行动"));
+        }
+        let target = command
+            .target
+            .as_deref()
+            .ok_or_else(|| CommandError::validation("开窍大典行动缺少目标"))?;
+        let expected_target = match command.intent {
+            ActionIntent::EnterOpeningCave => "opening_rite_cave",
+            ActionIntent::CrossOpeningRiver => "opening_rite_river",
+            ActionIntent::ReceiveHopeGu => "hope_gu",
+            _ => unreachable!(),
+        };
+        if target != expected_target {
+            return Err(CommandError::validation("开窍大典行动目标不匹配"));
+        }
+        let action = action_by_intent_target(command.intent.clone(), Some(target), content_bundle)?;
+        require_mode(&state.mode, &action.modes, "action", &action.id)?;
+        return Ok(());
+    }
+
+    if (matches!(
+        command.intent,
+        ActionIntent::ClaimGu
+            | ActionIntent::RefineGu
+            | ActionIntent::InspectGu
+            | ActionIntent::Cultivate
+    )) && !state.character.mortal_aperture.opened
+    {
+        return Err(CommandError::validation(
+            "开窍大典尚未完成，不能接触、炼化或驱使蛊虫",
         ));
     }
 
@@ -6123,6 +6706,9 @@ fn cost_reservation(
         ActionIntent::ClaimGu => (0, 0, false),
         ActionIntent::RefineGu => (1, 0, false),
         ActionIntent::InspectGu => (0, 0, false),
+        ActionIntent::EnterOpeningCave
+        | ActionIntent::CrossOpeningRiver
+        | ActionIntent::ReceiveHopeGu => (0, 0, false),
         ActionIntent::Scout => (1, 0, false),
         ActionIntent::Recover => (recover_ap_cost(&state.character.injury.level), 0, false),
         ActionIntent::Trade => (1, 1, false),
@@ -6172,6 +6758,37 @@ fn subsystem_resolution(
     content_bundle: &ContentBundle,
 ) -> Result<SubsystemOutcome, CommandError> {
     match command.intent {
+        ActionIntent::EnterOpeningCave => {
+            let mut outcome = SubsystemOutcome::new(
+                "opening_rite",
+                "你随同同届少年进入地下溶洞。水声压住人声，族老的目光把每一步都记成资质、秩序和未来的账。",
+            )
+            .with_narrative_id("s0.opening_rite.enter_cave");
+            outcome.opening_phase = Some(OpeningRitePhase::EnteredCave);
+            outcome.target_node_id = Some("opening_rite_river".to_string());
+            Ok(outcome)
+        }
+        ActionIntent::CrossOpeningRiver => {
+            let mut outcome = SubsystemOutcome::new(
+                "opening_rite",
+                "你踏入冰冷的暗河，花海中的希望蛊被脚步惊起。走得越远，族中账册上的资质判断越重。",
+            )
+            .with_narrative_id("s0.opening_rite.cross_river");
+            outcome.opening_phase = Some(OpeningRitePhase::CrossedRiver);
+            outcome.target_node_id = Some("hope_gu".to_string());
+            Ok(outcome)
+        }
+        ActionIntent::ReceiveHopeGu => {
+            let mut outcome = SubsystemOutcome::new(
+                "opening_rite",
+                "希望蛊没入体内，空窍在腹中开辟，元海随资质落定。你终于有了炼化、喂养和操控蛊虫的资格，也有了被制度计量的根基。",
+            )
+            .with_narrative_id("s0.opening_rite.receive_hope_gu");
+            outcome.opening_phase = Some(OpeningRitePhase::Completed);
+            outcome.complete_opening_rite = true;
+            outcome.target_node_id = Some("academy_gate".to_string());
+            Ok(outcome)
+        }
         ActionIntent::Move => {
             let target = target_or_current(state, command)?;
             let edge = movement_edge(state, &target, content_bundle)?;
@@ -6441,6 +7058,22 @@ fn effect_commit(
         state.world.current_node_id = target_node_id.clone();
     }
 
+    if let Some(opening_phase) = &outcome.opening_phase {
+        state.character.mortal_aperture.opening_phase = opening_phase.clone();
+    }
+
+    if outcome.complete_opening_rite {
+        let aptitude_score = state
+            .setup_summary
+            .as_ref()
+            .and_then(|summary| summary.attributes.get("aptitude").copied())
+            .unwrap_or(4);
+        state.character.mortal_aperture = mortal_aperture_from_aptitude_score(aptitude_score);
+        state.character.aperture_opened = true;
+        state.time = TimeState::default();
+        state.world.current_node_id = "academy_gate".to_string();
+    }
+
     state.time.ap = state.time.ap.saturating_sub(outcome.arrival_ap_penalty);
 
     if outcome.clear_active_encounter {
@@ -6483,7 +7116,7 @@ fn effect_commit(
         state.knowledge.record_clue(clue_id);
     }
 
-    if reserved_cost.consume_window || state.time.ap == 0 {
+    if !is_opening_rite_anchor(state) && (reserved_cost.consume_window || state.time.ap == 0) {
         advance_window(state, content_bundle);
     }
 }
@@ -7129,7 +7762,7 @@ mod tests {
             );
         }
 
-        assert_eq!(bundle.nodes.len(), 8);
+        assert_eq!(bundle.nodes.len(), 11);
         assert!(
             bundle.narratives.len() >= 23,
             "Sprint 1 Phase 2 should carry local narrative coverage for new route content"
@@ -7750,6 +8383,21 @@ mod tests {
             .indexes
             .opening_rite_outcome_ids
             .contains_key("s0_opening_rite_established"));
+        let opening = &bundle.opening_rite_outcomes
+            [bundle.indexes.opening_rite_outcome_ids["s0_opening_rite_established"]];
+        assert_eq!(opening.aptitude_grade, AptitudeGrade::B);
+        assert_eq!(opening.opening_steps_min, 30);
+        assert_eq!(opening.opening_steps_max, 39);
+        assert_eq!(opening.primeval_sea_capacity_percent, 66);
+        assert_eq!(
+            opening.primeval_essence_quality,
+            PrimevalEssenceQuality::Bronze
+        );
+        assert_eq!(
+            opening.aperture_wall_state,
+            ApertureWallState::LightMembrane
+        );
+        assert_eq!(opening.minor_realm, MinorRealm::RankOneInitial);
         assert!(bundle
             .indexes
             .initial_resource_package_ids
@@ -8075,7 +8723,13 @@ mod tests {
         let state = confirm_setup_run(setup, &bundle).expect("confirm setup");
         let summary = state.setup_summary.as_ref().expect("setup summary");
 
-        assert!(state.character.aperture_opened);
+        assert!(!state.character.aperture_opened);
+        assert_eq!(state.time.window_id, "s0_opening_rite_anchor");
+        assert_eq!(state.world.current_node_id, "opening_rite_cave");
+        assert_eq!(
+            state.character.mortal_aperture.opening_phase,
+            OpeningRitePhase::NotStarted
+        );
         assert_eq!(state.resources.primeval_stones, 3);
         assert_eq!(state.risk.exposure, 2);
         assert_eq!(summary.origin_id, "academy_plain_child");

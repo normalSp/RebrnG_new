@@ -62,7 +62,22 @@ impl SetupAcceptanceRun {
             .setup;
         }
 
-        let state = confirm_setup_run(setup, &bundle).expect("confirm setup run");
+        let mut state = confirm_setup_run(setup, &bundle).expect("confirm setup run");
+        assert!(!state.character.aperture_opened);
+        assert_eq!(state.time.window_type, WindowType::Anchor);
+        assert_eq!(state.time.window_id, "s0_opening_rite_anchor");
+        assert_eq!(state.world.current_node_id, "opening_rite_cave");
+
+        for (intent, target) in [
+            (ActionIntent::EnterOpeningCave, "opening_rite_cave"),
+            (ActionIntent::CrossOpeningRiver, "opening_rite_river"),
+            (ActionIntent::ReceiveHopeGu, "hope_gu"),
+        ] {
+            state = resolve_action(state, command(intent, Some(target)), &bundle)
+                .expect("opening rite action should resolve")
+                .state;
+        }
+
         assert!(state.character.aperture_opened);
         assert!(state.setup_summary.is_some());
         assert_eq!(state.time.window_type, WindowType::Free);
@@ -71,7 +86,12 @@ impl SetupAcceptanceRun {
         let projection = build_projection_with_content(&state, &bundle);
         assert!(!projection.dialogue.paragraphs.is_empty());
         assert!(projection.dialogue.stage_title.contains("青茅山"));
-        assert!(projection.scene_text.contains("开窍大典"));
+        assert!(projection
+            .dialogue
+            .paragraphs
+            .iter()
+            .chain(std::iter::once(&projection.aperture_view.summary))
+            .any(|text| text.contains("空窍") || text.contains("开窍")));
 
         Self {
             state,

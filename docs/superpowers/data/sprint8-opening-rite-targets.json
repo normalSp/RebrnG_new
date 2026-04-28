@@ -1,0 +1,87 @@
+{
+  "schema_version": "sprint8-opening-rite-targets-v1",
+  "content_version": "s0.7.0",
+  "rules_version": "sprint8-rules-v1",
+  "targets": [
+    {
+      "target_content_id": "s0.opening_rite.enter_cave",
+      "target_slot": "opening_rite_anchor_intro",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家已经完成出身和三项天赋选择",
+        "当前处于 s0_opening_rite_anchor",
+        "尚未进入自由窗口"
+      ],
+      "canon_index_refs": [
+        "opening_rite_cave_walk",
+        "opening_rite_flower_sea_and_spiritual_spring"
+      ],
+      "redlines": [
+        "不得生成酒虫、本命蛊或完整传承",
+        "不得改写方源、方正开窍结果",
+        "不得把开窍大典写成普通抽卡界面"
+      ]
+    },
+    {
+      "target_content_id": "s0.opening_rite.cross_river",
+      "target_slot": "opening_rite_cross_river_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家已进入地下溶洞",
+        "涉水步数将映射为资质与元海容量"
+      ],
+      "canon_index_refs": [
+        "aptitude_step_ranges",
+        "aperture_primeval_sea_capacity",
+        "aptitude_primeval_sea_and_cultivation_limits"
+      ],
+      "redlines": [
+        "不得公开隐藏公式之外的所有随机细节",
+        "不得给出超出资质区间的稳定奖励"
+      ]
+    },
+    {
+      "target_content_id": "s0.opening_rite.receive_hope_gu",
+      "target_slot": "opening_rite_receive_hope_gu_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家已完成涉水",
+        "希望蛊入体后写入 MortalApertureState",
+        "完成后进入 day1_morning_free"
+      ],
+      "canon_index_refs": [
+        "hope_gu_enters_body",
+        "gu_master_definition",
+        "primeval_essence_rank_colors",
+        "aperture_wall_small_realm_progression"
+      ],
+      "redlines": [
+        "不得生成越阶真元或高转蛊虫",
+        "不得跳过月光蛊领取和炼化流程",
+        "不得把希望蛊写成玩家可持有资产"
+      ]
+    },
+    {
+      "target_content_id": "s0.aperture_view.summary",
+      "target_slot": "ledger_aperture_summary",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "空窍已经开启",
+        "玩家正在查看空窍账或 Build 页"
+      ],
+      "canon_index_refs": [
+        "aperture_primeval_sea_capacity",
+        "primeval_essence_rank_colors",
+        "aperture_wall_small_realm_progression"
+      ],
+      "redlines": [
+        "不得把元海容量写成通用 HP/MP",
+        "不得把空窍冲刷写成已经开放的完整玩法"
+      ]
+    }
+  ]
+}

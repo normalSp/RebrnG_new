@@ -241,6 +241,14 @@ opening_rite_outcomes:
     summary: 空窍已经开启，族中学堂秩序随之压下；自由窗口从根基未稳之后开始。
     aperture_opened: true
     displayed_grade: 普通可训
+    aptitude_grade: b
+    opening_steps_min: 30
+    opening_steps_max: 39
+    primeval_sea_capacity_percent: 66
+    primeval_essence_quality: bronze
+    aperture_wall_state: light_membrane
+    minor_realm: rank_one_initial
+    recovery_profile: 元海初成，青铜真元恢复受资质与元石压力制约。
     attention_delta: 1
     resource_package_id: s0_opening_plain_supplies
     stage: s0

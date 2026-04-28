@@ -564,6 +564,7 @@ function OverviewPage({ projection }: { projection: LedgerViewModel }) {
         <Row label="暴露" value={projection.exposure} />
         <Row label="伤势" value={injuryLabel(projection.injury_level)} />
       </dl>
+      <ApertureSummary projection={projection} compact />
       <GuSummary projection={projection} compact />
       <div className={`danger-note is-${projection.stage_closure.status}`}>
         <strong>{projection.stage_closure.title}</strong>
@@ -609,6 +610,7 @@ function ResourcesPage({ projection }: { projection: LedgerViewModel }) {
 
 function BuildPage({ projection }: { projection: LedgerViewModel }) {
   const build = projection.build_view;
+  const aperture = projection.aperture_view;
 
   return (
     <article className="ledger-page">
@@ -624,8 +626,49 @@ function BuildPage({ projection }: { projection: LedgerViewModel }) {
         <Row label="喂养维护" value={build.maintenance_pressure} />
         <Row label="主要缺口" value={build.gap_summary} />
       </dl>
+      <section className="gu-ledger-panel">
+        <div className="gu-ledger-heading">
+          <p className="ledger-page-label">空窍账</p>
+          <strong>{aperture.summary}</strong>
+        </div>
+        <dl className="ledger-rows compact">
+          <Row label="开窍阶段" value={aperture.opening_rite_phase} />
+          <Row label="资质" value={aperture.aptitude} />
+          <Row label="涉水步数" value={aperture.opening_steps} />
+          <Row label="元海容量" value={aperture.primeval_sea} />
+          <Row label="当前真元" value={aperture.primeval_essence} />
+          <Row label="空窍壁" value={aperture.wall_state} />
+          <Row label="小境界" value={aperture.minor_realm} />
+          <Row label="恢复说明" value={aperture.recovery_profile} />
+        </dl>
+      </section>
       <GuSummary projection={projection} />
     </article>
+  );
+}
+
+function ApertureSummary({
+  projection,
+  compact = false,
+}: {
+  projection: LedgerViewModel;
+  compact?: boolean;
+}) {
+  const aperture = projection.aperture_view;
+
+  return (
+    <section className={compact ? "gu-ledger-panel is-compact" : "gu-ledger-panel"}>
+      <div className="gu-ledger-heading">
+        <p className="ledger-page-label">空窍账</p>
+        <strong>{aperture.opening_rite_phase}</strong>
+      </div>
+      <dl className="ledger-rows compact">
+        <Row label="资质" value={aperture.aptitude} />
+        <Row label="元海" value={aperture.primeval_sea} />
+        <Row label="真元" value={aperture.primeval_essence} />
+      </dl>
+      {!compact ? <p className="clue-summary">{aperture.summary}</p> : null}
+    </section>
   );
 }
 

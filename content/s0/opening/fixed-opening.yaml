@@ -1,4 +1,25 @@
 nodes:
+  - id: opening_rite_cave
+    title: 开窍地下溶洞
+    safety: anchor
+    stage: s0
+    tags: [node, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+  - id: opening_rite_river
+    title: 开窍暗河
+    safety: anchor
+    stage: s0
+    tags: [node, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+  - id: hope_gu
+    title: 希望蛊花海
+    safety: anchor
+    stage: s0
+    tags: [node, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
   - id: academy_gate
     title: 学堂门前
     safety: low
@@ -7,6 +28,33 @@ nodes:
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
 actions:
+  - id: enter_opening_cave
+    label: 进入地下溶洞
+    intent: enter_opening_cave
+    target: opening_rite_cave
+    stage: s0
+    tags: [action, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+    importance: critical
+  - id: cross_opening_river
+    label: 涉水前行
+    intent: cross_opening_river
+    target: opening_rite_river
+    stage: s0
+    tags: [action, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+    importance: critical
+  - id: receive_hope_gu
+    label: 接纳希望蛊
+    intent: receive_hope_gu
+    target: hope_gu
+    stage: s0
+    tags: [action, opening_rite, anchor]
+    evidence: canon_explicit
+    modes: [canon_strict, sandbox_if]
+    importance: critical
   - id: scout_academy
     label: 观察学堂风声
     intent: scout

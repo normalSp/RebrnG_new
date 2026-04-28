@@ -606,6 +606,35 @@ mod tests {
             .expect("select talent");
         }
         confirm_setup_run_in_runtime(&runtime).expect("confirm setup");
+        for (intent, target, note) in [
+            (
+                rebrng_game_core::ActionIntent::EnterOpeningCave,
+                "opening_rite_cave",
+                "进入地下溶洞",
+            ),
+            (
+                rebrng_game_core::ActionIntent::CrossOpeningRiver,
+                "opening_rite_river",
+                "涉水前行",
+            ),
+            (
+                rebrng_game_core::ActionIntent::ReceiveHopeGu,
+                "hope_gu",
+                "接纳希望蛊",
+            ),
+        ] {
+            resolve_action_in_runtime(
+                ActionCommand {
+                    actor: "player".to_string(),
+                    intent,
+                    target: Some(target.to_string()),
+                    declared_cost: rebrng_game_core::DeclaredCost::default(),
+                    context_note: Some(note.to_string()),
+                },
+                &runtime,
+            )
+            .expect("resolve opening rite action");
+        }
 
         let response = resolve_action_in_runtime(
             ActionCommand {
