@@ -1,0 +1,249 @@
+initial_resource_packages:
+  - id: s0_opening_plain_supplies
+    title: 开窍后普通配给
+    primeval_stones: 3
+    materials: 0
+    merit: 0
+    infirmary_debt: 0
+    favor_debt: 0
+    organization_debt: 0
+    trading_credit: 0
+    exposure: 0
+    stage: s0
+    tags: [setup, resource-package, opening]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: s0_branch_child_supplies
+    title: 旁支子弟薄底
+    primeval_stones: 2
+    materials: 0
+    merit: 0
+    infirmary_debt: 0
+    favor_debt: 1
+    organization_debt: 0
+    trading_credit: 0
+    exposure: 0
+    stage: s0
+    tags: [setup, resource-package, branch]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: s0_infirmary_tie_supplies
+    title: 药堂人情牵连
+    primeval_stones: 2
+    materials: 1
+    merit: 0
+    infirmary_debt: 1
+    favor_debt: 1
+    organization_debt: 0
+    trading_credit: 0
+    exposure: 0
+    stage: s0
+    tags: [setup, resource-package, infirmary]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+
+origins:
+  - id: qingmao_branch_child
+    title: 古月旁支子弟
+    summary: 有族姓庇护，也有薄弱家底和旁支债影；适合作为严谨模式的普通压迫开局。
+    resource_package_id: s0_branch_child_supplies
+    attribute_modifiers:
+      wit: 1
+    attention_delta: 0
+    stage: s0
+    tags: [setup, origin, qingmao, branch]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: academy_plain_child
+    title: 学堂普通子弟
+    summary: 从开窍大典后直接被纳入学堂秩序，资源普通，压力透明，没有额外机缘。
+    resource_package_id: s0_opening_plain_supplies
+    attribute_modifiers:
+      aptitude: 1
+    attention_delta: 1
+    stage: s0
+    tags: [setup, origin, qingmao, academy]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: infirmary_debt_tie
+    title: 药堂人情牵连
+    summary: 身边早有一条药堂人情线，恢复门路更清楚，但债务从开局就压在账上。
+    resource_package_id: s0_infirmary_tie_supplies
+    attribute_modifiers:
+      bone: 1
+    attention_delta: 0
+    stage: s0
+    tags: [setup, origin, qingmao, infirmary]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+
+talents:
+  - id: steady_mind
+    title: 心性沉稳
+    summary: 面对羞辱和债务时更不容易乱走一步。
+    intensity: mild
+    attribute_modifiers:
+      wit: 1
+    route_tags: [survival, academy]
+    pressure_note: 只提供心理韧性，不生成额外机缘。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: quiet_observer
+    title: 静观其变
+    summary: 更容易从风声、眼色和账本变化里看出门路。
+    intensity: mild
+    attribute_modifiers:
+      wit: 1
+      luck: 1
+    route_tags: [information, rumor]
+    pressure_note: 只能帮助读局，不能直接改变原著硬事实。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: frugal_hands
+    title: 手头俭省
+    summary: 元石花出去前会多掂量一次。
+    intensity: mild
+    attribute_modifiers:
+      luck: 1
+    route_tags: [economy, debt]
+    pressure_note: 节省倾向不等于凭空获得资源。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: bitter_bone
+    title: 苦骨耐压
+    summary: 受伤、欠债、被盯上时，仍能维持一点行动余地。
+    intensity: mild
+    attribute_modifiers:
+      bone: 1
+    route_tags: [injury, pressure]
+    pressure_note: 只保留为后续抗压钩子，不免除重创可续代价。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: academy_ear
+    title: 学堂耳目
+    summary: 更早注意到学堂公开压力和功绩审计的风向。
+    intensity: mild
+    attribute_modifiers:
+      wit: 1
+    route_tags: [academy, merit]
+    pressure_note: 获得的是风声入口，不是导师庇护。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: moonlight_pacing
+    title: 月光步调
+    summary: 对月光修行节奏更敏感，但仍受空窍、元石和窗口限制。
+    intensity: mild
+    attribute_modifiers:
+      aptitude: 1
+    route_tags: [moonlight, cultivation]
+    pressure_note: 不能绕过开窍、资源和学堂制度压力。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: debt_memory
+    title: 欠账记性
+    summary: 对人情和债务更警醒，适合药堂和黑市边缘求活。
+    intensity: mild
+    attribute_modifiers:
+      wit: 1
+    route_tags: [debt, infirmary]
+    pressure_note: 只能提醒追索风险，不洗掉债。
+    stage: s0
+    tags: [setup, talent]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+  - id: reborn_memory_fragment
+    title: 残缺重生记忆
+    summary: 脑中有少量不稳定的未来碎片，会推高锚点偏移压力。
+    intensity: strong_if
+    attribute_modifiers:
+      wit: 2
+      luck: 1
+    route_tags: [if, timeline]
+    pressure_note: 只能在 sandbox_if 作为高风险 IF 使用，不进入严谨模式。
+    stage: s0
+    tags: [setup, talent]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+  - id: inheritance_scent
+    title: 传承嗅觉
+    summary: 对半真半假的传承线索更敏感，也更容易被危险线索牵走。
+    intensity: strong_if
+    attribute_modifiers:
+      luck: 2
+    route_tags: [if, inheritance]
+    pressure_note: 不能稳定抢原著机缘，必须受模式和锚点门禁限制。
+    stage: s0
+    tags: [setup, talent]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+  - id: vital_gu_omen
+    title: 本命蛊异兆
+    summary: 空窍深处有一丝不明牵动，只作为本命蛊保留位的 IF 预兆。
+    intensity: strong_if
+    attribute_modifiers:
+      aptitude: 1
+      luck: 1
+    route_tags: [if, vital-gu]
+    pressure_note: 不等于获得本命蛊，也不能在 S0 直接绑定。
+    stage: s0
+    tags: [setup, talent]
+    evidence: sandbox_if
+    modes: [sandbox_if]
+
+attribute_profiles:
+  - id: s0_default_attributes
+    title: 开窍前基础四项
+    attributes:
+      - id: aptitude
+        label: 资质
+        summary: 空窍潜力与修行承载的粗略表现。
+        min: 1
+        max: 10
+        base: 5
+      - id: wit
+        label: 心智
+        summary: 读局、忍耐、识别风险的能力。
+        min: 1
+        max: 10
+        base: 5
+      - id: bone
+        label: 体魄
+        summary: 受伤后维持行动与恢复的基础。
+        min: 1
+        max: 10
+        base: 5
+      - id: luck
+        label: 运势
+        summary: 撞见机会或避开麻烦的波动余地。
+        min: 1
+        max: 10
+        base: 5
+    stage: s0
+    tags: [setup, attributes]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+
+opening_rite_outcomes:
+  - id: s0_opening_rite_established
+    title: 开窍大典已过
+    summary: 空窍已经开启，族中学堂秩序随之压下；自由窗口从根基未稳之后开始。
+    aperture_opened: true
+    displayed_grade: 普通可训
+    attention_delta: 1
+    resource_package_id: s0_opening_plain_supplies
+    stage: s0
+    tags: [setup, opening-rite]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]

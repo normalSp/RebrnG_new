@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.1.2";
+pub const STARTER_CONTENT_VERSION: &str = "s0.2.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint2-rules-v1";
+pub const RULES_VERSION: &str = "sprint3-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -961,6 +961,11 @@ pub struct ContentManifest {
     pub movement_count: usize,
     pub encounter_count: usize,
     pub narrative_count: usize,
+    pub origin_count: usize,
+    pub talent_count: usize,
+    pub attribute_profile_count: usize,
+    pub opening_rite_outcome_count: usize,
+    pub initial_resource_package_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1104,6 +1109,99 @@ pub struct ContentNarrativeTemplate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentOriginSpec {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub resource_package_id: String,
+    #[serde(default)]
+    pub attribute_modifiers: BTreeMap<String, i32>,
+    pub attention_delta: i32,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TalentIntensity {
+    Mild,
+    StrongIf,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentTalentSpec {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub intensity: TalentIntensity,
+    #[serde(default)]
+    pub attribute_modifiers: BTreeMap<String, i32>,
+    #[serde(default)]
+    pub route_tags: Vec<String>,
+    pub pressure_note: String,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentAttributeProfile {
+    pub id: String,
+    pub title: String,
+    pub attributes: Vec<ContentAttributeDefinition>,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentAttributeDefinition {
+    pub id: String,
+    pub label: String,
+    pub summary: String,
+    pub min: i32,
+    pub max: i32,
+    pub base: i32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentOpeningRiteOutcome {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub aperture_opened: bool,
+    pub displayed_grade: String,
+    pub attention_delta: i32,
+    pub resource_package_id: String,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentInitialResourcePackage {
+    pub id: String,
+    pub title: String,
+    pub primeval_stones: i32,
+    pub materials: i32,
+    pub merit: i32,
+    pub infirmary_debt: i32,
+    pub favor_debt: i32,
+    pub organization_debt: i32,
+    pub trading_credit: i32,
+    pub exposure: i32,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContentSource {
     pub content_id: String,
     pub version: String,
@@ -1124,6 +1222,16 @@ pub struct ContentSource {
     pub encounters: Vec<ContentEncounterTemplate>,
     #[serde(default)]
     pub narratives: Vec<ContentNarrativeTemplate>,
+    #[serde(default)]
+    pub origins: Vec<ContentOriginSpec>,
+    #[serde(default)]
+    pub talents: Vec<ContentTalentSpec>,
+    #[serde(default)]
+    pub attribute_profiles: Vec<ContentAttributeProfile>,
+    #[serde(default)]
+    pub opening_rite_outcomes: Vec<ContentOpeningRiteOutcome>,
+    #[serde(default)]
+    pub initial_resource_packages: Vec<ContentInitialResourcePackage>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1147,6 +1255,16 @@ pub struct ContentSourceFragment {
     pub encounters: Vec<ContentEncounterTemplate>,
     #[serde(default)]
     pub narratives: Vec<ContentNarrativeTemplate>,
+    #[serde(default)]
+    pub origins: Vec<ContentOriginSpec>,
+    #[serde(default)]
+    pub talents: Vec<ContentTalentSpec>,
+    #[serde(default)]
+    pub attribute_profiles: Vec<ContentAttributeProfile>,
+    #[serde(default)]
+    pub opening_rite_outcomes: Vec<ContentOpeningRiteOutcome>,
+    #[serde(default)]
+    pub initial_resource_packages: Vec<ContentInitialResourcePackage>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1159,6 +1277,11 @@ pub struct ContentBundle {
     pub movements: Vec<ContentMovementEdge>,
     pub encounters: Vec<ContentEncounterTemplate>,
     pub narratives: Vec<ContentNarrativeTemplate>,
+    pub origins: Vec<ContentOriginSpec>,
+    pub talents: Vec<ContentTalentSpec>,
+    pub attribute_profiles: Vec<ContentAttributeProfile>,
+    pub opening_rite_outcomes: Vec<ContentOpeningRiteOutcome>,
+    pub initial_resource_packages: Vec<ContentInitialResourcePackage>,
     pub indexes: ContentIndexes,
     pub diagnostics: ContentBuildDiagnostics,
 }
@@ -1172,6 +1295,11 @@ pub struct ContentIndexes {
     pub movement_ids: BTreeMap<String, usize>,
     pub encounter_ids: BTreeMap<String, usize>,
     pub narrative_ids: BTreeMap<String, usize>,
+    pub origin_ids: BTreeMap<String, usize>,
+    pub talent_ids: BTreeMap<String, usize>,
+    pub attribute_profile_ids: BTreeMap<String, usize>,
+    pub opening_rite_outcome_ids: BTreeMap<String, usize>,
+    pub initial_resource_package_ids: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1202,6 +1330,26 @@ impl ContentBundle {
         let narrative_ids = build_index(
             "narrative",
             source.narratives.iter().map(|narrative| &narrative.id),
+        )?;
+        let origin_ids = build_index("origin", source.origins.iter().map(|origin| &origin.id))?;
+        let talent_ids = build_index("talent", source.talents.iter().map(|talent| &talent.id))?;
+        let attribute_profile_ids = build_index(
+            "attribute_profile",
+            source.attribute_profiles.iter().map(|profile| &profile.id),
+        )?;
+        let opening_rite_outcome_ids = build_index(
+            "opening_rite_outcome",
+            source
+                .opening_rite_outcomes
+                .iter()
+                .map(|outcome| &outcome.id),
+        )?;
+        let initial_resource_package_ids = build_index(
+            "initial_resource_package",
+            source
+                .initial_resource_packages
+                .iter()
+                .map(|package| &package.id),
         )?;
 
         if !node_ids.contains_key(&source.entry_scene_id) {
@@ -1455,6 +1603,211 @@ impl ContentBundle {
             require_non_empty("narrative", &narrative.id, "text", &narrative.text)?;
         }
 
+        if source.origins.len() < 3 {
+            return Err(CommandError::content(
+                "出身候选不足",
+                "Sprint 3 setup content requires at least 3 origins",
+            ));
+        }
+        for origin in &source.origins {
+            validate_common_content(
+                "origin",
+                &origin.id,
+                &origin.stage,
+                &origin.tags,
+                &origin.evidence,
+                &origin.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty("origin", &origin.id, "title", &origin.title)?;
+            require_non_empty("origin", &origin.id, "summary", &origin.summary)?;
+            if !initial_resource_package_ids.contains_key(&origin.resource_package_id) {
+                return Err(CommandError::content(
+                    "出身资源包不存在",
+                    format!(
+                        "origin '{}' resource package '{}' not found",
+                        origin.id, origin.resource_package_id
+                    ),
+                ));
+            }
+        }
+
+        if source.talents.len() < 10 {
+            return Err(CommandError::content(
+                "天赋候选不足",
+                "Sprint 3 setup content requires at least 10 talents",
+            ));
+        }
+        for talent in &source.talents {
+            if talent.intensity == TalentIntensity::StrongIf
+                && talent.modes.contains(&ModePermit::CanonStrict)
+            {
+                return Err(CommandError::content(
+                    "强 IF 天赋不能进入严谨模式",
+                    format!(
+                        "talent '{}' is strong_if but allows canon_strict",
+                        talent.id
+                    ),
+                ));
+            }
+            validate_common_content(
+                "talent",
+                &talent.id,
+                &talent.stage,
+                &talent.tags,
+                &talent.evidence,
+                &talent.modes,
+                if talent.intensity == TalentIntensity::StrongIf {
+                    ContentImportance::Critical
+                } else {
+                    ContentImportance::Standard
+                },
+            )?;
+            require_non_empty("talent", &talent.id, "title", &talent.title)?;
+            require_non_empty("talent", &talent.id, "summary", &talent.summary)?;
+            require_non_empty("talent", &talent.id, "pressure_note", &talent.pressure_note)?;
+            if talent.intensity == TalentIntensity::StrongIf
+                && talent.modes.contains(&ModePermit::CanonStrict)
+            {
+                return Err(CommandError::content(
+                    "强 IF 天赋不能进入严谨模式",
+                    format!(
+                        "talent '{}' is strong_if but allows canon_strict",
+                        talent.id
+                    ),
+                ));
+            }
+        }
+
+        if source.attribute_profiles.is_empty() {
+            return Err(CommandError::content(
+                "属性面板缺失",
+                "Sprint 3 setup content requires an attribute profile",
+            ));
+        }
+        for profile in &source.attribute_profiles {
+            validate_common_content(
+                "attribute_profile",
+                &profile.id,
+                &profile.stage,
+                &profile.tags,
+                &profile.evidence,
+                &profile.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty("attribute_profile", &profile.id, "title", &profile.title)?;
+            validate_attribute_profile(profile)?;
+        }
+        let attribute_ids = source
+            .attribute_profiles
+            .iter()
+            .flat_map(|profile| profile.attributes.iter().map(|attribute| &attribute.id))
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        for origin in &source.origins {
+            validate_attribute_modifiers(
+                "origin",
+                &origin.id,
+                &origin.attribute_modifiers,
+                &attribute_ids,
+            )?;
+        }
+        for talent in &source.talents {
+            validate_attribute_modifiers(
+                "talent",
+                &talent.id,
+                &talent.attribute_modifiers,
+                &attribute_ids,
+            )?;
+        }
+
+        if source.opening_rite_outcomes.is_empty() {
+            return Err(CommandError::content(
+                "开窍大典结果缺失",
+                "Sprint 3 setup content requires an opening rite outcome",
+            ));
+        }
+        for outcome in &source.opening_rite_outcomes {
+            validate_common_content(
+                "opening_rite_outcome",
+                &outcome.id,
+                &outcome.stage,
+                &outcome.tags,
+                &outcome.evidence,
+                &outcome.modes,
+                ContentImportance::Critical,
+            )?;
+            require_non_empty("opening_rite_outcome", &outcome.id, "title", &outcome.title)?;
+            require_non_empty(
+                "opening_rite_outcome",
+                &outcome.id,
+                "summary",
+                &outcome.summary,
+            )?;
+            require_non_empty(
+                "opening_rite_outcome",
+                &outcome.id,
+                "displayed_grade",
+                &outcome.displayed_grade,
+            )?;
+            if !outcome.aperture_opened {
+                return Err(CommandError::content(
+                    "开窍大典结果必须打开空窍",
+                    format!("opening outcome '{}' has aperture_opened=false", outcome.id),
+                ));
+            }
+            if !initial_resource_package_ids.contains_key(&outcome.resource_package_id) {
+                return Err(CommandError::content(
+                    "开窍大典资源包不存在",
+                    format!(
+                        "opening outcome '{}' resource package '{}' not found",
+                        outcome.id, outcome.resource_package_id
+                    ),
+                ));
+            }
+        }
+
+        if source.initial_resource_packages.is_empty() {
+            return Err(CommandError::content(
+                "初始资源包缺失",
+                "Sprint 3 setup content requires an initial resource package",
+            ));
+        }
+        for package in &source.initial_resource_packages {
+            validate_common_content(
+                "initial_resource_package",
+                &package.id,
+                &package.stage,
+                &package.tags,
+                &package.evidence,
+                &package.modes,
+                ContentImportance::Standard,
+            )?;
+            require_non_empty(
+                "initial_resource_package",
+                &package.id,
+                "title",
+                &package.title,
+            )?;
+            if package.primeval_stones < 0
+                || package.materials < 0
+                || package.merit < 0
+                || package.infirmary_debt < 0
+                || package.favor_debt < 0
+                || package.organization_debt < 0
+                || package.trading_credit < 0
+                || package.exposure < 0
+            {
+                return Err(CommandError::content(
+                    "初始资源包数值不能为负",
+                    format!(
+                        "initial resource package '{}' has negative values",
+                        package.id
+                    ),
+                ));
+            }
+        }
+
         let node_count = source.nodes.len();
         let action_count = source.actions.len();
         let route_count = source.routes.len();
@@ -1462,6 +1815,11 @@ impl ContentBundle {
         let movement_count = source.movements.len();
         let encounter_count = source.encounters.len();
         let narrative_count = source.narratives.len();
+        let origin_count = source.origins.len();
+        let talent_count = source.talents.len();
+        let attribute_profile_count = source.attribute_profiles.len();
+        let opening_rite_outcome_count = source.opening_rite_outcomes.len();
+        let initial_resource_package_count = source.initial_resource_packages.len();
 
         Ok(Self {
             manifest: ContentManifest {
@@ -1477,6 +1835,11 @@ impl ContentBundle {
                 movement_count,
                 encounter_count,
                 narrative_count,
+                origin_count,
+                talent_count,
+                attribute_profile_count,
+                opening_rite_outcome_count,
+                initial_resource_package_count,
             },
             nodes: source.nodes,
             actions: source.actions,
@@ -1485,6 +1848,11 @@ impl ContentBundle {
             movements: source.movements,
             encounters: source.encounters,
             narratives: source.narratives,
+            origins: source.origins,
+            talents: source.talents,
+            attribute_profiles: source.attribute_profiles,
+            opening_rite_outcomes: source.opening_rite_outcomes,
+            initial_resource_packages: source.initial_resource_packages,
             indexes: ContentIndexes {
                 node_ids,
                 action_ids,
@@ -1493,10 +1861,15 @@ impl ContentBundle {
                 movement_ids,
                 encounter_ids,
                 narrative_ids,
+                origin_ids,
+                talent_ids,
+                attribute_profile_ids,
+                opening_rite_outcome_ids,
+                initial_resource_package_ids,
             },
             diagnostics: ContentBuildDiagnostics {
                 summary: format!(
-                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters, {narrative_count} narratives"
+                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters, {narrative_count} narratives, {origin_count} origins, {talent_count} talents, {attribute_profile_count} attribute profiles, {opening_rite_outcome_count} opening rite outcomes, {initial_resource_package_count} initial resource packages"
                 ),
                 warnings: Vec::new(),
             },
@@ -1520,6 +1893,11 @@ impl ContentSource {
         let mut movements = Vec::new();
         let mut encounters = Vec::new();
         let mut narratives = Vec::new();
+        let mut origins = Vec::new();
+        let mut talents = Vec::new();
+        let mut attribute_profiles = Vec::new();
+        let mut opening_rite_outcomes = Vec::new();
+        let mut initial_resource_packages = Vec::new();
 
         for fragment in fragments {
             merge_metadata("content_id", &mut content_id, fragment.content_id)?;
@@ -1538,6 +1916,11 @@ impl ContentSource {
             movements.extend(fragment.movements);
             encounters.extend(fragment.encounters);
             narratives.extend(fragment.narratives);
+            origins.extend(fragment.origins);
+            talents.extend(fragment.talents);
+            attribute_profiles.extend(fragment.attribute_profiles);
+            opening_rite_outcomes.extend(fragment.opening_rite_outcomes);
+            initial_resource_packages.extend(fragment.initial_resource_packages);
         }
 
         Ok(Self {
@@ -1566,6 +1949,11 @@ impl ContentSource {
             movements,
             encounters,
             narratives,
+            origins,
+            talents,
+            attribute_profiles,
+            opening_rite_outcomes,
+            initial_resource_packages,
         })
     }
 }
@@ -1640,6 +2028,87 @@ fn validate_common_content(
     Ok(())
 }
 
+fn validate_attribute_profile(profile: &ContentAttributeProfile) -> Result<(), CommandError> {
+    if profile.attributes.len() != 4 {
+        return Err(CommandError::content(
+            "属性面板必须包含四项属性",
+            format!(
+                "attribute profile '{}' must contain exactly 4 attributes",
+                profile.id
+            ),
+        ));
+    }
+
+    let mut seen = BTreeSet::new();
+    for attribute in &profile.attributes {
+        require_non_empty("attribute_definition", &profile.id, "id", &attribute.id)?;
+        require_non_empty(
+            "attribute_definition",
+            &attribute.id,
+            "label",
+            &attribute.label,
+        )?;
+        require_non_empty(
+            "attribute_definition",
+            &attribute.id,
+            "summary",
+            &attribute.summary,
+        )?;
+        if !seen.insert(attribute.id.clone()) {
+            return Err(CommandError::content(
+                "属性 id 重复",
+                format!(
+                    "attribute profile '{}' has duplicate attribute '{}'",
+                    profile.id, attribute.id
+                ),
+            ));
+        }
+        if attribute.min > attribute.max
+            || attribute.base < attribute.min
+            || attribute.base > attribute.max
+        {
+            return Err(CommandError::content(
+                "属性范围非法",
+                format!(
+                    "attribute profile '{}' attribute '{}' has invalid min/base/max",
+                    profile.id, attribute.id
+                ),
+            ));
+        }
+    }
+
+    for required in ["aptitude", "wit", "bone", "luck"] {
+        if !seen.contains(required) {
+            return Err(CommandError::content(
+                "属性面板缺少核心属性",
+                format!(
+                    "attribute profile '{}' missing required attribute '{}'",
+                    profile.id, required
+                ),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_attribute_modifiers(
+    kind: &str,
+    id: &str,
+    modifiers: &BTreeMap<String, i32>,
+    attribute_ids: &BTreeSet<String>,
+) -> Result<(), CommandError> {
+    for attribute_id in modifiers.keys() {
+        if !attribute_ids.contains(attribute_id) {
+            return Err(CommandError::content(
+                "属性修正指向未知属性",
+                format!("{kind} '{id}' modifier attribute '{attribute_id}' not found"),
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn require_non_empty(kind: &str, id: &str, field: &str, value: &str) -> Result<(), CommandError> {
     if value.trim().is_empty() {
         return Err(CommandError::content(
@@ -1703,11 +2172,23 @@ pub fn starter_content_source() -> ContentSource {
         movements: starter_movements(),
         encounters: starter_encounters(),
         narratives: starter_narratives(),
+        origins: starter_origins(),
+        talents: starter_talents(),
+        attribute_profiles: starter_attribute_profiles(),
+        opening_rite_outcomes: starter_opening_rite_outcomes(),
+        initial_resource_packages: starter_initial_resource_packages(),
     }
 }
 
 fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_string()).collect()
+}
+
+fn modifiers(values: &[(&str, i32)]) -> BTreeMap<String, i32> {
+    values
+        .iter()
+        .map(|(key, value)| ((*key).to_string(), *value))
+        .collect()
 }
 
 fn all_modes() -> Vec<ModePermit> {
@@ -1716,6 +2197,354 @@ fn all_modes() -> Vec<ModePermit> {
 
 fn sandbox_only() -> Vec<ModePermit> {
     vec![ModePermit::SandboxIf]
+}
+
+fn starter_initial_resource_packages() -> Vec<ContentInitialResourcePackage> {
+    vec![
+        initial_resource_package(
+            "s0_opening_plain_supplies",
+            "开窍后普通配给",
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["setup", "resource-package", "opening"],
+        ),
+        initial_resource_package(
+            "s0_branch_child_supplies",
+            "旁支子弟薄底",
+            2,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["setup", "resource-package", "branch"],
+        ),
+        initial_resource_package(
+            "s0_infirmary_tie_supplies",
+            "药堂人情牵连",
+            2,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0,
+            0,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["setup", "resource-package", "infirmary"],
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn initial_resource_package(
+    id: &str,
+    title: &str,
+    primeval_stones: i32,
+    materials: i32,
+    merit: i32,
+    infirmary_debt: i32,
+    favor_debt: i32,
+    organization_debt: i32,
+    trading_credit: i32,
+    exposure: i32,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+    tags: &[&str],
+) -> ContentInitialResourcePackage {
+    ContentInitialResourcePackage {
+        id: id.to_string(),
+        title: title.to_string(),
+        primeval_stones,
+        materials,
+        merit,
+        infirmary_debt,
+        favor_debt,
+        organization_debt,
+        trading_credit,
+        exposure,
+        stage: "s0".to_string(),
+        tags: strings(tags),
+        evidence,
+        modes,
+    }
+}
+
+fn starter_origins() -> Vec<ContentOriginSpec> {
+    vec![
+        origin(
+            "qingmao_branch_child",
+            "古月旁支子弟",
+            "有族姓庇护，也有薄弱家底和旁支债影；适合作为严谨模式的普通压迫开局。",
+            "s0_branch_child_supplies",
+            &[("wit", 1)],
+            0,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["setup", "origin", "qingmao", "branch"],
+        ),
+        origin(
+            "academy_plain_child",
+            "学堂普通子弟",
+            "从开窍大典后直接被纳入学堂秩序，资源普通，压力透明，没有额外机缘。",
+            "s0_opening_plain_supplies",
+            &[("aptitude", 1)],
+            1,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["setup", "origin", "qingmao", "academy"],
+        ),
+        origin(
+            "infirmary_debt_tie",
+            "药堂人情牵连",
+            "身边早有一条药堂人情线，恢复门路更清楚，但债务从开局就压在账上。",
+            "s0_infirmary_tie_supplies",
+            &[("bone", 1)],
+            0,
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["setup", "origin", "qingmao", "infirmary"],
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn origin(
+    id: &str,
+    title: &str,
+    summary: &str,
+    resource_package_id: &str,
+    attribute_modifiers: &[(&str, i32)],
+    attention_delta: i32,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+    tags: &[&str],
+) -> ContentOriginSpec {
+    ContentOriginSpec {
+        id: id.to_string(),
+        title: title.to_string(),
+        summary: summary.to_string(),
+        resource_package_id: resource_package_id.to_string(),
+        attribute_modifiers: modifiers(attribute_modifiers),
+        attention_delta,
+        stage: "s0".to_string(),
+        tags: strings(tags),
+        evidence,
+        modes,
+    }
+}
+
+fn starter_talents() -> Vec<ContentTalentSpec> {
+    vec![
+        talent(
+            "steady_mind",
+            "心性沉稳",
+            "面对羞辱和债务时更不容易乱走一步。",
+            TalentIntensity::Mild,
+            &[("wit", 1)],
+            &["survival", "academy"],
+            "只提供心理韧性，不生成额外机缘。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "quiet_observer",
+            "静观其变",
+            "更容易从风声、眼色和账本变化里看出门路。",
+            TalentIntensity::Mild,
+            &[("wit", 1), ("luck", 1)],
+            &["information", "rumor"],
+            "只能帮助读局，不能直接改变原著硬事实。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "frugal_hands",
+            "手头俭省",
+            "元石花出去前会多掂量一次。",
+            TalentIntensity::Mild,
+            &[("luck", 1)],
+            &["economy", "debt"],
+            "节省倾向不等于凭空获得资源。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "bitter_bone",
+            "苦骨耐压",
+            "受伤、欠债、被盯上时，仍能维持一点行动余地。",
+            TalentIntensity::Mild,
+            &[("bone", 1)],
+            &["injury", "pressure"],
+            "只保留为后续抗压钩子，不免除重创可续代价。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "academy_ear",
+            "学堂耳目",
+            "更早注意到学堂公开压力和功绩审计的风向。",
+            TalentIntensity::Mild,
+            &[("wit", 1)],
+            &["academy", "merit"],
+            "获得的是风声入口，不是导师庇护。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "moonlight_pacing",
+            "月光步调",
+            "对月光修行节奏更敏感，但仍受空窍、元石和窗口限制。",
+            TalentIntensity::Mild,
+            &[("aptitude", 1)],
+            &["moonlight", "cultivation"],
+            "不能绕过开窍、资源和学堂制度压力。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "debt_memory",
+            "欠账记性",
+            "对人情和债务更警醒，适合药堂和黑市边缘求活。",
+            TalentIntensity::Mild,
+            &[("wit", 1)],
+            &["debt", "infirmary"],
+            "只能提醒追索风险，不洗掉债。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+        ),
+        talent(
+            "reborn_memory_fragment",
+            "残缺重生记忆",
+            "脑中有少量不稳定的未来碎片，会推高锚点偏移压力。",
+            TalentIntensity::StrongIf,
+            &[("wit", 2), ("luck", 1)],
+            &["if", "timeline"],
+            "只能在 sandbox_if 作为高风险 IF 使用，不进入严谨模式。",
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+        ),
+        talent(
+            "inheritance_scent",
+            "传承嗅觉",
+            "对半真半假的传承线索更敏感，也更容易被危险线索牵走。",
+            TalentIntensity::StrongIf,
+            &[("luck", 2)],
+            &["if", "inheritance"],
+            "不能稳定抢原著机缘，必须受模式和锚点门禁限制。",
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+        ),
+        talent(
+            "vital_gu_omen",
+            "本命蛊异兆",
+            "空窍深处有一丝不明牵动，只作为本命蛊保留位的 IF 预兆。",
+            TalentIntensity::StrongIf,
+            &[("aptitude", 1), ("luck", 1)],
+            &["if", "vital-gu"],
+            "不等于获得本命蛊，也不能在 S0 直接绑定。",
+            EvidenceLevel::SandboxIf,
+            sandbox_only(),
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn talent(
+    id: &str,
+    title: &str,
+    summary: &str,
+    intensity: TalentIntensity,
+    attribute_modifiers: &[(&str, i32)],
+    route_tags: &[&str],
+    pressure_note: &str,
+    evidence: EvidenceLevel,
+    modes: Vec<ModePermit>,
+) -> ContentTalentSpec {
+    ContentTalentSpec {
+        id: id.to_string(),
+        title: title.to_string(),
+        summary: summary.to_string(),
+        intensity,
+        attribute_modifiers: modifiers(attribute_modifiers),
+        route_tags: strings(route_tags),
+        pressure_note: pressure_note.to_string(),
+        stage: "s0".to_string(),
+        tags: strings(&["setup", "talent"]),
+        evidence,
+        modes,
+    }
+}
+
+fn starter_attribute_profiles() -> Vec<ContentAttributeProfile> {
+    vec![ContentAttributeProfile {
+        id: "s0_default_attributes".to_string(),
+        title: "开窍前基础四项".to_string(),
+        attributes: vec![
+            attribute(
+                "aptitude",
+                "资质",
+                "空窍潜力与修行承载的粗略表现。",
+                1,
+                10,
+                5,
+            ),
+            attribute("wit", "心智", "读局、忍耐、识别风险的能力。", 1, 10, 5),
+            attribute("bone", "体魄", "受伤后维持行动与恢复的基础。", 1, 10, 5),
+            attribute("luck", "运势", "撞见机会或避开麻烦的波动余地。", 1, 10, 5),
+        ],
+        stage: "s0".to_string(),
+        tags: strings(&["setup", "attributes"]),
+        evidence: EvidenceLevel::CanonInferred,
+        modes: all_modes(),
+    }]
+}
+
+fn attribute(
+    id: &str,
+    label: &str,
+    summary: &str,
+    min: i32,
+    max: i32,
+    base: i32,
+) -> ContentAttributeDefinition {
+    ContentAttributeDefinition {
+        id: id.to_string(),
+        label: label.to_string(),
+        summary: summary.to_string(),
+        min,
+        max,
+        base,
+    }
+}
+
+fn starter_opening_rite_outcomes() -> Vec<ContentOpeningRiteOutcome> {
+    vec![ContentOpeningRiteOutcome {
+        id: "s0_opening_rite_established".to_string(),
+        title: "开窍大典已过".to_string(),
+        summary: "空窍已经开启，族中学堂秩序随之压下；自由窗口从根基未稳之后开始。".to_string(),
+        aperture_opened: true,
+        displayed_grade: "普通可训".to_string(),
+        attention_delta: 1,
+        resource_package_id: "s0_opening_plain_supplies".to_string(),
+        stage: "s0".to_string(),
+        tags: strings(&["setup", "opening-rite"]),
+        evidence: EvidenceLevel::CanonInferred,
+        modes: all_modes(),
+    }]
 }
 
 fn starter_nodes() -> Vec<ContentNode> {
@@ -5423,15 +6252,107 @@ mod tests {
         assert_eq!(bundle.manifest.movement_count, 1);
         assert_eq!(bundle.manifest.encounter_count, 0);
         assert_eq!(bundle.manifest.narrative_count, 1);
+        assert_eq!(bundle.manifest.origin_count, 3);
+        assert_eq!(bundle.manifest.talent_count, 10);
+        assert_eq!(bundle.manifest.attribute_profile_count, 1);
+        assert_eq!(bundle.manifest.opening_rite_outcome_count, 1);
+        assert_eq!(bundle.manifest.initial_resource_package_count, 3);
         assert_eq!(bundle.indexes.node_ids["academy_gate"], 0);
         assert_eq!(bundle.indexes.action_ids["scout_academy"], 0);
         assert_eq!(bundle.indexes.route_ids["moonlight_entry"], 0);
         assert_eq!(bundle.indexes.window_ids["day1_morning_free"], 0);
         assert_eq!(bundle.indexes.movement_ids["academy_to_moonlight"], 0);
         assert_eq!(bundle.indexes.narrative_ids["s0.action.scout.default"], 0);
+        assert!(bundle
+            .indexes
+            .origin_ids
+            .contains_key("academy_plain_child"));
+        assert!(bundle.indexes.talent_ids.contains_key("steady_mind"));
+        assert!(bundle
+            .indexes
+            .attribute_profile_ids
+            .contains_key("s0_default_attributes"));
+        assert!(bundle
+            .indexes
+            .opening_rite_outcome_ids
+            .contains_key("s0_opening_rite_established"));
+        assert!(bundle
+            .indexes
+            .initial_resource_package_ids
+            .contains_key("s0_opening_plain_supplies"));
         assert!(bundle.diagnostics.summary.contains("indexed 2 nodes"));
         assert!(bundle.diagnostics.summary.contains("1 narratives"));
+        assert!(bundle.diagnostics.summary.contains("10 talents"));
         assert!(bundle.diagnostics.warnings.is_empty());
+    }
+
+    #[test]
+    fn sprint3_starter_bundle_contains_setup_content_contracts() {
+        let bundle = starter_content_bundle();
+
+        assert_eq!(bundle.manifest.version, STARTER_CONTENT_VERSION);
+        assert!(bundle.origins.len() >= 3);
+        assert_eq!(bundle.talents.len(), 10);
+        assert_eq!(bundle.attribute_profiles[0].attributes.len(), 4);
+        assert!(bundle
+            .opening_rite_outcomes
+            .iter()
+            .any(|outcome| outcome.id == "s0_opening_rite_established" && outcome.aperture_opened));
+        assert!(bundle
+            .initial_resource_packages
+            .iter()
+            .any(|package| package.id == "s0_opening_plain_supplies"));
+    }
+
+    #[test]
+    fn sprint3_canon_strict_excludes_strong_if_talents() {
+        let bundle = starter_content_bundle();
+        let strong_if = bundle
+            .talents
+            .iter()
+            .filter(|talent| talent.intensity == TalentIntensity::StrongIf)
+            .collect::<Vec<_>>();
+
+        assert!(!strong_if.is_empty());
+        assert!(strong_if.iter().all(|talent| {
+            talent.evidence == EvidenceLevel::SandboxIf
+                && talent.modes == vec![ModePermit::SandboxIf]
+                && !talent.modes.contains(&ModePermit::CanonStrict)
+        }));
+    }
+
+    #[test]
+    fn sprint3_rejects_strong_if_talent_in_canon_strict() {
+        let mut source = valid_content_source();
+        let talent = source
+            .talents
+            .iter_mut()
+            .find(|talent| talent.id == "reborn_memory_fragment")
+            .expect("test source includes IF talent");
+        talent.modes = all_modes();
+
+        let error = ContentBundle::from_source(source).expect_err("strong IF talent must be gated");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("strong_if but allows canon_strict"));
+    }
+
+    #[test]
+    fn sprint3_rejects_opening_outcome_missing_resource_package() {
+        let mut source = valid_content_source();
+        source.opening_rite_outcomes[0].resource_package_id = "missing_package".to_string();
+
+        let error =
+            ContentBundle::from_source(source).expect_err("missing setup package should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("resource package 'missing_package' not found"));
     }
 
     #[test]
@@ -5601,6 +6522,11 @@ mod tests {
                 all_modes(),
                 &["narrative", "scout"],
             )],
+            origins: starter_origins(),
+            talents: starter_talents(),
+            attribute_profiles: starter_attribute_profiles(),
+            opening_rite_outcomes: starter_opening_rite_outcomes(),
+            initial_resource_packages: starter_initial_resource_packages(),
         }
     }
 
