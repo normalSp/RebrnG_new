@@ -6,23 +6,76 @@ import {
   type CommandError,
   type LedgerViewModel,
   type SaveWriteResult,
+  type SetupCommand,
+  type SetupResponse,
+  type SetupViewModel,
 } from "@rebrng/ui-ledger";
 import { useState } from "react";
 import "./App.css";
 
 function App() {
   const [projection, setProjection] = useState<LedgerViewModel | null>(null);
-  const [status, setStatus] = useState("等待创建 active run");
+  const [setupView, setSetupView] = useState<SetupViewModel | null>(null);
+  const [status, setStatus] = useState("等待进入人生重开设置");
 
   async function createRun() {
-    setStatus("正在请求 Rust 创建单局...");
+    setStatus("正在进入人生重开设置：开窍大典余声未散，账本开始落笔。");
+    try {
+      const response = await invoke<SetupResponse>("create_setup_run", {
+        mode: "canon_strict",
+      });
+      setSetupView(response.view);
+      setProjection(null);
+      setStatus(`已进入设置：${response.view.dialogue.stage_title}`);
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
+  }
+
+  async function createPresetRun() {
+    setStatus("正在请求 Rust 创建快速预设单局...");
     try {
       const response = await invoke<ActionResponse>("create_run", {
         mode: "canon_strict",
       });
       setProjection(response.projection);
+      setSetupView(null);
       setStatus(
-        `新局已建立：${currentNodeTitle(response.projection)}。${recentSummary(response.projection)}`,
+        `快速预设开局已建立：${currentNodeTitle(response.projection)}。${recentSummary(
+          response.projection,
+        )}`,
+      );
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
+  }
+
+  async function resolveSetupChoice(command: SetupCommand) {
+    const label =
+      command.intent === "select_origin" ? "选择出身" : "调整天赋";
+    setStatus(`正在${label}：${command.target_id}`);
+    try {
+      const response = await invoke<SetupResponse>("resolve_setup_choice", {
+        command,
+      });
+      setSetupView(response.view);
+      setProjection(null);
+      setStatus(setupStatus(response.view));
+    } catch (error) {
+      setStatus(formatCommandError(error));
+    }
+  }
+
+  async function confirmSetupRun() {
+    setStatus("正在确认开窍大典结果，并写入 S0 青茅山账本...");
+    try {
+      const response = await invoke<ActionResponse>("confirm_setup_run");
+      setProjection(response.projection);
+      setSetupView(null);
+      setStatus(
+        `开窍大典已落账：${currentNodeTitle(response.projection)}。${recentSummary(
+          response.projection,
+        )}`,
       );
     } catch (error) {
       setStatus(formatCommandError(error));
@@ -37,6 +90,7 @@ function App() {
         command,
       });
       setProjection(response.projection);
+      setSetupView(null);
       setStatus(describeResolvedAction(label, command, response));
     } catch (error) {
       setStatus(formatCommandError(error));
@@ -64,6 +118,7 @@ function App() {
         slotId: "slot_0",
       });
       setProjection(response.projection);
+      setSetupView(null);
       setStatus(
         `已读回：${currentNodeTitle(response.projection)} / save_load ${response.performance.save_load_ms}ms`,
       );
@@ -75,13 +130,27 @@ function App() {
   return (
     <LedgerShell
       projection={projection}
+      setupView={setupView}
       status={status}
       onCreateRun={createRun}
+      onCreatePresetRun={createPresetRun}
+      onResolveSetupChoice={resolveSetupChoice}
+      onConfirmSetupRun={confirmSetupRun}
       onResolveAction={resolveAction}
       onWriteSave={writeSave}
       onLoadSave={loadSave}
     />
   );
+}
+
+function setupStatus(view: SetupViewModel): string {
+  const selectedOrigin = view.selected_origin_id ?? "未定出身";
+  const selectedTalents = view.selected_talent_ids.length;
+  const blockers = view.confirm_blockers.length
+    ? `仍需：${view.confirm_blockers.join("；")}`
+    : "确认条件已满足";
+
+  return `设置已更新：${selectedOrigin} / 天赋 ${selectedTalents}/3。${blockers}`;
 }
 
 function describeResolvedAction(
@@ -91,7 +160,7 @@ function describeResolvedAction(
 ): string {
   const projection = response.projection;
   const location = currentNodeTitle(projection);
-  const feedback = recentSummary(projection);
+  const feedback = projection.dialogue.previous_result_summary ?? recentSummary(projection);
   const elapsed = response.performance.resolve_action_ms;
 
   const prefix = (() => {

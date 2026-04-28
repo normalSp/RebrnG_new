@@ -4,20 +4,29 @@ import type {
   ActionChoiceTone,
   ActionChoiceView,
   ActionCommand,
+  DialogueTimelineView,
   LedgerViewModel,
+  SetupCandidateView,
+  SetupCommand,
+  SetupTalentCandidateView,
+  SetupViewModel,
 } from "./index";
 
 export interface LedgerShellProps {
   projection: LedgerViewModel | null;
+  setupView: SetupViewModel | null;
   status: string;
   onCreateRun: () => Promise<void>;
+  onCreatePresetRun: () => Promise<void>;
+  onResolveSetupChoice: (command: SetupCommand) => Promise<void>;
+  onConfirmSetupRun: () => Promise<void>;
   onResolveAction: (command: ActionCommand) => Promise<void>;
   onWriteSave: () => Promise<void>;
   onLoadSave: () => Promise<void>;
 }
 
 type LedgerPage =
-  | "scene"
+  | "overview"
   | "map"
   | "resources"
   | "build"
@@ -33,14 +42,14 @@ const zeroDeclaredCost = {
 };
 
 const pages: Array<{ id: LedgerPage; label: string }> = [
-  { id: "scene", label: "正文" },
+  { id: "overview", label: "总览" },
   { id: "map", label: "节点" },
   { id: "resources", label: "物资债务" },
   { id: "build", label: "修行 Build" },
-  { id: "relations", label: "关系局势" },
-  { id: "save", label: "存档边界" },
-  { id: "clues", label: "风声线索" },
-  { id: "ledger", label: "因果账" },
+  { id: "relations", label: "关系" },
+  { id: "save", label: "存档" },
+  { id: "clues", label: "线索" },
+  { id: "ledger", label: "因果" },
 ];
 
 const actionGroupOrder: ActionChoiceGroup[] = [
@@ -75,25 +84,35 @@ function makeCommand(choice: ActionChoiceView): ActionCommand {
 
 export function LedgerShell({
   projection,
+  setupView,
   status,
   onCreateRun,
+  onCreatePresetRun,
+  onResolveSetupChoice,
+  onConfirmSetupRun,
   onResolveAction,
   onWriteSave,
   onLoadSave,
 }: LedgerShellProps) {
-  const [activePage, setActivePage] = useState<LedgerPage>("scene");
   const hasRun = projection !== null;
+  const hasSetup = setupView !== null;
 
   return (
-    <main className="ledger-shell" aria-label="RebrnG 青茅山账本">
+    <main className="ledger-shell" aria-label="RebrnG 青茅山人生重开账本">
       <header className="ledger-top">
         <div>
-          <p className="ledger-kicker">RebrnG Sprint 2</p>
+          <p className="ledger-kicker">RebrnG Sprint 3</p>
           <h1>青茅山冷账</h1>
+          <p className="ledger-subtitle">
+            对话流为主阅读层，账本明细保留规则真相的边界。
+          </p>
         </div>
         <div className="ledger-run-controls" aria-label="运行控制">
           <button type="button" onClick={onCreateRun}>
             新开一局
+          </button>
+          <button type="button" className="button-secondary" onClick={onCreatePresetRun}>
+            快速预设开局
           </button>
           <button type="button" disabled={!hasRun} onClick={onWriteSave}>
             写入 slot_0
@@ -104,115 +123,312 @@ export function LedgerShell({
         </div>
       </header>
 
-      <section className="ledger-status-strip" aria-label="当前压力">
-        {projection ? (
-          projection.status_markers.map((marker) => (
-            <div className={`ledger-status-item is-${marker.tone}`} key={marker.label}>
-              <span>{marker.label}</span>
-              <strong>{marker.value}</strong>
-            </div>
-          ))
-        ) : (
-          <div className="ledger-status-empty">
-            尚无 active run，规则状态仍未开账。
-          </div>
-        )}
-      </section>
+      <StatusStrip projection={projection} setupView={setupView} />
 
       <div className="ledger-system-line" role="status">
         {status}
       </div>
 
-      {projection ? <CurrentLocationNotice projection={projection} /> : null}
-      {projection ? <WalkthroughSummary projection={projection} /> : null}
-
-      {projection ? (
-        <div className="ledger-layout">
-          <nav className="ledger-tabs" aria-label="账页">
-            {pages.map((page) => (
-              <button
-                type="button"
-                className={page.id === activePage ? "is-active" : ""}
-                key={page.id}
-                onClick={() => setActivePage(page.id)}
-              >
-                {page.label}
-              </button>
-            ))}
-          </nav>
-
-          <section className="ledger-leaf">{renderPage(activePage, projection)}</section>
-
-          <aside className="ledger-actions" aria-label="行动">
-            <div className="ledger-actions-heading">
-              <span>行动账</span>
-              <small>{projection.next_anchor_pressure}</small>
-            </div>
-            <ActionGroups
-              choices={projection.action_choices}
-              onResolveAction={onResolveAction}
-            />
-          </aside>
-        </div>
+      {hasSetup ? (
+        <SetupWorkspace
+          setupView={setupView}
+          onResolveSetupChoice={onResolveSetupChoice}
+          onConfirmSetupRun={onConfirmSetupRun}
+        />
+      ) : projection ? (
+        <RunWorkspace projection={projection} onResolveAction={onResolveAction} />
       ) : (
-        <section className="ledger-empty-state">
-          <h2>账页未启</h2>
-          <p>
-            先让 Rust 创建单局。React 只拿到账本投影，不持有完整规则状态，也不在本地结算代价。
-          </p>
-        </section>
+        <EmptyState onCreateRun={onCreateRun} onCreatePresetRun={onCreatePresetRun} />
       )}
     </main>
   );
 }
 
-function WalkthroughSummary({ projection }: { projection: LedgerViewModel }) {
-  const feedback = projection.recent_feedback?.summary ?? "尚未产生新的因果反馈";
-  const location = currentNodeTitle(projection);
+function StatusStrip({
+  projection,
+  setupView,
+}: {
+  projection: LedgerViewModel | null;
+  setupView: SetupViewModel | null;
+}) {
+  if (projection) {
+    return (
+      <section className="ledger-status-strip" aria-label="当前压力">
+        {projection.status_markers.map((marker) => (
+          <div className={`ledger-status-item is-${marker.tone}`} key={marker.label}>
+            <span>{marker.label}</span>
+            <strong>{marker.value}</strong>
+          </div>
+        ))}
+      </section>
+    );
+  }
+
+  if (setupView) {
+    const setupMarkers = [
+      { label: "模式", value: setupView.mode },
+      { label: "出身", value: setupView.selected_origin_id ?? "未定" },
+      { label: "天赋", value: `${setupView.selected_talent_ids.length}/3` },
+      { label: "内容版本", value: setupView.content_version },
+    ];
+
+    return (
+      <section className="ledger-status-strip" aria-label="设置阶段">
+        {setupMarkers.map((marker) => (
+          <div className="ledger-status-item" key={marker.label}>
+            <span>{marker.label}</span>
+            <strong>{marker.value}</strong>
+          </div>
+        ))}
+      </section>
+    );
+  }
 
   return (
-    <section className="ledger-walkthrough-summary" aria-label="走查摘要">
-      <div>
-        <span>当前位置</span>
-        <strong>{location}</strong>
-        <small>
-          {projection.current_period} / {projection.available_ap} AP / {projection.window_id}
-        </small>
-      </div>
-      <div>
-        <span>最近反馈</span>
-        <strong>{feedback}</strong>
-        <small>{projection.next_anchor_pressure}</small>
-      </div>
-      <div>
-        <span>风险</span>
-        <strong>
-          伤势 {injuryLabel(projection.injury_level)} / 暴露 {projection.exposure}
-        </strong>
-        <small>债务压力 {projection.debt_pressure}</small>
-      </div>
-      <div>
-        <span>阶段收口</span>
-        <strong>{projection.stage_closure.title}</strong>
-        <small>{projection.stage_closure.summary}</small>
+    <section className="ledger-status-strip" aria-label="当前压力">
+      <div className="ledger-status-empty">
+        尚无 active run。点击“新开一局”进入开窍大典后的设置层。
       </div>
     </section>
   );
 }
 
-function CurrentLocationNotice({ projection }: { projection: LedgerViewModel }) {
-  const location = currentNodeTitle(projection);
-  const feedback = projection.recent_feedback?.summary ?? projection.scene_text;
+function SetupWorkspace({
+  setupView,
+  onResolveSetupChoice,
+  onConfirmSetupRun,
+}: {
+  setupView: SetupViewModel;
+  onResolveSetupChoice: (command: SetupCommand) => Promise<void>;
+  onConfirmSetupRun: () => Promise<void>;
+}) {
+  return (
+    <div className="dialogue-workspace is-setup">
+      <section className="dialogue-main">
+        <DialoguePanel dialogue={setupView.dialogue} />
+        <SetupChoiceDock
+          setupView={setupView}
+          onResolveSetupChoice={onResolveSetupChoice}
+          onConfirmSetupRun={onConfirmSetupRun}
+        />
+      </section>
+      <aside className="ledger-detail-panel" aria-label="重开设置账页">
+        <SetupLedgerView setupView={setupView} />
+      </aside>
+    </div>
+  );
+}
+
+function RunWorkspace({
+  projection,
+  onResolveAction,
+}: {
+  projection: LedgerViewModel;
+  onResolveAction: (command: ActionCommand) => Promise<void>;
+}) {
+  return (
+    <div className="dialogue-workspace">
+      <section className="dialogue-main">
+        <DialoguePanel dialogue={projection.dialogue} />
+        <ActionGroups choices={projection.action_choices} onResolveAction={onResolveAction} />
+      </section>
+      <LedgerDetailPanel projection={projection} />
+    </div>
+  );
+}
+
+function DialoguePanel({ dialogue }: { dialogue: DialogueTimelineView }) {
+  return (
+    <article className={`dialogue-panel is-${dialogue.tone}`} aria-label="对话流正文">
+      <p className="ledger-page-label">对话流</p>
+      <h2>{dialogue.stage_title}</h2>
+      <div className="dialogue-paragraphs">
+        {dialogue.paragraphs.map((paragraph, index) => (
+          <p key={`${index}-${paragraph.slice(0, 12)}`}>{paragraph}</p>
+        ))}
+      </div>
+
+      <div className="dialogue-result-grid">
+        <ResultChip label="上一选择" value={dialogue.previous_choice_title ?? "尚未落子"} />
+        <ResultChip label="结果摘要" value={dialogue.previous_result_summary ?? "等待第一笔因果"} />
+        <ResultChip label="最新落账" value={dialogue.latest_ledger_delta ?? "暂无新增账目"} />
+      </div>
+
+      <div className="dialogue-boundary">
+        <strong>{dialogue.mode_gate_hint}</strong>
+        <span>{dialogue.source_summary}</span>
+      </div>
+    </article>
+  );
+}
+
+function ResultChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="result-chip">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SetupChoiceDock({
+  setupView,
+  onResolveSetupChoice,
+  onConfirmSetupRun,
+}: {
+  setupView: SetupViewModel;
+  onResolveSetupChoice: (command: SetupCommand) => Promise<void>;
+  onConfirmSetupRun: () => Promise<void>;
+}) {
+  return (
+    <section className="choice-dock" aria-label="人生重开设置选项">
+      <div className="choice-dock-heading">
+        <span>开局落账</span>
+        <small>先定出身，再选三项天赋</small>
+      </div>
+
+      <SetupCandidateList
+        title="出身"
+        candidates={setupView.origin_candidates}
+        onSelect={(candidate) =>
+          onResolveSetupChoice({
+            intent: "select_origin",
+            target_id: candidate.id,
+          })
+        }
+      />
+
+      <SetupTalentList
+        candidates={setupView.talent_candidates}
+        onToggle={(candidate) =>
+          onResolveSetupChoice({
+            intent: "toggle_talent",
+            target_id: candidate.id,
+          })
+        }
+      />
+
+      <div className="confirm-panel">
+        {setupView.confirm_blockers.length ? (
+          <ul>
+            {setupView.confirm_blockers.map((blocker) => (
+              <li key={blocker}>{blocker}</li>
+            ))}
+          </ul>
+        ) : (
+          <p>确认条件已满足。开窍大典结果会写入 S0 青茅山账本。</p>
+        )}
+        <button
+          type="button"
+          className="confirm-button"
+          disabled={!setupView.confirm_enabled}
+          onClick={onConfirmSetupRun}
+        >
+          确认开窍大典，进入青茅山
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SetupCandidateList({
+  title,
+  candidates,
+  onSelect,
+}: {
+  title: string;
+  candidates: SetupCandidateView[];
+  onSelect: (candidate: SetupCandidateView) => Promise<void>;
+}) {
+  return (
+    <section className="setup-list">
+      <h3>{title}</h3>
+      <div className="setup-card-list">
+        {candidates.map((candidate) => (
+          <button
+            type="button"
+            className={candidate.selected ? "setup-card is-selected" : "setup-card"}
+            disabled={!candidate.enabled && !candidate.selected}
+            key={candidate.id}
+            onClick={() => onSelect(candidate)}
+          >
+            <span>{candidate.title}</span>
+            <p>{candidate.summary}</p>
+            <small>{candidate.disabled_reason ?? candidate.evidence}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SetupTalentList({
+  candidates,
+  onToggle,
+}: {
+  candidates: SetupTalentCandidateView[];
+  onToggle: (candidate: SetupTalentCandidateView) => Promise<void>;
+}) {
+  return (
+    <section className="setup-list">
+      <h3>天赋</h3>
+      <div className="setup-card-list">
+        {candidates.map((candidate) => (
+          <button
+            type="button"
+            className={candidate.selected ? "setup-card is-selected" : "setup-card"}
+            disabled={!candidate.enabled && !candidate.selected}
+            key={candidate.id}
+            onClick={() => onToggle(candidate)}
+          >
+            <span>{candidate.title}</span>
+            <p>{candidate.summary}</p>
+            <em>{candidate.pressure_note}</em>
+            <small>
+              {candidate.disabled_reason ??
+                `${candidate.intensity} / ${candidate.route_tags.join("、")}`}
+            </small>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SetupLedgerView({ setupView }: { setupView: SetupViewModel }) {
+  const resource = setupView.resource_preview;
 
   return (
-    <section className="ledger-location-notice" aria-live="polite">
-      <div>
-        <span>当前位置已记为</span>
-        <strong>{location}</strong>
-        <small>{projection.current_node_id}</small>
-      </div>
-      <p>{feedback}</p>
-    </section>
+    <div className="setup-ledger-view">
+      <p className="ledger-page-label">设置账页</p>
+      <h2>{setupView.opening_rite_title}</h2>
+      <p>{setupView.opening_rite_summary}</p>
+
+      <dl className="ledger-rows compact">
+        {setupView.attributes.map((attribute) => (
+          <Row
+            key={attribute.id}
+            label={attribute.label}
+            value={`${attribute.value} / ${attribute.min}-${attribute.max}`}
+          />
+        ))}
+      </dl>
+
+      <dl className="ledger-rows compact">
+        <Row label="元石" value={resource.primeval_stones} />
+        <Row label="材料" value={resource.materials} />
+        <Row label="功绩" value={resource.merit} />
+        <Row
+          label="债务"
+          value={
+            resource.infirmary_debt +
+            resource.favor_debt +
+            resource.organization_debt
+          }
+        />
+        <Row label="关注暴露" value={resource.exposure} />
+      </dl>
+    </div>
   );
 }
 
@@ -224,51 +440,79 @@ function ActionGroups({
   onResolveAction: (command: ActionCommand) => Promise<void>;
 }) {
   return (
-    <div className="ledger-action-groups">
-      {actionGroupOrder.map((group) => {
-        const groupChoices = choices.filter((choice) => choice.group === group);
-        if (!groupChoices.length) {
-          return null;
-        }
+    <section className="choice-dock" aria-label="可选行动">
+      <div className="choice-dock-heading">
+        <span>行动选择</span>
+        <small>所有代价由 Rust 规则结算</small>
+      </div>
+      <div className="ledger-action-groups">
+        {actionGroupOrder.map((group) => {
+          const groupChoices = choices.filter((choice) => choice.group === group);
+          if (!groupChoices.length) {
+            return null;
+          }
 
-        const enabledCount = groupChoices.filter((choice) => choice.enabled).length;
+          const enabledCount = groupChoices.filter((choice) => choice.enabled).length;
 
-        return (
-          <section className="ledger-action-group" key={group}>
-            <div className="ledger-action-group-title">
-              <h3>{actionGroupLabels[group]}</h3>
-              <small>
-                {enabledCount}/{groupChoices.length} 可用
-              </small>
-            </div>
-            <div className="ledger-action-list">
-              {groupChoices.map((choice) => (
-                <button
-                  type="button"
-                  className={`ledger-action is-${choice.tone}`}
-                  disabled={!choice.enabled}
-                  key={choice.id}
-                  onClick={() => onResolveAction(makeCommand(choice))}
-                >
-                  <span className="ledger-action-title">
-                    <span>{choice.label}</span>
-                    <i>{toneLabel(choice.tone)}</i>
-                  </span>
-                  <span className="ledger-action-meta">
-                    <small>代价：{choice.cost_hint}</small>
-                    <em>风险：{choice.risk_hint}</em>
-                  </span>
-                  <strong>后果：{choice.consequence_hint}</strong>
-                  {!choice.enabled && choice.disabled_reason ? (
-                    <b>受阻：{choice.disabled_reason}</b>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          </section>
-        );
-      })}
-    </div>
+          return (
+            <section className="ledger-action-group" key={group}>
+              <div className="ledger-action-group-title">
+                <h3>{actionGroupLabels[group]}</h3>
+                <small>
+                  {enabledCount}/{groupChoices.length} 可用
+                </small>
+              </div>
+              <div className="ledger-action-list">
+                {groupChoices.map((choice) => (
+                  <button
+                    type="button"
+                    className={`ledger-action is-${choice.tone}`}
+                    disabled={!choice.enabled}
+                    key={choice.id}
+                    onClick={() => onResolveAction(makeCommand(choice))}
+                  >
+                    <span className="ledger-action-title">
+                      <span>{choice.label}</span>
+                      <i>{toneLabel(choice.tone)}</i>
+                    </span>
+                    <span className="ledger-action-meta">
+                      <small>代价：{choice.cost_hint}</small>
+                      <em>风险：{choice.risk_hint}</em>
+                    </span>
+                    <strong>后果：{choice.consequence_hint}</strong>
+                    {!choice.enabled && choice.disabled_reason ? (
+                      <b>受阻：{choice.disabled_reason}</b>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function LedgerDetailPanel({ projection }: { projection: LedgerViewModel }) {
+  const [activePage, setActivePage] = useState<LedgerPage>("overview");
+
+  return (
+    <aside className="ledger-detail-panel" aria-label="账本明细侧栏">
+      <nav className="ledger-tabs" aria-label="账页">
+        {pages.map((page) => (
+          <button
+            type="button"
+            className={page.id === activePage ? "is-active" : ""}
+            key={page.id}
+            onClick={() => setActivePage(page.id)}
+          >
+            {page.label}
+          </button>
+        ))}
+      </nav>
+      <section className="ledger-leaf">{renderPage(activePage, projection)}</section>
+    </aside>
   );
 }
 
@@ -288,54 +532,30 @@ function renderPage(page: LedgerPage, projection: LedgerViewModel) {
       return <CluesPage projection={projection} />;
     case "ledger":
       return <CausalityPage projection={projection} />;
-    case "scene":
+    case "overview":
     default:
-      return <ScenePage projection={projection} />;
+      return <OverviewPage projection={projection} />;
   }
 }
 
-function ScenePage({ projection }: { projection: LedgerViewModel }) {
+function OverviewPage({ projection }: { projection: LedgerViewModel }) {
   return (
     <article className="ledger-page">
-      <p className="ledger-page-label">正文场景</p>
-      <h2>
-        第 {projection.current_day} 日 / {projection.current_period} /{" "}
-        {projection.current_node_id}
-      </h2>
-      {projection.recent_feedback ? (
-        <RecentFeedback feedback={projection.recent_feedback} />
-      ) : null}
-      <p className="scene-text">{projection.scene_text}</p>
+      <p className="ledger-page-label">账本总览</p>
+      <h2>{currentNodeTitle(projection)}</h2>
+      <dl className="ledger-rows compact">
+        <Row label="时段" value={`${projection.current_period} / ${projection.window_id}`} />
+        <Row label="AP" value={projection.available_ap} />
+        <Row label="元石" value={projection.primeval_stones} />
+        <Row label="债务压力" value={projection.debt_pressure} />
+        <Row label="暴露" value={projection.exposure} />
+        <Row label="伤势" value={injuryLabel(projection.injury_level)} />
+      </dl>
       <div className={`danger-note is-${projection.stage_closure.status}`}>
         <strong>{projection.stage_closure.title}</strong>
         <span>{projection.stage_closure.summary}</span>
       </div>
-      <div className="narrative-boundary">
-        <strong>运行时 AI：</strong>
-        {projection.narrative_boundary.runtime_ai_enabled ? "已接入" : "未接入"}
-        <span>{projection.narrative_boundary.source}</span>
-      </div>
-      {projection.active_encounter_id ? (
-        <div className="danger-note is-danger">
-          <strong>遭遇压身：</strong>
-          {projection.active_encounter_known_risk ?? projection.active_encounter_id}
-        </div>
-      ) : null}
     </article>
-  );
-}
-
-function RecentFeedback({
-  feedback,
-}: {
-  feedback: NonNullable<LedgerViewModel["recent_feedback"]>;
-}) {
-  return (
-    <div className={`recent-feedback is-${feedback.tone}`}>
-      <small>{feedback.source_kind}</small>
-      <strong>{feedback.title}</strong>
-      <p>{feedback.summary}</p>
-    </div>
   );
 }
 
@@ -485,6 +705,32 @@ function CausalityPage({ projection }: { projection: LedgerViewModel }) {
         {projection.performance.save_load_ms}ms
       </div>
     </article>
+  );
+}
+
+function EmptyState({
+  onCreateRun,
+  onCreatePresetRun,
+}: {
+  onCreateRun: () => Promise<void>;
+  onCreatePresetRun: () => Promise<void>;
+}) {
+  return (
+    <section className="ledger-empty-state">
+      <p className="ledger-page-label">尚未开局</p>
+      <h2>先过开窍大典，再进青茅山。</h2>
+      <p>
+        新开一局会进入人生重开设置层；快速预设开局保留给自动测试和快速走查。
+      </p>
+      <div className="empty-actions">
+        <button type="button" onClick={onCreateRun}>
+          新开一局
+        </button>
+        <button type="button" className="button-secondary" onClick={onCreatePresetRun}>
+          快速预设开局
+        </button>
+      </div>
+    </section>
   );
 }
 
