@@ -194,6 +194,13 @@ fn resolve_action(
     command: ActionCommand,
     runtime: tauri::State<'_, ActiveRunState>,
 ) -> Result<ActionResponse, CommandError> {
+    resolve_action_in_runtime(command, runtime.inner())
+}
+
+fn resolve_action_in_runtime(
+    command: ActionCommand,
+    runtime: &ActiveRunState,
+) -> Result<ActionResponse, CommandError> {
     let mut active_run = runtime.active_run.lock().map_err(|error| {
         CommandError::internal(
             "运行态锁定失败",
@@ -572,6 +579,68 @@ mod tests {
             .expect("active run");
         assert!(active_run.setup_summary.is_some());
         assert_eq!(active_run.resources.primeval_stones, 3);
+    }
+
+    #[test]
+    fn setup_command_flow_can_resolve_first_s0_action_with_dialogue_projection() {
+        let runtime = ActiveRunState::default();
+
+        create_setup_run_in_runtime(Some("canon_strict".to_string()), &runtime)
+            .expect("create setup");
+        resolve_setup_choice_in_runtime(
+            rebrng_game_core::setup_command(
+                rebrng_game_core::SetupIntent::SelectOrigin,
+                "academy_plain_child",
+            ),
+            &runtime,
+        )
+        .expect("select origin");
+        for talent_id in ["steady_mind", "quiet_observer", "moonlight_pacing"] {
+            resolve_setup_choice_in_runtime(
+                rebrng_game_core::setup_command(
+                    rebrng_game_core::SetupIntent::ToggleTalent,
+                    talent_id,
+                ),
+                &runtime,
+            )
+            .expect("select talent");
+        }
+        confirm_setup_run_in_runtime(&runtime).expect("confirm setup");
+
+        let response = resolve_action_in_runtime(
+            ActionCommand {
+                actor: "player".to_string(),
+                intent: rebrng_game_core::ActionIntent::Scout,
+                target: Some("academy_gate".to_string()),
+                declared_cost: rebrng_game_core::DeclaredCost::default(),
+                context_note: Some("观察学堂风声".to_string()),
+            },
+            &runtime,
+        )
+        .expect("resolve first S0 action");
+
+        assert!(runtime
+            .active_setup
+            .lock()
+            .expect("active setup lock")
+            .is_none());
+        assert!(runtime
+            .active_run
+            .lock()
+            .expect("active run lock")
+            .is_some());
+        assert!(!response.projection.dialogue.paragraphs.is_empty());
+        assert!(response
+            .projection
+            .dialogue
+            .previous_result_summary
+            .is_some());
+        assert!(response
+            .projection
+            .dialogue
+            .available_actions_summary
+            .iter()
+            .all(|summary| !summary.contains("blackmarket")));
     }
 
     #[test]
