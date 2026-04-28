@@ -787,6 +787,19 @@ pub struct SetupResourcePreview {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DialogueTimelineView {
+    pub stage_title: String,
+    pub paragraphs: Vec<String>,
+    pub previous_choice_title: Option<String>,
+    pub previous_result_summary: Option<String>,
+    pub available_actions_summary: Vec<String>,
+    pub latest_ledger_delta: Option<String>,
+    pub mode_gate_hint: String,
+    pub source_summary: String,
+    pub tone: ActionChoiceTone,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SetupViewModel {
     pub mode: RunMode,
     pub content_version: String,
@@ -801,6 +814,7 @@ pub struct SetupViewModel {
     pub opening_rite_summary: String,
     pub confirm_enabled: bool,
     pub confirm_blockers: Vec<String>,
+    pub dialogue: DialogueTimelineView,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -956,6 +970,7 @@ pub struct ClueLedgerView {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LedgerViewModel {
     pub scene_text: String,
+    pub dialogue: DialogueTimelineView,
     pub current_day: u8,
     pub current_period: String,
     pub window_id: String,
@@ -3971,6 +3986,14 @@ pub fn build_setup_view(
     let resource_preview = calculate_setup_resource_preview(setup, content_bundle)?;
     let confirm_blockers = setup_confirm_blockers(setup);
     let confirm_enabled = confirm_blockers.is_empty();
+    let dialogue = setup_dialogue_view(
+        setup,
+        opening,
+        &resource_preview,
+        &origin_candidates,
+        &talent_candidates,
+        &confirm_blockers,
+    );
 
     Ok(SetupViewModel {
         mode: setup.mode.clone(),
@@ -3986,7 +4009,108 @@ pub fn build_setup_view(
         opening_rite_summary: opening.summary.clone(),
         confirm_enabled,
         confirm_blockers,
+        dialogue,
     })
+}
+
+fn setup_dialogue_view(
+    setup: &RunSetupState,
+    opening: &ContentOpeningRiteOutcome,
+    resource_preview: &SetupResourcePreview,
+    origin_candidates: &[SetupCandidateView],
+    talent_candidates: &[SetupTalentCandidateView],
+    confirm_blockers: &[String],
+) -> DialogueTimelineView {
+    let selected_origin = setup
+        .selected_origin_id
+        .as_deref()
+        .and_then(|id| origin_candidates.iter().find(|origin| origin.id == id));
+    let selected_talents = talent_candidates
+        .iter()
+        .filter(|talent| setup.selected_talent_ids.iter().any(|id| id == &talent.id))
+        .map(|talent| talent.title.clone())
+        .collect::<Vec<_>>();
+
+    let mut paragraphs = vec![format!(
+        "开窍大典余声未散，{}。人生重开不是脱离家族账册，而是从第一笔出身、天赋和资源压力开始。",
+        opening.summary
+    )];
+
+    if let Some(origin) = selected_origin {
+        paragraphs.push(format!(
+            "出身已定：{}（{}）。{} 初始资源预览：元石 {}、材料 {}、功绩 {}、债务压力 {}、关注暴露 {}。",
+            origin.title,
+            origin.id,
+            origin.summary,
+            resource_preview.primeval_stones,
+            resource_preview.materials,
+            resource_preview.merit,
+            resource_preview.infirmary_debt
+                + resource_preview.favor_debt
+                + resource_preview.organization_debt,
+            resource_preview.exposure
+        ));
+    } else {
+        paragraphs.push("先定出身，再看天赋如何把你推向不同求活路线。".to_string());
+    }
+
+    paragraphs.push(if selected_talents.is_empty() {
+        "已选天赋 0/3：尚未落笔。严谨模式下只显示温和、可解释的天赋。".to_string()
+    } else {
+        format!(
+            "已选天赋 {}/3：{}。强 IF 天赋只在 sandbox_if 中开放，且不会直接生成完整传承、本命蛊或原著硬改写。",
+            setup.selected_talent_ids.len(),
+            selected_talents.join("、")
+        )
+    });
+
+    paragraphs.push(if confirm_blockers.is_empty() {
+        "确认条件已满足：可以把开窍大典结果写入 S0 青茅山自由窗口。".to_string()
+    } else {
+        format!("确认条件：{}", confirm_blockers.join("；"))
+    });
+
+    let mut available_actions_summary = origin_candidates
+        .iter()
+        .map(|origin| {
+            if origin.selected {
+                format!("已选出身：{}", origin.title)
+            } else {
+                format!("选择出身：{}", origin.title)
+            }
+        })
+        .collect::<Vec<_>>();
+    available_actions_summary.extend(talent_candidates.iter().map(|talent| {
+        if talent.selected {
+            format!("已选天赋：{}", talent.title)
+        } else if talent.enabled {
+            format!("选择天赋：{}", talent.title)
+        } else {
+            format!("天赋已满：{}", talent.title)
+        }
+    }));
+    available_actions_summary.push(if confirm_blockers.is_empty() {
+        "确认开窍大典，进入青茅山".to_string()
+    } else {
+        "确认开窍大典（条件未满足）".to_string()
+    });
+
+    DialogueTimelineView {
+        stage_title: "开窍大典之后：人生重开设置".to_string(),
+        paragraphs,
+        previous_choice_title: selected_origin.map(|origin| format!("出身：{}", origin.title)),
+        previous_result_summary: selected_origin
+            .map(|origin| format!("{} 已写入设置账页，等待天赋凑足三项。", origin.title)),
+        available_actions_summary,
+        latest_ledger_delta: None,
+        mode_gate_hint: mode_gate_hint(&setup.mode),
+        source_summary: "规则状态 + 内容 bundle 派生；React 不生成剧情或奖励。".to_string(),
+        tone: if confirm_blockers.is_empty() {
+            ActionChoiceTone::Safe
+        } else {
+            ActionChoiceTone::Normal
+        },
+    }
 }
 
 pub fn confirm_setup_run(
@@ -4291,13 +4415,26 @@ fn build_projection_from_content(
     content_bundle: &ContentBundle,
 ) -> LedgerViewModel {
     let active_encounter = state.encounters.active.as_ref();
+    let scene_text = state
+        .ledger
+        .last()
+        .map(clean_ledger_text)
+        .unwrap_or_else(|| "账本空白，局势尚未落笔。".to_string());
+    let action_choices = projected_action_choices(state, content_bundle);
+    let recent_feedback = recent_feedback_view(state);
+    let stage_closure = stage_closure_view(state);
+    let dialogue = s0_dialogue_view(
+        state,
+        active_encounter,
+        &scene_text,
+        &action_choices,
+        recent_feedback.as_ref(),
+        &stage_closure,
+    );
 
     LedgerViewModel {
-        scene_text: state
-            .ledger
-            .last()
-            .map(clean_ledger_text)
-            .unwrap_or_else(|| "账本空白，局势尚未落笔。".to_string()),
+        scene_text,
+        dialogue,
         current_day: state.time.chapter_day,
         current_period: display_period(&state.time.period),
         window_id: state.time.window_id.clone(),
@@ -4315,7 +4452,7 @@ fn build_projection_from_content(
         build_view: build_view(state),
         relationship_view: relationship_view(state),
         save_view: save_view(state),
-        action_choices: projected_action_choices(state, content_bundle),
+        action_choices,
         node_view: node_view(state, content_bundle),
         injury_level: state.character.injury.level.clone(),
         active_encounter_id: active_encounter.map(|encounter| encounter.encounter_id.clone()),
@@ -4332,16 +4469,104 @@ fn build_projection_from_content(
                 text: clean_ledger_text(entry),
             })
             .collect(),
-        recent_feedback: recent_feedback_view(state),
+        recent_feedback,
         clue_view: clue_ledger_view(state),
         narrative_boundary: narrative_boundary_view(),
-        stage_closure: stage_closure_view(state),
+        stage_closure,
         performance: PerformanceMetrics::default(),
     }
 }
 
 fn clean_ledger_text(entry: &LedgerEntry) -> String {
     entry.text.clone()
+}
+
+fn s0_dialogue_view(
+    state: &GameState,
+    active_encounter: Option<&ActiveEncounter>,
+    scene_text: &str,
+    action_choices: &[ActionChoiceView],
+    recent_feedback: Option<&RecentFeedbackView>,
+    stage_closure: &StageClosureView,
+) -> DialogueTimelineView {
+    let latest_ledger_delta = state.ledger.last().map(clean_ledger_text);
+    let mut paragraphs = Vec::new();
+
+    if let Some(summary) = &state.setup_summary {
+        paragraphs.push(format!(
+            "开窍大典已入账：出身 {}（{}），开窍结果 {}。初始关注度 {}，资源包 {}。",
+            summary.origin_title,
+            summary.origin_id,
+            summary.opening_rite_outcome_title,
+            summary.attention_delta,
+            summary.resource_package_ids.join("、")
+        ));
+        paragraphs.push(format!(
+            "天赋落账：{}。这些只改变初始压力与求活倾向，不直接生成完整传承、本命蛊或原著锚点改写。",
+            summary.talent_titles.join("、")
+        ));
+    }
+
+    paragraphs.push(scene_text.to_string());
+
+    if let Some(encounter) = active_encounter {
+        paragraphs.push(format!(
+            "遭遇已压到眼前：{}。已知风险：{}。先处理决断，再谈其他行动。",
+            encounter.encounter_id, encounter.known_risk
+        ));
+    }
+
+    if stage_closure.status != StageClosureStatus::InProgress {
+        paragraphs.push(format!(
+            "阶段收口：{}。{}",
+            stage_closure.title, stage_closure.summary
+        ));
+    }
+
+    let tone = if active_encounter.is_some()
+        || stage_closure.status == StageClosureStatus::TraumaContinuable
+    {
+        ActionChoiceTone::Danger
+    } else {
+        recent_feedback
+            .map(|feedback| feedback.tone.clone())
+            .unwrap_or(ActionChoiceTone::Normal)
+    };
+
+    DialogueTimelineView {
+        stage_title: if let Some(encounter) = active_encounter {
+            format!("遭遇决断：{}", encounter.encounter_id)
+        } else if stage_closure.status != StageClosureStatus::InProgress {
+            stage_closure.title.clone()
+        } else if state.setup_summary.is_some() {
+            "青茅山：开窍大典之后".to_string()
+        } else {
+            "青茅山：根基未稳".to_string()
+        },
+        paragraphs,
+        previous_choice_title: recent_feedback
+            .map(|feedback| format!("上一笔因果：{}", feedback.source_kind)),
+        previous_result_summary: recent_feedback.map(|feedback| feedback.summary.clone()),
+        available_actions_summary: action_choices
+            .iter()
+            .map(|choice| choice.label.clone())
+            .collect(),
+        latest_ledger_delta,
+        mode_gate_hint: mode_gate_hint(&state.mode),
+        source_summary: "规则状态 + 内容 bundle + 因果账本派生；运行时 AI 未接入。".to_string(),
+        tone,
+    }
+}
+
+fn mode_gate_hint(mode: &RunMode) -> String {
+    match mode {
+        RunMode::CanonStrict => {
+            "canon_strict：只允许原著明确或高可信推断进入关键奖励、锚点和硬事实。".to_string()
+        }
+        RunMode::SandboxIf => {
+            "sandbox_if：允许更高自由补完，但仍受阶段、资源、空间和锚点保护门禁。".to_string()
+        }
+    }
 }
 
 fn recent_feedback_view(state: &GameState) -> Option<RecentFeedbackView> {
@@ -7047,6 +7272,144 @@ mod tests {
             .ledger
             .iter()
             .any(|entry| entry.text.contains("学堂普通子弟")));
+    }
+
+    #[test]
+    fn sprint3_setup_dialogue_starts_at_opening_rite() {
+        let bundle = starter_content_bundle();
+        let setup = create_setup_run(RunMode::CanonStrict, &bundle).expect("create setup run");
+        let view = build_setup_view(&setup, &bundle).expect("build setup view");
+
+        assert!(view.dialogue.stage_title.contains("开窍"));
+        assert!(view.dialogue.stage_title.contains("人生重开"));
+        assert!(!view.dialogue.paragraphs.is_empty());
+        assert!(view.dialogue.mode_gate_hint.contains("canon_strict"));
+        assert!(view.dialogue.source_summary.contains("规则状态"));
+    }
+
+    #[test]
+    fn sprint3_setup_dialogue_reflects_origin_talent_count_and_blockers() {
+        let bundle = starter_content_bundle();
+        let mut setup = create_setup_run(RunMode::CanonStrict, &bundle).expect("create setup run");
+
+        setup = resolve_setup_choice(
+            setup,
+            setup_command(SetupIntent::SelectOrigin, "academy_plain_child"),
+            &bundle,
+        )
+        .expect("select origin")
+        .setup;
+        for talent_id in ["steady_mind", "quiet_observer"] {
+            setup = resolve_setup_choice(
+                setup,
+                setup_command(SetupIntent::ToggleTalent, talent_id),
+                &bundle,
+            )
+            .expect("select talent")
+            .setup;
+        }
+
+        let view = build_setup_view(&setup, &bundle).expect("build setup view");
+        let joined = view.dialogue.paragraphs.join("\n");
+
+        assert!(joined.contains("academy_plain_child") || joined.contains("学堂"));
+        assert!(joined.contains("已选天赋 2/3"));
+        assert!(joined.contains("确认条件"));
+        assert!(!view.dialogue.available_actions_summary.is_empty());
+    }
+
+    #[test]
+    fn sprint3_s0_dialogue_contains_setup_summary_and_latest_ledger() {
+        let bundle = starter_content_bundle();
+        let mut setup = create_setup_run(RunMode::CanonStrict, &bundle).expect("create setup run");
+
+        setup = resolve_setup_choice(
+            setup,
+            setup_command(SetupIntent::SelectOrigin, "academy_plain_child"),
+            &bundle,
+        )
+        .expect("select origin")
+        .setup;
+        for talent_id in ["steady_mind", "quiet_observer", "moonlight_pacing"] {
+            setup = resolve_setup_choice(
+                setup,
+                setup_command(SetupIntent::ToggleTalent, talent_id),
+                &bundle,
+            )
+            .expect("select talent")
+            .setup;
+        }
+
+        let state = confirm_setup_run(setup, &bundle).expect("confirm setup");
+        let projection = build_projection_with_content(&state, &bundle);
+        let joined = projection.dialogue.paragraphs.join("\n");
+        let latest = state.ledger.last().expect("latest ledger");
+        let expected_latest = clean_ledger_text(latest);
+
+        assert!(joined.contains("开窍大典"));
+        assert!(joined.contains("academy_plain_child") || joined.contains("学堂"));
+        assert_eq!(
+            projection.dialogue.latest_ledger_delta.as_deref(),
+            Some(expected_latest.as_str())
+        );
+    }
+
+    #[test]
+    fn sprint3_s0_dialogue_tracks_recent_feedback_after_action() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let result = resolve_action(
+            state,
+            command(ActionIntent::Scout, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("resolve scout");
+        let projection = result.response.projection;
+
+        assert_eq!(
+            projection.dialogue.previous_result_summary,
+            projection
+                .recent_feedback
+                .as_ref()
+                .map(|feedback| feedback.summary.clone())
+        );
+        assert_eq!(
+            projection.dialogue.latest_ledger_delta,
+            projection.dialogue.previous_result_summary
+        );
+    }
+
+    #[test]
+    fn sprint3_s0_dialogue_marks_active_encounter_as_danger() {
+        let bundle = starter_content_bundle();
+        let state = state_at_blackmarket_extortion(&bundle);
+        let projection = build_projection_with_content(&state, &bundle);
+        let joined = projection.dialogue.paragraphs.join("\n");
+
+        assert_eq!(projection.dialogue.tone, ActionChoiceTone::Danger);
+        assert!(joined.contains("遭遇"));
+        assert!(joined.contains("勒索") || joined.contains("风险"));
+        assert!(!joined.contains("天意关注"));
+    }
+
+    #[test]
+    fn sprint3_s0_dialogue_action_summary_matches_visible_choices() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let projection = build_projection_with_content(&state, &bundle);
+        let labels: Vec<String> = projection
+            .action_choices
+            .iter()
+            .map(|choice| choice.label.clone())
+            .collect();
+
+        assert_eq!(projection.dialogue.available_actions_summary, labels);
+        assert!(projection
+            .dialogue
+            .available_actions_summary
+            .iter()
+            .all(|label| !label.contains("黑市")));
     }
 
     #[test]

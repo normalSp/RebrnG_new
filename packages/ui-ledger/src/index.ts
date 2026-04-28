@@ -237,6 +237,18 @@ export interface SetupResourcePreview {
   resource_package_ids: string[];
 }
 
+export interface DialogueTimelineView {
+  stage_title: string;
+  paragraphs: string[];
+  previous_choice_title?: string | null;
+  previous_result_summary?: string | null;
+  available_actions_summary: string[];
+  latest_ledger_delta?: string | null;
+  mode_gate_hint: string;
+  source_summary: string;
+  tone: ActionChoiceTone;
+}
+
 export interface SetupViewModel {
   mode: RunMode;
   content_version: string;
@@ -251,6 +263,7 @@ export interface SetupViewModel {
   opening_rite_summary: string;
   confirm_enabled: boolean;
   confirm_blockers: string[];
+  dialogue: DialogueTimelineView;
 }
 
 export interface SetupResponse {
@@ -260,6 +273,7 @@ export interface SetupResponse {
 
 export interface LedgerViewModel {
   scene_text: string;
+  dialogue: DialogueTimelineView;
   current_day: number;
   current_period: string;
   window_id: string;
