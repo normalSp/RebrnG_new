@@ -1,0 +1,470 @@
+{
+  "schema_version": "canon-index-v1",
+  "title": "RebrnG 第一卷原著事实索引",
+  "source_map": "docs/superpowers/data/canon/first-volume-source-map.json",
+  "policy": {
+    "raw_source_committed": false,
+    "raw_text_storage": "forbidden",
+    "summary_style": "paraphrase_only",
+    "deepseek_usage": "use fact cards as evidence, never free-write from full source"
+  },
+  "facts": [
+    {
+      "fact_id": "opening_rite_cave_walk",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 4,
+      "chapter_title": "第四节 古月方源！",
+      "line_start": 530,
+      "line_end": 570,
+      "fact_type": "opening_rite",
+      "canon_summary": "开窍大典由学堂家老带领少年进入家主阁下方溶洞。少年需要沿石阶进入地下空间，再涉过地下河向花海方向前行；走得越远，资质表现越强。",
+      "game_design_use": "开局锚点必须是仪式行动，而不是普通属性抽卡。玩家的资质、关注度和家族记录应从这场大典派生。",
+      "mechanic_hooks": [
+        "opening_rite_anchor",
+        "aptitude_result",
+        "initial_attention",
+        "run_setup_origin_pressure"
+      ],
+      "narrative_hooks": [
+        "地下溶洞",
+        "涉水前行",
+        "同届少年旁观",
+        "走得越远越受关注"
+      ],
+      "canon_strict_rule": [
+        "玩家可以作为同届少年参与仪式，但不能替代方源或方正的开窍结果。",
+        "资质表现必须来自仪式结果，不能无因直接给出超模天赋。"
+      ],
+      "sandbox_if_allowance": [
+        "可以出现异常梦兆或额外旁支关注，但必须带来锚点压力或后续代价。"
+      ],
+      "forbidden_misreadings": [
+        "不能把开窍大典写成现代职业选择界面。",
+        "不能让玩家跳过仪式直接获得修行资格。"
+      ]
+    },
+    {
+      "fact_id": "opening_rite_flower_sea_and_spiritual_spring",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 4,
+      "chapter_title": "第四节 古月方源！",
+      "line_start": 536,
+      "line_end": 556,
+      "fact_type": "opening_rite_environment",
+      "canon_summary": "开窍地点包含地下溶洞、灵泉、地下河与月兰花海。灵泉与元石产出关联，是古月山寨的重要根基；月兰花海也是多种蛊虫的食料与培养地。",
+      "game_design_use": "开窍场景应体现家族资源根基，后续元石、蛊虫喂养和制度控制都可从这里埋下因果。",
+      "mechanic_hooks": [
+        "primeval_stone_pressure",
+        "gu_feeding_source",
+        "clan_resource_audit"
+      ],
+      "narrative_hooks": [
+        "灵泉",
+        "月兰花海",
+        "家族资源并非免费",
+        "制度把自然资源变成账册"
+      ],
+      "canon_strict_rule": [
+        "灵泉和花海是家族底层资源，不应写成玩家私人资产。"
+      ],
+      "sandbox_if_allowance": [
+        "可让玩家发现边角异样或花海残痕，但不能稳定据为己有。"
+      ],
+      "forbidden_misreadings": [
+        "不能把灵泉写成随手领取无限元石的泉眼。",
+        "不能把月兰花海写成无成本采集场。"
+      ]
+    },
+    {
+      "fact_id": "aptitude_step_ranges",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 5,
+      "chapter_title": "??? ?????????",
+      "line_start": 759,
+      "line_end": 773,
+      "fact_type": "aptitude",
+      "canon_summary": "希望蛊入体后，少年在花海中前行的步数对应资质层级。低于十步无修行资质；十步到二十步为丁等，二十到三十步为丙等，三十到四十步为乙等，四十到五十步为甲等。",
+      "game_design_use": "资质应是开局核心变量，影响元海容量、恢复速度和长期修行压力，而不是单纯的叙事标签。",
+      "mechanic_hooks": [
+        "aptitude_grade",
+        "primeval_sea_capacity",
+        "recovery_rate",
+        "setup_attribute_profile"
+      ],
+      "narrative_hooks": [
+        "步数计算",
+        "众人反应",
+        "资质判定",
+        "家族期待变化"
+      ],
+      "canon_strict_rule": [
+        "资质等级必须影响修行资源与上限，不可只作为美术文案。"
+      ],
+      "sandbox_if_allowance": [
+        "可出现边界资质、异象或误判，但需要后续成本或风险解释。"
+      ],
+      "forbidden_misreadings": [
+        "不能把资质写成可随意重掷的抽卡词条。",
+        "不能让低资质无成本享受高资质恢复速度。"
+      ]
+    },
+    {
+      "fact_id": "hope_gu_enters_body",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 5,
+      "chapter_title": "第五节 人祖三蛊，希望开窍",
+      "line_start": 693,
+      "line_end": 789,
+      "fact_type": "opening_rite",
+      "canon_summary": "开窍过程中，希望蛊从花海中被引动并进入少年身体，最终帮助开辟空窍。希望蛊反应强弱与资质表现相关。",
+      "game_design_use": "开窍大典正文应明确希望蛊不是装饰光效，而是开启空窍的关键仪式媒介。",
+      "mechanic_hooks": [
+        "aperture_opened",
+        "opening_rite_outcome",
+        "aptitude_feedback"
+      ],
+      "narrative_hooks": [
+        "希望蛊入体",
+        "光团强弱",
+        "空窍初开",
+        "族中目光变化"
+      ],
+      "canon_strict_rule": [
+        "没有开窍就不能稳定修行，也不能炼化和操控月光蛊。"
+      ],
+      "sandbox_if_allowance": [
+        "可出现梦兆式异常反馈，但不得直接生成完整传承或本命蛊。"
+      ],
+      "forbidden_misreadings": [
+        "不能把希望蛊写成玩家可携带的普通蛊虫奖励。",
+        "不能让开窍前行动稳定使用真元。"
+      ]
+    },
+    {
+      "fact_id": "aperture_primeval_sea_capacity",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 6,
+      "chapter_title": "??? ?????????",
+      "line_start": 800,
+      "line_end": 818,
+      "fact_type": "aperture",
+      "canon_summary": "空窍像体内秘窍，内有元海与窍壁。方源开窍后能观察到青铜真元海，元海比例对应他的丙等资质容量。",
+      "game_design_use": "空窍、元海容量、真元颜色和资质比例应成为后续修行状态，而不是只在剧情中提一次。",
+      "mechanic_hooks": [
+        "aperture_state",
+        "primeval_sea_percent",
+        "primeval_essence_pool",
+        "rank_one_bronze_essence"
+      ],
+      "narrative_hooks": [
+        "内视空窍",
+        "青铜元海",
+        "容量限制",
+        "修行压力来自身体底层结构"
+      ],
+      "canon_strict_rule": [
+        "元海容量必须受资质制约；资源补给可以缓解，但不能抹掉资质差异。"
+      ],
+      "sandbox_if_allowance": [
+        "可出现短期补益或异象，但必须标记为 IF 并伴随资源、债务或锚点压力。"
+      ],
+      "forbidden_misreadings": [
+        "不能把真元写成无限法力条。",
+        "不能把空窍容量与元石数量混成同一资源。"
+      ]
+    },
+    {
+      "fact_id": "aptitude_primeval_sea_and_cultivation_limits",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 7,
+      "chapter_title": "第七节 蛊师有九转，花酒留遗藏",
+      "line_start": 961,
+      "line_end": 977,
+      "fact_type": "aptitude",
+      "canon_summary": "蛊师开窍后以资质分层。丁丙乙甲对应不同元海容量区间，也影响恢复速度、修行速度与未来修行上限。",
+      "game_design_use": "属性面板应把资质、容量、恢复和上限拆开表达，避免只给一个抽象成长评分。",
+      "mechanic_hooks": [
+        "aptitude_grade",
+        "recovery_rate",
+        "cultivation_speed",
+        "rank_progression_limit"
+      ],
+      "narrative_hooks": [
+        "资质不是面子，而是命数压力",
+        "低资质需要资源补足",
+        "高资质带来关注和审计"
+      ],
+      "canon_strict_rule": [
+        "低资质可以靠资源和算计追赶局部窗口，但不能无代价抹平长期差距。"
+      ],
+      "sandbox_if_allowance": [
+        "可允许特殊天赋短期改变恢复或容量表现，但必须标记为 IF 且有后患。"
+      ],
+      "forbidden_misreadings": [
+        "不能把甲等资质写成纯正面无代价奖励。",
+        "不能把丁等资质写成完全不能玩。"
+      ]
+    },
+    {
+      "fact_id": "gu_master_definition",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 7,
+      "chapter_title": "第七节 蛊师有九转，花酒留遗藏",
+      "line_start": 961,
+      "line_end": 963,
+      "fact_type": "gu_master_basics",
+      "canon_summary": "开窍后，能以真元喂养、炼化并操纵蛊虫的人，才称得上蛊师。",
+      "game_design_use": "领取月光蛊只是接触资源；炼化和操控必须由规则层表达，不能把蛊虫当普通装备栏。",
+      "mechanic_hooks": [
+        "gu_inventory",
+        "refinement_state",
+        "feeding_state",
+        "control_state"
+      ],
+      "narrative_hooks": [
+        "蛊师身份不是头衔",
+        "真元与蛊虫关系",
+        "炼化归属",
+        "控制风险"
+      ],
+      "canon_strict_rule": [
+        "未开窍不能稳定操控蛊虫；未炼化蛊虫不能稳定作为修行和战斗核心。"
+      ],
+      "sandbox_if_allowance": [
+        "可让玩家短暂接触异常蛊影，但不能无代价建立稳定控制权。"
+      ],
+      "forbidden_misreadings": [
+        "不能把蛊虫写成普通装备。",
+        "不能把炼化写成点击后无成本绑定。"
+      ]
+    },
+    {
+      "fact_id": "nine_ranks_and_small_realms",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 7,
+      "chapter_title": "第七节 蛊师有九转，花酒留遗藏",
+      "line_start": 971,
+      "line_end": 977,
+      "fact_type": "cultivation_stage",
+      "canon_summary": "蛊师体系分九转，每一大转内又有初阶、中阶、高阶、巅峰等小境界区分。",
+      "game_design_use": "首发虽只做一转前期，也必须为小境界推进、空窍冲刷和后续升转保留状态口。",
+      "mechanic_hooks": [
+        "cultivation_rank",
+        "minor_realm",
+        "aperture_wall_state",
+        "rank_transition"
+      ],
+      "narrative_hooks": [
+        "一转不是单一等级",
+        "小境界带来同辈差距",
+        "制度评判修为进度"
+      ],
+      "canon_strict_rule": [
+        "不能把修为写成经验条一次升级到下一转。"
+      ],
+      "sandbox_if_allowance": [
+        "IF 可以给短期推进机会，但必须消耗资源、风险窗口或引来审计。"
+      ],
+      "forbidden_misreadings": [
+        "不能把转数和蛊虫品转混成同一个字段。",
+        "不能把一转前期直接写成可用高阶杀招。"
+      ]
+    },
+    {
+      "fact_id": "moonlight_gu_refinement_resistance",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 10,
+      "chapter_title": "??? ?????????????",
+      "line_start": 1438,
+      "line_end": 1494,
+      "fact_type": "refinement",
+      "canon_summary": "炼化月光蛊需要将真元持续注入蛊虫。蛊虫自身意志会抵抗炼化，进度会受真元储量、时间与操控稳定性影响。",
+      "game_design_use": "月光蛊炼化应是规则行动，有 AP/真元/资源压力，而不是领取后立刻可用。",
+      "mechanic_hooks": [
+        "claim_gu",
+        "refine_gu",
+        "refinement_progress",
+        "primeval_essence_cost"
+      ],
+      "narrative_hooks": [
+        "蛊虫意志抵抗",
+        "真元冲刷",
+        "炼化进度不稳",
+        "元石缓解但不是免费"
+      ],
+      "canon_strict_rule": [
+        "未炼化月光蛊不能稳定进行月光修行。",
+        "炼化必须消耗时间或行动窗口。"
+      ],
+      "sandbox_if_allowance": [
+        "可给特殊天赋降低局部炼化压力，但不能跳过炼化归属概念。"
+      ],
+      "forbidden_misreadings": [
+        "不能把炼化写成无风险 crafting。",
+        "不能让玩家开局直接拥有稳定控制的月光蛊。"
+      ]
+    },
+    {
+      "fact_id": "primeval_stone_refill_and_resource_pressure",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 10,
+      "chapter_title": "??? ?????????????",
+      "line_start": 1498,
+      "line_end": 1526,
+      "fact_type": "economy",
+      "canon_summary": "真元可自然恢复，也可借元石加快恢复。资质越高，容量和恢复表现越好；低资质若要追赶，往往更依赖元石等外部资源。",
+      "game_design_use": "元石紧张、修行取舍和药堂债务应共同形成压力，不能只做货币数量。",
+      "mechanic_hooks": [
+        "primeval_stone_cost",
+        "essence_recovery",
+        "cultivation_tradeoff",
+        "debt_pressure"
+      ],
+      "narrative_hooks": [
+        "元石不是金币，而是修行燃料",
+        "资质差距通过资源压力显形",
+        "制度补给不足以满足所有欲望"
+      ],
+      "canon_strict_rule": [
+        "元石应继续作为修行和炼化压力核心，不应被文本扩写弱化成背景物。"
+      ],
+      "sandbox_if_allowance": [
+        "IF 可给高风险渠道换取元石，但必须增加暴露、债务或关系代价。"
+      ],
+      "forbidden_misreadings": [
+        "不能让黑市稳定白送元石。",
+        "不能让修行完全脱离元石和真元恢复。"
+      ]
+    },
+    {
+      "fact_id": "primeval_essence_rank_colors",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 22,
+      "chapter_title": "????? ????",
+      "line_start": 3262,
+      "line_end": 3268,
+      "fact_type": "cultivation_stage",
+      "canon_summary": "不同转数的真元有层级差异。一转对应青铜真元，二转对应赤铁真元，三转对应白银真元，层级越高压制力越强。",
+      "game_design_use": "UI 和剧情里展示空窍状态时，真元颜色应与修为层级绑定，不能随便换色。",
+      "mechanic_hooks": [
+        "primeval_essence_quality",
+        "rank_pressure",
+        "higher_rank_suppression"
+      ],
+      "narrative_hooks": [
+        "青铜真元",
+        "赤铁真元",
+        "白银真元",
+        "高转压迫"
+      ],
+      "canon_strict_rule": [
+        "一转阶段不应稳定使用二转或三转真元。"
+      ],
+      "sandbox_if_allowance": [
+        "可出现高阶人物施压的旁观场景，但玩家不能稳定越阶掌控。"
+      ],
+      "forbidden_misreadings": [
+        "不能把真元颜色写成纯 UI 皮肤。",
+        "不能让低阶真元无代价压过高阶真元。"
+      ]
+    },
+    {
+      "fact_id": "gu_feeding_academy_subsidy_pressure",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 26,
+      "chapter_title": "????? ???????",
+      "line_start": 3904,
+      "line_end": 3910,
+      "fact_type": "gu_feeding",
+      "canon_summary": "学堂会发放元石补贴，但修行、炼化、战斗、买卖和喂养蛊虫都会消耗资源，低阶蛊师往往难以宽裕。",
+      "game_design_use": "喂养维护压力应尽早可见，即使首发不展开复杂喂养公式，也要让玩家知道蛊虫会持续吃资源。",
+      "mechanic_hooks": [
+        "feeding_pressure",
+        "academy_subsidy",
+        "resource_debt",
+        "gu_maintenance"
+      ],
+      "narrative_hooks": [
+        "补贴并不等于自由",
+        "蛊虫养护压住选择",
+        "资源账本牵动路线"
+      ],
+      "canon_strict_rule": [
+        "拥有蛊虫必须带来维护语义，不能只给收益不记录负担。"
+      ],
+      "sandbox_if_allowance": [
+        "可通过黑市或人情临时缓解喂养压力，但后续要有债务或暴露。"
+      ],
+      "forbidden_misreadings": [
+        "不能把蛊虫写成无需保养的技能卡。",
+        "不能把学堂补贴写成足够覆盖所有成长路线。"
+      ]
+    },
+    {
+      "fact_id": "aperture_wall_small_realm_progression",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 33,
+      "chapter_title": "????? ???",
+      "line_start": 4909,
+      "line_end": 4915,
+      "fact_type": "aperture_progression",
+      "canon_summary": "一转初阶空窍壁膜表现为光膜，继续修行会通过真元温养和冲刷推进小境界，后续可出现水膜、石膜等阶段变化。",
+      "game_design_use": "空窍冲刷和小境界推进应作为 Sprint 8+ 机制缺口，不应只用抽象修行痕迹替代。",
+      "mechanic_hooks": [
+        "aperture_wall_state",
+        "minor_realm_progress",
+        "primeval_essence_washing",
+        "cultivation_breakthrough"
+      ],
+      "narrative_hooks": [
+        "光膜",
+        "水膜",
+        "石膜",
+        "冲刷空窍"
+      ],
+      "canon_strict_rule": [
+        "小境界推进必须与空窍壁膜、真元冲刷和资源时间关联。"
+      ],
+      "sandbox_if_allowance": [
+        "可允许短期加速，但必须消耗元石、药堂债、人情或高风险传闻。"
+      ],
+      "forbidden_misreadings": [
+        "不能把空窍冲刷写成普通经验条升级。",
+        "不能让一转初阶无代价跳到高阶或巅峰。"
+      ]
+    },
+    {
+      "fact_id": "liquor_worm_refinement_and_vital_gu_risk",
+      "volume": "第一卷 魔性不改",
+      "chapter_no": 17,
+      "chapter_title": "???? ????",
+      "line_start": 2459,
+      "line_end": 2557,
+      "fact_type": "if_risk",
+      "canon_summary": "酒虫价值极高，炼化难度和资源消耗也高于普通月光蛊。它能影响真元质量，但稳定掌控仍需要炼化和负担。",
+      "game_design_use": "酒虫可以作为强诱惑和 IF 残线，但在严谨模式不能稳定发给玩家，也不能替代方源主机缘。",
+      "mechanic_hooks": [
+        "sandbox_if_lure",
+        "refinement_cost_spike",
+        "anchor_pressure",
+        "vital_gu_placeholder"
+      ],
+      "narrative_hooks": [
+        "酒虫诱惑",
+        "高价值带来高风险",
+        "炼化难度陡增",
+        "本命蛊概念不可轻用"
+      ],
+      "canon_strict_rule": [
+        "玩家在严谨模式只能接触酒虫风声、假线或余波，不能稳定获得酒虫。"
+      ],
+      "sandbox_if_allowance": [
+        "IF 可开放高代价残线，但必须带来资源枯竭、方源余波、追索或锚点压力。"
+      ],
+      "forbidden_misreadings": [
+        "不能把酒虫写成新手礼包。",
+        "不能把本命蛊概念写成开局可随意绑定的技能槽。"
+      ]
+    }
+  ]
+}

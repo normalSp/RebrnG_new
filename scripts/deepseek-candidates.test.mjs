@@ -11,6 +11,7 @@ import {
   scanRuntimeRedline,
   validateCandidate,
   validateCandidateDirectory,
+  validateTarget,
   writeCandidates,
 } from "./deepseek-candidates.mjs";
 
@@ -64,6 +65,7 @@ test("network candidate normalization pins target metadata from the requested sl
     evidence: candidate.evidence,
     state_assumptions: candidate.state_assumptions,
     risk_notes: candidate.risk_notes,
+    canon_index_refs: ["moonlight_gu_refinement_resistance"],
   }));
   const candidate = normalizeCandidateFromTarget(
     {
@@ -77,6 +79,7 @@ test("network candidate normalization pins target metadata from the requested sl
   assert.equal(candidate.target_slot, target.target_slot);
   assert.equal(candidate.mode, target.mode);
   assert.equal(candidate.evidence, target.evidence);
+  assert.deepEqual(candidate.canon_index_refs, ["moonlight_gu_refinement_resistance"]);
   assert.equal(candidate.review_status, "needs_review");
   assert.doesNotThrow(() => validateCandidate(candidate));
 });
@@ -160,6 +163,59 @@ test("target files drive mock candidates without adding unsafe archived fields",
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("target files can carry canon fact references into candidates", async () => {
+  const dir = await tempDir("deepseek-canon-targets");
+  try {
+    const targetFile = path.join(dir, "targets.json");
+    await writeFile(
+      targetFile,
+      JSON.stringify(
+        {
+          targets: [
+            {
+              target_content_id: "s0.setup.opening_rite.afterglow",
+              target_slot: "setup_dialogue",
+              mode: "canon_strict",
+              evidence: "canon_inferred",
+              candidate_text: "开窍大典的候选文本只用于离线审校。",
+              state_assumptions: ["玩家已经经历开窍大典"],
+              risk_notes: ["不得跳过开窍"],
+              canon_index_refs: ["opening_rite_cave_walk", "hope_gu_enters_body"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const targets = await loadTargetsFromFile(targetFile);
+    const candidates = buildMockCandidates(targets);
+
+    assert.deepEqual(candidates[0].canon_index_refs, ["opening_rite_cave_walk", "hope_gu_enters_body"]);
+    assert.doesNotThrow(() => validateCandidate(candidates[0]));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("target validation rejects malformed canon index references", () => {
+  assert.throws(
+    () =>
+      validateTarget({
+        target_content_id: "s0.action.bad",
+        target_slot: "action_result",
+        mode: "canon_strict",
+        evidence: "canon_inferred",
+        state_assumptions: [],
+        risk_notes: [],
+        canon_index_refs: ["opening_rite_cave_walk", 7],
+      }),
+    /canon_index_refs must be an array of strings/,
+  );
 });
 
 test("directory validation rejects malformed candidate files", async () => {

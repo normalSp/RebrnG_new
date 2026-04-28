@@ -80,6 +80,14 @@
             "不得改写方源"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "opening_rite_cave_walk",
+        "opening_rite_flower_sea_and_spiritual_spring",
+        "aptitude_step_ranges",
+        "hope_gu_enters_body",
+        "aperture_primeval_sea_capacity",
+        "aptitude_primeval_sea_and_cultivation_limits"
       ]
     },
     {
@@ -146,6 +154,14 @@
             "不得取消学堂压迫"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "gu_master_definition",
+        "nine_ranks_and_small_realms",
+        "primeval_essence_rank_colors",
+        "moonlight_gu_refinement_resistance",
+        "primeval_stone_refill_and_resource_pressure",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -212,6 +228,11 @@
             "不得给花酒核心入口"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "moonlight_gu_refinement_resistance",
+        "primeval_stone_refill_and_resource_pressure",
+        "liquor_worm_refinement_and_vital_gu_risk"
       ]
     },
     {
@@ -279,6 +300,9 @@
             "不得公开翻案"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "liquor_worm_refinement_and_vital_gu_risk"
       ]
     },
     {
@@ -345,6 +369,12 @@
             "不得消除后续压力"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "primeval_essence_rank_colors",
+        "aperture_wall_small_realm_progression",
+        "primeval_stone_refill_and_resource_pressure",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -411,7 +441,8 @@
             "不得给稳定赌石核心收益"
           ]
         }
-      ]
+      ],
+      "canon_index_refs": []
     },
     {
       "beat_id": "v1_b07_flower_wine_inheritance_progression",
@@ -477,6 +508,9 @@
             "不得替代方源突破"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "liquor_worm_refinement_and_vital_gu_risk"
       ]
     },
     {
@@ -542,6 +576,11 @@
             "不得无代价高名声"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "nine_ranks_and_small_realms",
+        "aperture_wall_small_realm_progression",
+        "primeval_essence_rank_colors"
       ]
     },
     {
@@ -608,6 +647,10 @@
             "不得稳定规避兽潮"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "nine_ranks_and_small_realms",
+        "primeval_essence_rank_colors"
       ]
     },
     {
@@ -674,6 +717,9 @@
             "不得战胜白凝冰"
           ]
         }
+      ],
+      "canon_index_refs": [
+        "primeval_essence_rank_colors"
       ]
     },
     {
@@ -740,8 +786,13 @@
             "不得让玩家赢下青茅山"
           ]
         }
-      ]
+      ],
+      "canon_index_refs": []
     }
-  ]
+  ],
+  "canon_index": {
+    "facts_file": "docs/superpowers/data/canon/first-volume-canon-index.json",
+    "source_map_file": "docs/superpowers/data/canon/first-volume-source-map.json",
+    "policy": "?? beat ?????????????????????"
+  }
 }
-

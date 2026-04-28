@@ -13,6 +13,9 @@
     "deepseek:review": "node scripts/deepseek-candidates.mjs review --dir .local/deepseek-candidates",
     "deepseek:validate": "node scripts/deepseek-candidates.mjs validate --dir .local/deepseek-candidates",
     "deepseek:test": "node --test scripts/deepseek-candidates.test.mjs",
+    "canon:source-map": "node scripts/extract-canon-source-map.mjs --source reverend-insanity.txt --out docs/superpowers/data/canon/first-volume-source-map.json",
+    "canon:validate": "node scripts/validate-canon-index.mjs",
+    "canon:test": "node --test scripts/extract-canon-source-map.test.mjs && node scripts/validate-canon-index.mjs",
     "check": "pnpm -r build && cargo test --workspace"
   }
 }

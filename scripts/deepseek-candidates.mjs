@@ -16,6 +16,7 @@ const ALLOWED_CANDIDATE_FIELDS = new Set([
   "candidate_text",
   "state_assumptions",
   "risk_notes",
+  "canon_index_refs",
   "review_status",
   "review_notes",
 ]);
@@ -44,11 +45,13 @@ const REQUIRED_CANDIDATE_STRINGS = [
   "review_status",
 ];
 
-const CANDIDATE_ARRAY_FIELDS = ["state_assumptions", "risk_notes"];
+const REQUIRED_CANDIDATE_ARRAY_FIELDS = ["state_assumptions", "risk_notes"];
+const OPTIONAL_CANDIDATE_ARRAY_FIELDS = ["canon_index_refs"];
 const ALLOWED_MODES = new Set(["canon_strict", "sandbox_if"]);
 const ALLOWED_EVIDENCE = new Set(["canon_explicit", "canon_inferred", "project_inferred", "sandbox_if"]);
 const ALLOWED_REVIEW_OVERALL = new Set(["pass", "pass_with_notes", "needs_revision", "fail"]);
-const TARGET_ARRAY_FIELDS = ["state_assumptions", "risk_notes"];
+const REQUIRED_TARGET_ARRAY_FIELDS = ["state_assumptions", "risk_notes"];
+const OPTIONAL_TARGET_ARRAY_FIELDS = ["canon_index_refs"];
 
 const RUNTIME_REDLINE_MARKERS = [
   "DEEPSEEK_API_KEY",
@@ -177,6 +180,7 @@ export function buildMockCandidates(targets = DEFAULT_TARGETS) {
       `离线 mock 候选：${target.target_content_id} / ${target.target_slot}。此文本只用于校验流程，不能直接入库。`,
     state_assumptions: target.state_assumptions,
     risk_notes: target.risk_notes,
+    canon_index_refs: target.canon_index_refs ?? [],
     review_status: "needs_review",
     review_notes: "",
   }));
@@ -200,8 +204,13 @@ export function validateTarget(target) {
   if (target.candidate_text !== undefined && (typeof target.candidate_text !== "string" || target.candidate_text.trim() === "")) {
     throw new Error("candidate_text must be a non-empty string when provided");
   }
-  for (const field of TARGET_ARRAY_FIELDS) {
+  for (const field of REQUIRED_TARGET_ARRAY_FIELDS) {
     if (!Array.isArray(target[field]) || target[field].some((value) => typeof value !== "string")) {
+      throw new Error(`${field} must be an array of strings`);
+    }
+  }
+  for (const field of OPTIONAL_TARGET_ARRAY_FIELDS) {
+    if (target[field] !== undefined && (!Array.isArray(target[field]) || target[field].some((value) => typeof value !== "string"))) {
       throw new Error(`${field} must be an array of strings`);
     }
   }
@@ -225,6 +234,7 @@ export function normalizeCandidateFromTarget(candidate, target) {
     evidence: target.evidence,
     state_assumptions: Array.isArray(candidate.state_assumptions) ? candidate.state_assumptions : target.state_assumptions,
     risk_notes: Array.isArray(candidate.risk_notes) ? candidate.risk_notes : target.risk_notes,
+    canon_index_refs: Array.isArray(candidate.canon_index_refs) ? candidate.canon_index_refs : target.canon_index_refs ?? [],
     review_status: "needs_review",
     review_notes: typeof candidate.review_notes === "string" ? candidate.review_notes : "",
   };
@@ -272,8 +282,13 @@ export function validateCandidate(candidate) {
     throw new Error("review_notes must be a string");
   }
 
-  for (const field of CANDIDATE_ARRAY_FIELDS) {
+  for (const field of REQUIRED_CANDIDATE_ARRAY_FIELDS) {
     if (!Array.isArray(candidate[field]) || candidate[field].some((value) => typeof value !== "string")) {
+      throw new Error(`${field} must be an array of strings`);
+    }
+  }
+  for (const field of OPTIONAL_CANDIDATE_ARRAY_FIELDS) {
+    if (candidate[field] !== undefined && (!Array.isArray(candidate[field]) || candidate[field].some((value) => typeof value !== "string"))) {
       throw new Error(`${field} must be an array of strings`);
     }
   }
@@ -444,7 +459,7 @@ async function requestDeepSeekCandidate(target) {
         {
           role: "system",
           content:
-            "你是 RebrnG 离线候选文本生成助手。只输出一个 JSON 对象，字段必须限定为 candidate_id、target_content_id、target_slot、mode、evidence、candidate_text、state_assumptions、risk_notes、review_status、review_notes。review_status 必须是 needs_review。不要输出 prompt、response、model、api_key、reasoning_content 或 thinking_chain。",
+            "你是 RebrnG 离线候选文本生成助手。只输出一个 JSON 对象，字段必须限定为 candidate_id、target_content_id、target_slot、mode、evidence、candidate_text、state_assumptions、risk_notes、canon_index_refs、review_status、review_notes。review_status 必须是 needs_review。不要输出 prompt、response、model、api_key、reasoning_content 或 thinking_chain。",
         },
         {
           role: "user",

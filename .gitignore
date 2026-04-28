@@ -13,6 +13,8 @@ dist/
 dist-ssr/
 *.local
 .local/
+reverend-insanity.txt
+reverend-insanity*.txt
 
 # Logs
 logs/

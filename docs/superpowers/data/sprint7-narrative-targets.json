@@ -16,6 +16,11 @@
         "不得未开窍修行",
         "不得稳定生成本命蛊",
         "不得给完整传承或越阶资源"
+      ],
+      "canon_index_refs": [
+        "opening_rite_cave_walk",
+        "hope_gu_enters_body",
+        "aptitude_step_ranges"
       ]
     },
     {
@@ -32,6 +37,11 @@
         "不得把开窍大典写成可跳过背景",
         "不得提前改写原著核心人物事实",
         "必须体现家族制度压迫和第一卷入口感"
+      ],
+      "canon_index_refs": [
+        "opening_rite_cave_walk",
+        "opening_rite_flower_sea_and_spiritual_spring",
+        "aptitude_primeval_sea_and_cultivation_limits"
       ]
     },
     {
@@ -48,6 +58,11 @@
         "不得把月光蛊写成普通装备",
         "不得跳过炼化",
         "必须体现制度登记和后续归属压力"
+      ],
+      "canon_index_refs": [
+        "gu_master_definition",
+        "moonlight_gu_refinement_resistance",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -64,6 +79,10 @@
         "不得把炼化写成经验升级",
         "不得制造无代价稳定强收益",
         "必须体现控制权、空窍和后续喂养维护压力"
+      ],
+      "canon_index_refs": [
+        "moonlight_gu_refinement_resistance",
+        "primeval_stone_refill_and_resource_pressure"
       ]
     },
     {
@@ -80,6 +99,11 @@
         "不得取消元石或 AP 成本",
         "不得写成快速破境",
         "必须体现修行可见后会被学堂秩序注意"
+      ],
+      "canon_index_refs": [
+        "aperture_primeval_sea_capacity",
+        "primeval_stone_refill_and_resource_pressure",
+        "aperture_wall_small_realm_progression"
       ]
     },
     {
@@ -96,6 +120,11 @@
         "不得写成方源合作线",
         "不得硬改原著核心人物",
         "必须只体现危险邻近与风声余波"
+      ],
+      "canon_index_refs": [
+        "gu_master_definition",
+        "nine_ranks_and_small_realms",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -112,6 +141,10 @@
         "不得写成爽文识破全局",
         "不得暴露隐藏数值",
         "必须体现制度内比较压力"
+      ],
+      "canon_index_refs": [
+        "moonlight_gu_refinement_resistance",
+        "primeval_stone_refill_and_resource_pressure"
       ]
     },
     {
@@ -128,6 +161,10 @@
         "不得写成打脸爽点",
         "不得抹掉名声后果",
         "必须体现公开压力和制度目光"
+      ],
+      "canon_index_refs": [
+        "aptitude_primeval_sea_and_cultivation_limits",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -144,6 +181,10 @@
         "不得把忍让写成无代价",
         "不得羞辱玩家生存选择",
         "必须体现后续被看见的压力"
+      ],
+      "canon_index_refs": [
+        "aptitude_primeval_sea_and_cultivation_limits",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -160,6 +201,10 @@
         "不得写成稳定胜利",
         "不得取消后续盯防",
         "必须体现制度内发声的代价"
+      ],
+      "canon_index_refs": [
+        "primeval_stone_refill_and_resource_pressure",
+        "gu_feeding_academy_subsidy_pressure"
       ]
     },
     {
@@ -176,8 +221,11 @@
         "不得写成爽文反杀",
         "不得给稳定收益",
         "必须体现硬顶后的身体和名声代价"
+      ],
+      "canon_index_refs": [
+        "primeval_essence_rank_colors",
+        "aperture_wall_small_realm_progression"
       ]
     }
   ]
 }
-

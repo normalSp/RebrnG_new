@@ -14,6 +14,18 @@ Scope: Sprint 7.1
 
 当前 S0 8 自由窗口只对应第一卷前 10-15% 的可玩切片：开窍大典后、学堂入账、月光蛊根基、第一轮制度压力。它不是完整第一卷，也不应该承担商队、兽潮、白凝冰和终局内容。
 
+## Canon Index Layer
+
+Sprint 7.2 起，剧情圣经不再独自承载所有原著细节。第一卷细节证据拆到原著事实索引层：
+
+- `docs/superpowers/data/canon/first-volume-source-map.json`：只记录本地原著 source 的章节行号、编码和 hash，不保存原文。
+- `docs/superpowers/data/canon/first-volume-canon-index.json`：保存转述事实卡，例如开窍大典地下溶洞、水中行走、希望蛊入体、元海容量、真元颜色、炼化阻力和空窍壁膜推进。
+- `docs/superpowers/data/first-volume-story-beats.json`：每个剧情 beat 通过 `canon_index_refs` 引用事实卡。
+
+剧情圣经继续管主线、锚点、玩家空间和 IF 边界；原著事实索引管细节证据。DeepSeek V4-Pro 后续扩写时只能吃 `NarrativeSlot + CanonFactCard + 红线`，不得自由续写整本原文，也不得把长段原文写入仓库。
+
+首批索引重点覆盖 Beat 1-2 与机制关键事实。后续每推进一个剧情段，再补对应事实卡，而不是一次性把第一卷 199 节全部细索引完。
+
 ## Product Direction
 
 专业游戏开发判断：下一步应先冻结第一卷剧情大纲，再扩正文和机制。
@@ -309,4 +321,4 @@ DeepSeek V4-Pro 后续扩写必须遵守：
 - 当前 S0 被明确定位为第一卷前 10-15% 的切片。
 - 后续 DeepSeek 扩写有明确槽位来源，不再自由补散文。
 - 机制排期服务剧情段，而不是脱离剧情横向铺系统。
-
+- ????? `canon_index_refs` ???????????????? `first-volume-canon-index.json` ???
