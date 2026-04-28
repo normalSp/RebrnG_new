@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.2.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.3.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
 pub const RULES_VERSION: &str = "sprint3-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
@@ -1094,6 +1094,7 @@ pub struct ContentManifest {
     pub attribute_profile_count: usize,
     pub opening_rite_outcome_count: usize,
     pub initial_resource_package_count: usize,
+    pub gu_spec_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1330,6 +1331,23 @@ pub struct ContentInitialResourcePackage {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContentGuSpec {
+    pub id: String,
+    pub title: String,
+    pub rank: u8,
+    pub path: String,
+    pub usage_tags: Vec<String>,
+    pub role_tags: Vec<String>,
+    pub feeding_note: String,
+    pub refinement_note: String,
+    pub stage: String,
+    pub tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+    pub importance: ContentImportance,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ContentSource {
     pub content_id: String,
     pub version: String,
@@ -1360,6 +1378,8 @@ pub struct ContentSource {
     pub opening_rite_outcomes: Vec<ContentOpeningRiteOutcome>,
     #[serde(default)]
     pub initial_resource_packages: Vec<ContentInitialResourcePackage>,
+    #[serde(default)]
+    pub gu_specs: Vec<ContentGuSpec>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1393,6 +1413,8 @@ pub struct ContentSourceFragment {
     pub opening_rite_outcomes: Vec<ContentOpeningRiteOutcome>,
     #[serde(default)]
     pub initial_resource_packages: Vec<ContentInitialResourcePackage>,
+    #[serde(default)]
+    pub gu_specs: Vec<ContentGuSpec>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1410,6 +1432,7 @@ pub struct ContentBundle {
     pub attribute_profiles: Vec<ContentAttributeProfile>,
     pub opening_rite_outcomes: Vec<ContentOpeningRiteOutcome>,
     pub initial_resource_packages: Vec<ContentInitialResourcePackage>,
+    pub gu_specs: Vec<ContentGuSpec>,
     pub indexes: ContentIndexes,
     pub diagnostics: ContentBuildDiagnostics,
 }
@@ -1428,6 +1451,7 @@ pub struct ContentIndexes {
     pub attribute_profile_ids: BTreeMap<String, usize>,
     pub opening_rite_outcome_ids: BTreeMap<String, usize>,
     pub initial_resource_package_ids: BTreeMap<String, usize>,
+    pub gu_spec_ids: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -1479,6 +1503,7 @@ impl ContentBundle {
                 .iter()
                 .map(|package| &package.id),
         )?;
+        let gu_spec_ids = build_index("gu_spec", source.gu_specs.iter().map(|gu| &gu.id))?;
 
         if !node_ids.contains_key(&source.entry_scene_id) {
             return Err(CommandError::content(
@@ -1936,6 +1961,54 @@ impl ContentBundle {
             }
         }
 
+        if !gu_spec_ids.contains_key("moonlight_gu") {
+            return Err(CommandError::content(
+                "S0 蛊虫内容缺少月光蛊",
+                "S0 content requires stable canon gu spec 'moonlight_gu'",
+            ));
+        }
+        for gu in &source.gu_specs {
+            if gu.evidence == EvidenceLevel::SandboxIf
+                && gu.modes.contains(&ModePermit::CanonStrict)
+            {
+                return Err(CommandError::content(
+                    "sandbox_if 蛊虫不能进入严谨模式",
+                    format!("gu_spec '{}' is sandbox_if but allows canon_strict", gu.id),
+                ));
+            }
+            validate_common_content(
+                "gu_spec",
+                &gu.id,
+                &gu.stage,
+                &gu.tags,
+                &gu.evidence,
+                &gu.modes,
+                gu.importance.clone(),
+            )?;
+            require_non_empty("gu_spec", &gu.id, "title", &gu.title)?;
+            require_non_empty("gu_spec", &gu.id, "path", &gu.path)?;
+            require_non_empty("gu_spec", &gu.id, "feeding_note", &gu.feeding_note)?;
+            require_non_empty("gu_spec", &gu.id, "refinement_note", &gu.refinement_note)?;
+            if !(1..=5).contains(&gu.rank) {
+                return Err(CommandError::content(
+                    "蛊虫品转超出凡人阶段范围",
+                    format!("gu_spec '{}' rank must be 1..=5", gu.id),
+                ));
+            }
+            if gu.usage_tags.is_empty() || gu.usage_tags.iter().any(|tag| tag.trim().is_empty()) {
+                return Err(CommandError::content(
+                    "蛊虫用途标签缺失",
+                    format!("gu_spec '{}' usage_tags is empty", gu.id),
+                ));
+            }
+            if gu.role_tags.is_empty() || gu.role_tags.iter().any(|tag| tag.trim().is_empty()) {
+                return Err(CommandError::content(
+                    "蛊虫角色标签缺失",
+                    format!("gu_spec '{}' role_tags is empty", gu.id),
+                ));
+            }
+        }
+
         let node_count = source.nodes.len();
         let action_count = source.actions.len();
         let route_count = source.routes.len();
@@ -1948,6 +2021,7 @@ impl ContentBundle {
         let attribute_profile_count = source.attribute_profiles.len();
         let opening_rite_outcome_count = source.opening_rite_outcomes.len();
         let initial_resource_package_count = source.initial_resource_packages.len();
+        let gu_spec_count = source.gu_specs.len();
 
         Ok(Self {
             manifest: ContentManifest {
@@ -1968,6 +2042,7 @@ impl ContentBundle {
                 attribute_profile_count,
                 opening_rite_outcome_count,
                 initial_resource_package_count,
+                gu_spec_count,
             },
             nodes: source.nodes,
             actions: source.actions,
@@ -1981,6 +2056,7 @@ impl ContentBundle {
             attribute_profiles: source.attribute_profiles,
             opening_rite_outcomes: source.opening_rite_outcomes,
             initial_resource_packages: source.initial_resource_packages,
+            gu_specs: source.gu_specs,
             indexes: ContentIndexes {
                 node_ids,
                 action_ids,
@@ -1994,10 +2070,11 @@ impl ContentBundle {
                 attribute_profile_ids,
                 opening_rite_outcome_ids,
                 initial_resource_package_ids,
+                gu_spec_ids,
             },
             diagnostics: ContentBuildDiagnostics {
                 summary: format!(
-                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters, {narrative_count} narratives, {origin_count} origins, {talent_count} talents, {attribute_profile_count} attribute profiles, {opening_rite_outcome_count} opening rite outcomes, {initial_resource_package_count} initial resource packages"
+                    "indexed {node_count} nodes, {action_count} actions, {route_count} routes, {window_count} windows, {movement_count} movements, {encounter_count} encounters, {narrative_count} narratives, {origin_count} origins, {talent_count} talents, {attribute_profile_count} attribute profiles, {opening_rite_outcome_count} opening rite outcomes, {initial_resource_package_count} initial resource packages, {gu_spec_count} gu specs"
                 ),
                 warnings: Vec::new(),
             },
@@ -2026,6 +2103,7 @@ impl ContentSource {
         let mut attribute_profiles = Vec::new();
         let mut opening_rite_outcomes = Vec::new();
         let mut initial_resource_packages = Vec::new();
+        let mut gu_specs = Vec::new();
 
         for fragment in fragments {
             merge_metadata("content_id", &mut content_id, fragment.content_id)?;
@@ -2049,6 +2127,7 @@ impl ContentSource {
             attribute_profiles.extend(fragment.attribute_profiles);
             opening_rite_outcomes.extend(fragment.opening_rite_outcomes);
             initial_resource_packages.extend(fragment.initial_resource_packages);
+            gu_specs.extend(fragment.gu_specs);
         }
 
         Ok(Self {
@@ -2082,6 +2161,7 @@ impl ContentSource {
             attribute_profiles,
             opening_rite_outcomes,
             initial_resource_packages,
+            gu_specs,
         })
     }
 }
@@ -2305,6 +2385,7 @@ pub fn starter_content_source() -> ContentSource {
         attribute_profiles: starter_attribute_profiles(),
         opening_rite_outcomes: starter_opening_rite_outcomes(),
         initial_resource_packages: starter_initial_resource_packages(),
+        gu_specs: starter_gu_specs(),
     }
 }
 
@@ -2325,6 +2406,24 @@ fn all_modes() -> Vec<ModePermit> {
 
 fn sandbox_only() -> Vec<ModePermit> {
     vec![ModePermit::SandboxIf]
+}
+
+fn starter_gu_specs() -> Vec<ContentGuSpec> {
+    vec![ContentGuSpec {
+        id: "moonlight_gu".to_string(),
+        title: "月光蛊".to_string(),
+        rank: 1,
+        path: "月道".to_string(),
+        usage_tags: strings(&["cultivation", "moonlight", "academy"]),
+        role_tags: strings(&["core_gu_candidate", "attack", "cultivation_support"]),
+        feeding_note: "S0 只保留喂养维护压力占位；后续阶段再展开具体食料与周期。".to_string(),
+        refinement_note: "S0 后续通过炼化归属 / 控制权状态接入，不等同炼蛊或升转。".to_string(),
+        stage: "s0".to_string(),
+        tags: strings(&["gu", "moonlight", "academy", "rank-one"]),
+        evidence: EvidenceLevel::CanonInferred,
+        modes: all_modes(),
+        importance: ContentImportance::Critical,
+    }]
 }
 
 fn starter_initial_resource_packages() -> Vec<ContentInitialResourcePackage> {
@@ -7008,6 +7107,7 @@ mod tests {
         assert_eq!(bundle.manifest.attribute_profile_count, 1);
         assert_eq!(bundle.manifest.opening_rite_outcome_count, 1);
         assert_eq!(bundle.manifest.initial_resource_package_count, 3);
+        assert_eq!(bundle.manifest.gu_spec_count, 1);
         assert_eq!(bundle.indexes.node_ids["academy_gate"], 0);
         assert_eq!(bundle.indexes.action_ids["scout_academy"], 0);
         assert_eq!(bundle.indexes.route_ids["moonlight_entry"], 0);
@@ -7031,10 +7131,109 @@ mod tests {
             .indexes
             .initial_resource_package_ids
             .contains_key("s0_opening_plain_supplies"));
+        assert!(bundle.indexes.gu_spec_ids.contains_key("moonlight_gu"));
         assert!(bundle.diagnostics.summary.contains("indexed 2 nodes"));
         assert!(bundle.diagnostics.summary.contains("1 narratives"));
         assert!(bundle.diagnostics.summary.contains("10 talents"));
+        assert!(bundle.diagnostics.summary.contains("1 gu specs"));
         assert!(bundle.diagnostics.warnings.is_empty());
+    }
+
+    #[test]
+    fn sprint4_starter_bundle_indexes_moonlight_gu_spec() {
+        let bundle = starter_content_bundle();
+
+        assert_eq!(bundle.manifest.gu_spec_count, 1);
+        let moonlight_index = bundle
+            .indexes
+            .gu_spec_ids
+            .get("moonlight_gu")
+            .expect("moonlight_gu should be indexed");
+        let moonlight = &bundle.gu_specs[*moonlight_index];
+
+        assert_eq!(moonlight.id, "moonlight_gu");
+        assert_eq!(moonlight.title, "月光蛊");
+        assert_eq!(moonlight.rank, 1);
+        assert_eq!(moonlight.evidence, EvidenceLevel::CanonInferred);
+        assert!(moonlight.modes.contains(&ModePermit::CanonStrict));
+        assert!(moonlight.usage_tags.contains(&"cultivation".to_string()));
+        assert!(moonlight
+            .role_tags
+            .contains(&"core_gu_candidate".to_string()));
+    }
+
+    #[test]
+    fn content_bundle_rejects_duplicate_gu_spec_ids() {
+        let mut source = valid_content_source();
+        let duplicate = source.gu_specs[0].clone();
+        source.gu_specs.push(duplicate);
+
+        let error = ContentBundle::from_source(source).expect_err("duplicate gu id should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("duplicate gu_spec id 'moonlight_gu'"));
+    }
+
+    #[test]
+    fn content_bundle_rejects_invalid_gu_spec_rank() {
+        let mut source = valid_content_source();
+        source.gu_specs[0].rank = 0;
+
+        let error = ContentBundle::from_source(source).expect_err("invalid gu rank should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("rank must be 1..=5"));
+    }
+
+    #[test]
+    fn content_bundle_rejects_empty_gu_spec_fields() {
+        let mut source = valid_content_source();
+        source.gu_specs[0].title.clear();
+
+        let error = ContentBundle::from_source(source).expect_err("empty gu title should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error.diagnostics.unwrap_or_default().contains("title"));
+
+        let mut source = valid_content_source();
+        source.gu_specs[0].usage_tags.clear();
+        let error = ContentBundle::from_source(source).expect_err("empty usage tags should fail");
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("usage_tags is empty"));
+
+        let mut source = valid_content_source();
+        source.gu_specs[0].role_tags.clear();
+        let error = ContentBundle::from_source(source).expect_err("empty role tags should fail");
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("role_tags is empty"));
+    }
+
+    #[test]
+    fn content_bundle_rejects_sandbox_gu_spec_in_canon_mode() {
+        let mut source = valid_content_source();
+        source.gu_specs[0].evidence = EvidenceLevel::SandboxIf;
+        source.gu_specs[0].modes = all_modes();
+
+        let error = ContentBundle::from_source(source)
+            .expect_err("sandbox_if gu must not allow canon_strict");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("sandbox_if but allows canon_strict"));
     }
 
     #[test]
@@ -7584,6 +7783,7 @@ mod tests {
             attribute_profiles: starter_attribute_profiles(),
             opening_rite_outcomes: starter_opening_rite_outcomes(),
             initial_resource_packages: starter_initial_resource_packages(),
+            gu_specs: starter_gu_specs(),
         }
     }
 

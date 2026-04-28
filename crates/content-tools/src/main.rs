@@ -206,6 +206,7 @@ mod tests {
         fs::create_dir_all(root.join("actions")).expect("actions dir");
         fs::create_dir_all(root.join("routes")).expect("routes dir");
         fs::create_dir_all(root.join("windows")).expect("windows dir");
+        fs::create_dir_all(root.join("gu")).expect("gu dir");
 
         fs::write(
             root.join("manifest.yaml"),
@@ -279,6 +280,26 @@ windows:
 "#,
         )
         .expect("write windows");
+        fs::write(
+            root.join("gu/moonlight-gu.yaml"),
+            r#"
+gu_specs:
+  - id: moonlight_gu
+    title: 月光蛊
+    rank: 1
+    path: 月道
+    usage_tags: [cultivation, moonlight, academy]
+    role_tags: [core_gu_candidate]
+    feeding_note: S0 只保留喂养维护压力占位。
+    refinement_note: S0 后续通过炼化归属状态接入。
+    stage: s0
+    tags: [gu, moonlight]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: critical
+"#,
+        )
+        .expect("write gu specs");
 
         let source = load_s0_source(&root).expect("split source should load");
 
@@ -286,6 +307,7 @@ windows:
         assert_eq!(source.actions.len(), 1);
         assert_eq!(source.routes.len(), 1);
         assert_eq!(source.windows.len(), 1);
+        assert_eq!(source.gu_specs.len(), 1);
         assert_eq!(source.entry_scene_id, "academy_gate");
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
