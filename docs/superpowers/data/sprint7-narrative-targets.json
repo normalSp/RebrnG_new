@@ -1,0 +1,183 @@
+{
+  "version": "sprint7-targets-v1",
+  "description": "Sprint 7 开篇长正文试制候选槽位。DeepSeek 输出只作为本地候选，人工审校后才允许入库。",
+  "targets": [
+    {
+      "target_content_id": "s0.setup.opening_rite.afterglow",
+      "target_slot": "setup_dialogue",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家已经经历开窍大典余波",
+        "设置层用于确定出身、天赋、属性和开窍结果",
+        "开窍是进入家族秩序的入口，不是爽文抽奖"
+      ],
+      "risk_notes": [
+        "不得未开窍修行",
+        "不得稳定生成本命蛊",
+        "不得给完整传承或越阶资源"
+      ]
+    },
+    {
+      "target_content_id": "s0.scene.opening.academy_gate",
+      "target_slot": "scene_intro",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家站在学堂门前，空窍已开但根基未稳",
+        "学堂制度、名册、资源账和同辈视线开始压下",
+        "当前 S0 自由窗口从开窍大典之后开始"
+      ],
+      "risk_notes": [
+        "不得把开窍大典写成可跳过背景",
+        "不得提前改写原著核心人物事实",
+        "必须体现家族制度压迫和第一卷入口感"
+      ]
+    },
+    {
+      "target_content_id": "s0.gu.moonlight.claim",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家位于学堂前院，空窍已开",
+        "领取月光蛊 0 AP / 0 元石",
+        "领取只获得实例，不等于已炼化"
+      ],
+      "risk_notes": [
+        "不得把月光蛊写成普通装备",
+        "不得跳过炼化",
+        "必须体现制度登记和后续归属压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.gu.moonlight.refine",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家已领取月光蛊但尚未炼化",
+        "炼化月光蛊消耗 1 AP / 0 元石",
+        "炼化后月光蛊转入空窍并可用于修行"
+      ],
+      "risk_notes": [
+        "不得把炼化写成经验升级",
+        "不得制造无代价稳定强收益",
+        "必须体现控制权、空窍和后续喂养维护压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.cultivate.moonlight",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家已炼化月光蛊",
+        "月光修行消耗 1 AP / 1 元石",
+        "修行会推进月光痕迹并可能触发学堂压力"
+      ],
+      "risk_notes": [
+        "不得取消元石或 AP 成本",
+        "不得写成快速破境",
+        "必须体现修行可见后会被学堂秩序注意"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.scout.academy_gate",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在学堂门前侦查风声",
+        "可以听到方源邻近余波，但不能绑定或控制方源",
+        "可获得黑市暗口相关风声"
+      ],
+      "risk_notes": [
+        "不得写成方源合作线",
+        "不得硬改原著核心人物",
+        "必须只体现危险邻近与风声余波"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.scout.moonlight_corner",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在月光角观察学堂站位和同辈压力",
+        "可获得学堂压力线索",
+        "本行动不直接改变遭遇规则"
+      ],
+      "risk_notes": [
+        "不得写成爽文识破全局",
+        "不得暴露隐藏数值",
+        "必须体现制度内比较压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure",
+      "target_slot": "trigger",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家月光修行痕迹被看见后触发学堂公开压力",
+        "遭遇不是完整战斗系统",
+        "玩家需要在忍让、争辩、硬顶之间付代价"
+      ],
+      "risk_notes": [
+        "不得写成打脸爽点",
+        "不得抹掉名声后果",
+        "必须体现公开压力和制度目光"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure.yield",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家选择忍让",
+        "忍让保住当前窗口但留下名声浅痕",
+        "不改变既有结算"
+      ],
+      "risk_notes": [
+        "不得把忍让写成无代价",
+        "不得羞辱玩家生存选择",
+        "必须体现后续被看见的压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure.argue",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家选择争辩",
+        "争辩可能缓解当场压力，但会被记住",
+        "不改变既有结算"
+      ],
+      "risk_notes": [
+        "不得写成稳定胜利",
+        "不得取消后续盯防",
+        "必须体现制度内发声的代价"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure.confront",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家选择硬顶公开压力",
+        "硬顶保住气势但压缩后续空间",
+        "不改变既有伤势、暴露或 AP 规则"
+      ],
+      "risk_notes": [
+        "不得写成爽文反杀",
+        "不得给稳定收益",
+        "必须体现硬顶后的身体和名声代价"
+      ]
+    }
+  ]
+}
+

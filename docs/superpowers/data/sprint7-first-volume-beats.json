@@ -1,0 +1,353 @@
+{
+  "version": "sprint7-first-volume-beats-v1",
+  "description": "RebrnG 第一卷剧情骨架。用于规定锚点、玩家可影响范围、canon_strict 与 sandbox_if 差异，以及后续机制缺口。",
+  "volume_scope": {
+    "start": "开窍大典后进入学堂秩序",
+    "end": "青茅山变局后获得脱离青茅山资格或被迫离开原秩序",
+    "implementation_note": "Sprint 7 只实现开窍大典到学堂初压的长正文试制，后续段落只作为路线图。"
+  },
+  "beats": [
+    {
+      "beat_id": "v1_opening_rite_academy_entry",
+      "title": "开窍大典与入学",
+      "stage_range": "S0 开局设置到第一自由窗口",
+      "player_role": "从开窍大典余波中进入学堂秩序，被资质、出身、资源包和关注度记账。",
+      "core_pressure": "开窍不是奖励结算，而是家族开始培养、利用和审视玩家的入口。",
+      "canon_strict": {
+        "hard_anchors": [
+          "玩家必须先开窍，未开窍不能修行。",
+          "学堂和家族秩序是首发压迫核心。",
+          "开局不稳定获得本命蛊、完整传承或越阶资源。"
+        ],
+        "player_can_affect": [
+          "出身与天赋带来的初始资源、关注度和路线倾向。",
+          "进入学堂后的第一批行动选择。"
+        ],
+        "blocked_changes": [
+          "跳过开窍。",
+          "开局直接控制原著核心人物。",
+          "开局直接获得稳定本命蛊或完整传承。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "异常梦兆、强 IF 天赋、残缺记忆作为高风险提示。",
+          "开窍结果带来更强关注度或偏移线索。"
+        ],
+        "required_costs": [
+          "暴露上升",
+          "锚点压力",
+          "资源或关系债",
+          "后续被盯防"
+        ],
+        "blocked_changes": [
+          "无代价获得完整盗天或尊者级机缘。",
+          "直接改写青茅山主线硬锚点。"
+        ]
+      },
+      "mechanic_requirements": [
+        "RunSetupState",
+        "OpeningRiteOutcome",
+        "AttributeProfile",
+        "后续空窍容量与冲刷进度"
+      ],
+      "content_status": "Sprint 7 入库长正文试制",
+      "walkthrough_priority": "high"
+    },
+    {
+      "beat_id": "v1_moonlight_gu_foundation",
+      "title": "月光蛊根基",
+      "stage_range": "S0 第一到第三自由窗口",
+      "player_role": "领取月光蛊、炼化归属、用元石和窗口换取修行痕迹。",
+      "core_pressure": "蛊虫不是装备，炼化不是升级按钮，修行必须承担资源与窗口代价。",
+      "canon_strict": {
+        "hard_anchors": [
+          "月光蛊是 S0 唯一稳定 canon 蛊虫闭环。",
+          "修行必须依赖已炼化月光蛊。",
+          "月光修行消耗 AP 和元石。"
+        ],
+        "player_can_affect": [
+          "何时领取、何时炼化、是否优先修行。",
+          "是否检查喂养压力。"
+        ],
+        "blocked_changes": [
+          "未炼化直接稳定修行。",
+          "把月光蛊当普通装备。",
+          "跳过喂养与损伤压力接口。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "月光蛊异常反应。",
+          "偏门修行线索。",
+          "与传闻残线形成轻微呼应。"
+        ],
+        "required_costs": [
+          "更高暴露",
+          "资源紧张",
+          "后续路线门禁"
+        ],
+        "blocked_changes": [
+          "直接形成完整杀招库。",
+          "稳定获得高转蛊虫。"
+        ]
+      },
+      "mechanic_requirements": [
+        "GuSpec",
+        "GuInstance",
+        "RefinementState",
+        "FeedingState",
+        "空窍冲刷与小境界推进"
+      ],
+      "content_status": "Sprint 7 入库部分长反馈",
+      "walkthrough_priority": "high"
+    },
+    {
+      "beat_id": "v1_academy_pressure_clan_order",
+      "title": "学堂压力与家族秩序",
+      "stage_range": "S0 第三到第八自由窗口及后续扩展",
+      "player_role": "在公开比较、对练、名声和家族秩序中求稳或冒险。",
+      "core_pressure": "成长越可见，越容易被制度和同辈盯上。",
+      "canon_strict": {
+        "hard_anchors": [
+          "学堂压力来自家族秩序和同辈竞争。",
+          "公开压力不是完整战斗系统。",
+          "玩家不能轻易压倒秩序。"
+        ],
+        "player_can_affect": [
+          "忍让、争辩、硬顶、绕行。",
+          "通过线索缓解部分代价。"
+        ],
+        "blocked_changes": [
+          "打脸式稳定胜利。",
+          "硬绑定原著核心人物替玩家兜底。",
+          "抹掉名声和后续视线压力。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "局部反制。",
+          "嫁祸和误导。",
+          "短期名声偏移。"
+        ],
+        "required_costs": [
+          "暴露",
+          "债务",
+          "关系断裂",
+          "后续盯防"
+        ],
+        "blocked_changes": [
+          "长期免疫学堂秩序。",
+          "早期同层竞争高阶角色。"
+        ]
+      },
+      "mechanic_requirements": [
+        "名声状态",
+        "同辈关系",
+        "组织审计",
+        "公开压力连锁"
+      ],
+      "content_status": "Sprint 7 入库公开压力长反馈",
+      "walkthrough_priority": "high"
+    },
+    {
+      "beat_id": "v1_wine_worm_flower_wine_rumor",
+      "title": "酒虫与花酒传闻残线",
+      "stage_range": "第一卷前中段",
+      "player_role": "接触半真半假的机缘传闻，辨别机会、诱饵和原著硬锚点的边界。",
+      "core_pressure": "越像机缘，越可能是陷阱、误导或把玩家推向方源余波的危险。",
+      "canon_strict": {
+        "hard_anchors": [
+          "酒虫和花酒行者传承属于高风险原著机缘。",
+          "S0 不稳定发放酒虫。",
+          "S0 不完整开放花酒传承。"
+        ],
+        "player_can_affect": [
+          "记录传闻。",
+          "查验假线索。",
+          "选择撤退或继续冒险。"
+        ],
+        "blocked_changes": [
+          "提前抢走原著核心机缘。",
+          "稳定获得完整传承。",
+          "绑定、控制或替代方源相关硬事实。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "残缺线索。",
+          "假入口。",
+          "局部偏移。",
+          "高代价试探。"
+        ],
+        "required_costs": [
+          "锚点压力",
+          "误导风险",
+          "伤势或暴露",
+          "路线断裂"
+        ],
+        "blocked_changes": [
+          "无代价获得完整盗天或花酒核心收益。",
+          "提前稳定改变方源命运。"
+        ]
+      },
+      "mechanic_requirements": [
+        "真假线索",
+        "传承门禁",
+        "酒虫特殊蛊虫链",
+        "锚点偏移追索"
+      ],
+      "content_status": "仅大纲，不入库运行时",
+      "walkthrough_priority": "medium"
+    },
+    {
+      "beat_id": "v1_wilds_wolf_tide_omen",
+      "title": "山野与狼潮前兆",
+      "stage_range": "第一卷中段",
+      "player_role": "走出山寨安全缝隙，在山野、移动、侦查和撤退之间付代价。",
+      "core_pressure": "山野不是刷怪区，而是资源、视野、死亡风险和原著大势的交汇处。",
+      "canon_strict": {
+        "hard_anchors": [
+          "狼潮压力逐步显现。",
+          "玩家不能提前完全预知或稳定规避。",
+          "山野行动必须保留死亡和损失风险。"
+        ],
+        "player_can_affect": [
+          "侦查方向。",
+          "撤退时机。",
+          "资源换取安全。"
+        ],
+        "blocked_changes": [
+          "把狼潮写成普通刷怪。",
+          "提前稳定解除狼潮威胁。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "更早听到异常风声。",
+          "局部救援或误判。",
+          "高代价绕路。"
+        ],
+        "required_costs": [
+          "时间窗口",
+          "伤势",
+          "暴露",
+          "资源损耗"
+        ],
+        "blocked_changes": [
+          "无损规避第一卷大势。",
+          "提前掌控山野全局。"
+        ]
+      },
+      "mechanic_requirements": [
+        "扩展节点图",
+        "山野风险表",
+        "长跳时",
+        "撤退和伤势恢复节奏"
+      ],
+      "content_status": "仅大纲，不入库运行时",
+      "walkthrough_priority": "low"
+    },
+    {
+      "beat_id": "v1_three_clans_bai_ning_bing_pressure",
+      "title": "三寨与白凝冰压力",
+      "stage_range": "第一卷中后段",
+      "player_role": "在外部强压和原著强者余波下求生，不能早期同层竞争。",
+      "core_pressure": "高阶角色和三寨格局代表世界强度边界，玩家早期只能借势、避险或被利用。",
+      "canon_strict": {
+        "hard_anchors": [
+          "白凝冰等强者不能被早期玩家稳定击败、控制或绑定。",
+          "三寨格局必须保持强压。",
+          "玩家主要承受余波。"
+        ],
+        "player_can_affect": [
+          "获取风声。",
+          "规避路线。",
+          "选择依附或撤退。"
+        ],
+        "blocked_changes": [
+          "早期同层竞争白凝冰。",
+          "控制三寨局势。",
+          "抹掉强者威胁。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "高代价短接触。",
+          "被利用后的局部收益。",
+          "误判与逃脱。"
+        ],
+        "required_costs": [
+          "重伤",
+          "组织债",
+          "路线断裂",
+          "锚点压力"
+        ],
+        "blocked_changes": [
+          "稳定击败或收服原著强者。",
+          "让玩家早期成为三寨核心棋手。"
+        ]
+      },
+      "mechanic_requirements": [
+        "势力关系",
+        "guarded NPC",
+        "高阶压力事件",
+        "锚点保护"
+      ],
+      "content_status": "仅大纲，不入库运行时",
+      "walkthrough_priority": "low"
+    },
+    {
+      "beat_id": "v1_qingmao_collapse_departure_qualification",
+      "title": "青茅山变局与脱离资格",
+      "stage_range": "第一卷终段",
+      "player_role": "在变局中带着资产、伤痕、债务或关系断裂活下来，获得离开青茅山的理由。",
+      "core_pressure": "阶段成功不是赢下青茅山，而是可解释地活着脱离原秩序。",
+      "canon_strict": {
+        "hard_anchors": [
+          "青茅山变局是第一卷硬锚点。",
+          "核心人物命运不能被早期选择轻易翻盘。",
+          "脱离资格必须有代价和状态迁移。"
+        ],
+        "player_can_affect": [
+          "携带哪些资产。",
+          "欠下哪些债。",
+          "保住哪些线索和蛊虫。",
+          "以何种伤痕离开。"
+        ],
+        "blocked_changes": [
+          "无代价改写青茅山硬结局。",
+          "赢下青茅山秩序。",
+          "把阶段成功写成爽文通关。"
+        ]
+      },
+      "sandbox_if": {
+        "allowed_deviations": [
+          "局部人物存亡偏移。",
+          "资源转移偏移。",
+          "路线结果偏移。"
+        ],
+        "required_costs": [
+          "世界反噬",
+          "锚点压力",
+          "长期追索",
+          "资产损失"
+        ],
+        "blocked_changes": [
+          "完全抹掉第一卷变局。",
+          "无损带走核心原著机缘。"
+        ]
+      },
+      "mechanic_requirements": [
+        "阶段结算",
+        "跨地图迁移",
+        "资产容器转移",
+        "长期关系债",
+        "世界空间接口"
+      ],
+      "content_status": "仅大纲，不入库运行时",
+      "walkthrough_priority": "medium"
+    }
+  ]
+}
+

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.5.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.6.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
 pub const RULES_VERSION: &str = "sprint4-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
@@ -3875,14 +3875,22 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
     vec![
         content_narrative(
             "s0.gu.moonlight.claim",
-            "你按学堂名册领取月光蛊。负责登记的族人没有多说一句，只把蛊虫与你的名字并排记下。它现在只是随身之物，不是你的力量；账上多了一只蛊，也多了一条未完成的归属。想让它回应真元，还得把一个自由窗口压进炼化里。",
+            concat!(
+                "你按学堂名册领取月光蛊。负责登记的族人把木匣推到你面前，匣盖内侧刻着编号，旁边还有一行细小的登记痕：姓名、出身、空窍已开、待炼化。\n\n",
+                "月光蛊安静伏在匣底，冷意像一枚薄薄的月刃贴着指腹。它不是赏赐，也不是装备；在学堂账册里，它只是家族发给新人的制度资源。拿到手，意味着你被允许进入修行秩序，也意味着损伤、喂养、归属和后续表现都会被追问。\n\n",
+                "这一刻没有人恭喜你。登记的人只提醒一句：蛊已领，炼化自理。想让它回应真元，还得把一个自由窗口真正压进空窍里。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "gu", "moonlight", "claim"],
         ),
         content_narrative(
             "s0.gu.moonlight.refine",
-            "你把一段窗口沉进空窍，顺着月光蛊的冷意一点点磨去外来的抗拒。炼化归属初成后，它从随身之物转入空窍，终于能随你的真元牵动。账本没有把这记成奖励，只记成一只可用之蛊，以及后续喂养、损伤和修行代价都要落到你身上的开始。",
+            concat!(
+                "你把一段窗口沉进空窍，先以真元试探月光蛊的冷意，再一点点磨去它身上不属于你的抗拒。空窍内壁被牵出细微波纹，月光蛊起初只是沉默，随后才像被某种账契点醒，缓慢向你的真元靠拢。\n\n",
+                "炼化归属初成，它从随身之物转入空窍。那一瞬间没有光华冲天，也没有旁人看见你的变化，只有你自己知道：这只蛊终于能被调动，能成为月光修行的中心。\n\n",
+                "账本没有把这记成奖励，只记成一只可用之蛊。以后喂养、损伤、战败残蛊、修行消耗，都会从“家族发下”转成“你自己承担”。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "gu", "moonlight", "refine"],
@@ -3896,7 +3904,11 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.scene.opening.academy_gate",
-            "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。",
+            concat!(
+                "开窍大典已经过去，山寨却没有因此安静下来。昨夜被念出的资质、旁支出身、资源份额和关注目光，像几枚冷硬的竹签，被一起插进你的命里。到了清晨，你站在学堂门前，山雾压着木檐，点卯声还没有响，门内的秩序已经先一步落到账上。\n\n",
+                "这里不是避难处。学堂会教你如何催动真元，也会教你如何被比较、被记录、被催促。谁先炼化月光蛊，谁耗掉元石，谁欠了药堂，谁在公开压力前退了一步，都会慢慢变成别人判断你价值的依据。\n\n",
+                "风从门缝里穿出来，带着墨、木牌和旧石阶的味道。你还没有真正站稳一转根基，但第一卷的线已经从这里收紧：先活过学堂，再谈山外。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "opening", "academy"],
@@ -3924,7 +3936,11 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.cultivate.moonlight",
-            "你扣下一枚元石，催动空窍里已经炼化的月光蛊。月华没有替你省下代价，只在真元一次次牵引里留下更清楚的修行痕迹。学堂的比较不会因此消失，但下一次有人看向你的空窍账时，你至少少了一分空口解释的余地。",
+            concat!(
+                "你扣下一枚元石，把真元引向空窍里已经炼化的月光蛊。冷白的月意没有替你省下代价，反而把每一次牵引都照得更清楚：元石少了一枚，窗口少了一截，修行痕迹才往前挪动一点。\n\n",
+                "月光蛊回应得很稳，却不热切。它只是依照炼化后的归属，把真元磨成更细的月华，再把这点月华压回你的空窍节奏里。你能感觉到根基被垫高了一线，也能感觉到这点进步很快会被学堂里的眼睛看见。\n\n",
+                "修行从来不是独处的事。下一次有人问起你的进度，你少了一分空口解释的余地，也多了一分被比较、被推上前台的风险。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "cultivate", "moonlight"],
@@ -3945,7 +3961,11 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.scout.academy_gate",
-            "你在学堂门前听见几句低声风声，暗口二字被记进线索页。",
+            concat!(
+                "你没有急着进门，而是在学堂门前慢慢听风。几个少年压着声音议论昨夜开窍大典的结果，有人提到资质，有人提到旁支，还有人提到方源这个名字后立刻住口，像是怕那两个字带来不该靠近的余波。\n\n",
+                "你只把这些记成风声，不把它们写成关系。原著核心人物离你很近，但近不等于可绑、可控、可借势；在严谨模式里，贸然伸手只会更早暴露自己。\n\n",
+                "巷道另一端还有人用更低的声音说起“暗口”。这两个字被记进线索页：不是商店，不是机会白送，而是一条可能通向黑市、也可能把尾巴带回来的缝。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "academy", "blackmarket"],
@@ -3959,7 +3979,11 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.scout.moonlight_corner",
-            "你在月光角看清几处站位，学堂里的比较压力比明面规矩更锋利。",
+            concat!(
+                "月光角比学堂前院安静一些，安静不代表安全。你看见几处固定站位：资质好的少年靠近师长视线，旁支和低调者退在边缘，真正有心的人则把每一次催动月光蛊的细节都收进眼底。\n\n",
+                "明面规矩只写修行、点卯和考核，暗处的规矩却更锋利：谁先稳住月光蛊，谁元石见底，谁被人激一句就乱了节奏，都会成为后面公开压力的材料。\n\n",
+                "你记下这些站位，也记下自己的位置。学堂不是战场，却已经有了阵势。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "moonlight"],
@@ -4050,28 +4074,44 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.trigger",
-            "月光修行的痕迹一深，学堂里的目光就开始聚拢。有人故意把话说得很响，逼你在众人面前给出反应；这不是正式惩戒，却比惩戒更容易留下名声。",
+            concat!(
+                "月光修行的痕迹一深，学堂里的目光就开始聚拢。先是几道视线落在你的袖口和空窍节奏上，随后有人故意把话说得很响，像是在替众人把疑问钉到你身上：旁支也想抢进度？\n\n",
+                "这不是正式惩戒，师长甚至可以装作没有听见。但公开压力最毒的地方就在这里：没人下令，你却必须反应；没人出手，你的名声已经被推到众人面前。\n\n",
+                "你可以忍让、争辩，也可以硬顶。每一种选择都不是胜利，只是把今天的代价换成不同形状的后账。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "public_pressure"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.yield",
-            "你垂下眼，忍下那句刺耳的话。周围有轻笑掠过，像冷水一样贴在后颈；局面没有失控，名声却被踩出一道浅痕。今天保住窗口，明天还要背着这道痕走。",
+            concat!(
+                "你垂下眼，忍下那句刺耳的话。周围有轻笑掠过，像冷水一样贴在后颈；有人以为你软，也有人只是确认你暂时不会把局面闹大。\n\n",
+                "忍让保住了当前窗口，没有把师长的目光直接引下来，也没有把对方推到必须升级冲突的位置。可名声已经被踩出一道浅痕，浅到没人会替你记仇，深到下一次有人试探时会先想起今天。\n\n",
+                "这不是失败结算，是生存账。你把当场风险压低，也把后续被轻视的压力背到了下一页。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "yield"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.argue",
-            "你压低声音回了一句，把话锋挡回去半寸。对方一时找不到借口，旁人却都听见了你的不顺从；争辩没有让你赢，只让账本多了一条“会顶嘴”的注脚。",
+            concat!(
+                "你压低声音回了一句，没有让话题炸开，只把对方递来的刺挡回去半寸。对方一时找不到更好借口，笑声也短了一拍。\n\n",
+                "但学堂里最不缺的就是耳朵。旁人都听见了你的不顺从，也看见你没有被第一句话压下去。争辩没有让你赢，它只是让账本多了一条“会顶嘴”的注脚。\n\n",
+                "这条注脚有时能挡住小麻烦，有时也会引来更正式的盯防。你换回一点体面，同时把自己写得更显眼。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "argue"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.confront",
-            "你硬撑住对练和羞辱，咬牙不退。那一刻没人能说你软弱，身体却替你记下代价，下一段窗口也被压得更窄；公开硬顶能止住一口气，却换不来真正安全。",
+            concat!(
+                "你硬撑住对练和羞辱，咬牙不退。真元在空窍里顶得发涩，月光蛊也被迫跟着绷紧，像一根被拉到极限的弦。\n\n",
+                "那一刻没人能说你软弱，甚至有人会把目光收回去半寸。可身体替你记下代价，后续窗口也被压得更窄；公开硬顶能止住一口气，却换不来真正安全。\n\n",
+                "学堂会记住两件事：你能顶，也会伤。前者让人忌惮，后者让人知道下一次该从哪里下手。"
+            ),
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "confront"],
@@ -4316,9 +4356,13 @@ fn setup_dialogue_view(
         .collect::<Vec<_>>();
 
     let mut paragraphs = vec![format!(
-        "开窍大典余声未散，{}。人生重开不是脱离家族账册，而是从第一笔出身、天赋和资源压力开始。",
+        "开窍大典余声未散，{}。族中已经把资质、出身和资源份额写入名册；从这一刻起，你不是站在故事外重开，而是被青茅山秩序正式记账。",
         opening.summary
     )];
+    paragraphs.push(
+        "人生重开不是脱离家族账册，而是从第一笔出身、天赋和资源压力开始。强天赋可以改变开局手感，却不能替你跳过开窍、炼化、元石、债务和锚点压力。"
+            .to_string(),
+    );
 
     if let Some(origin) = selected_origin {
         paragraphs.push(format!(
