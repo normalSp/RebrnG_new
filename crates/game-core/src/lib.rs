@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.4.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.5.0";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
 pub const RULES_VERSION: &str = "sprint4-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
@@ -3952,7 +3952,7 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.scout.merit_notice",
-            "你在功绩告示旁核对机会，记下一点可用功绩。",
+            "你在功绩告示前停下，木牌上每一行任务都压着印记：谁领了、谁交了、谁还欠回报。你记下一点可用功绩，也看见告示旁留给审计的空格。制度内的路更稳，却不是没人盯。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "merit"],
@@ -3966,14 +3966,14 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.scout.merit_audit",
-            "功绩告示旁不只写机会，也写着谁会查账、谁会记仇。",
+            "你顺着功绩告示核对审计缝隙，发现能多记一分机会，也会多留一分痕迹。这里的积累讲规矩，规矩后面是族老、学堂和同辈的眼睛；拿得太急，账会反过来咬人。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "merit", "audit"],
         ),
         content_narrative(
             "s0.action.scout.infirmary_lane",
-            "药堂侧巷的价码不只算元石，还算人情和下一次被追索的时机。",
+            "药堂侧巷药味发苦，价码挂得冷：元石、人情、欠条，哪一种都能治伤，也都会追到后面。你记下恢复门路，同时明白这里不是避风港，只是把伤势换成另一页债。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "infirmary", "debt"],
@@ -3987,91 +3987,91 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.scout.clan_alley_rumor",
-            "巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。",
+            "山寨巷道里话音压得很低，有人提到暗口，又立刻换了称呼。你从脚步和眼神里摸到一截黑市门路：不是店铺，不是招牌，是一条会把尾巴带到你身后的缝。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "scout", "alley", "blackmarket"],
         ),
         content_narrative(
             "s0.action.scout.inheritance_rumor",
-            "传承残线半真半假，能记进账本，但不能当作稳妥出路。",
+            "你查验传承残线，竹影、旧刻痕和传闻彼此对不上，却又都不像全假。它能记进线索页，不能记成收益；越像机会，越要先问自己有没有命把下一段窗口走完。",
             EvidenceLevel::SandboxIf,
             sandbox_only(),
             &["narrative", "scout", "inheritance", "rumor"],
         ),
         content_narrative(
             "s0.action.recover.default",
-            "你换来一口喘息，也把债写进药堂账页。",
+            "药堂的药敷上去很快发热，疼痛被压下，账也同时落笔。你换来一口喘息，伤势压力被挪成药堂债和人情债；这不是宽恕，只是把催命声推到后面。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "recover", "infirmary"],
         ),
         content_narrative(
             "s0.action.recover.heavy_to_light",
-            "药堂处理重伤，伤势降为轻伤，债仍跟着你。",
+            "药堂把重伤压回轻伤，血腥味被药味盖住，身体终于能听你使唤。代价没有消失，药童在账册边角添了一笔，你以后每次经过这里都会被那一眼认出来。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "recover", "infirmary", "injury"],
         ),
         content_narrative(
             "s0.action.recover.light_to_healthy",
-            "药堂清掉轻伤，又在债账上添了一笔。",
+            "轻伤被处理干净，行动重新顺手。药堂没有多问你的来路，只把药资和人情记得分明；账面变整齐了，后面的追索也更清楚了。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "recover", "infirmary", "injury"],
         ),
         content_narrative(
             "s0.action.trade.blackmarket_hint",
-            "你在暗口换来材料，门路和风险一起上涨。",
+            "你在黑市暗口用元石换来材料，交易短得像一次错身。对方不问姓名，却记住了你的声音和迟疑；材料入袋，暴露也跟着上涨。",
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
             &["narrative", "trade", "blackmarket"],
         ),
         content_narrative(
             "s0.encounter.blackmarket_extortion.trigger",
-            "黑市边路有人拦住去路，勒索的风险已经明牌。",
+            "深夜的暗口没有招牌，只有墙根处忽然停下的脚步。两道人影堵住退路，开口不是报价，而是要你交出身上值钱的东西；黑市还没给机会，先把勒索摆到面前。",
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
             &["narrative", "encounter", "blackmarket", "extortion"],
         ),
         content_narrative(
             "s0.encounter.blackmarket_extortion.retreat",
-            "你选择跑路，丢一点脸面和掩护，保住筋骨。",
+            "你没有逞强，借巷道阴影抽身后撤。背后传来低笑，脸面和掩护都折了一截，但筋骨还在，月光蛊也还在；活着离开，本身就是这一晚最实在的收益。",
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
             &["narrative", "encounter", "retreat"],
         ),
         content_narrative(
             "s0.encounter.blackmarket_extortion.confront",
-            "你硬顶勒索，代价落在元石和伤势上。",
+            "你硬顶勒索，真元和胆气都顶上去，结果换来的不是胜利，而是一记更重的教训。元石被榨去，伤势压进身体，暗口的人也记住你不是好捏的，但这份记住未必是好事。",
             EvidenceLevel::GameplayExtrapolated,
             all_modes(),
             &["narrative", "encounter", "confront"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.trigger",
-            "月光修行的痕迹一深，学堂里的目光就压了过来。",
+            "月光修行的痕迹一深，学堂里的目光就开始聚拢。有人故意把话说得很响，逼你在众人面前给出反应；这不是正式惩戒，却比惩戒更容易留下名声。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "public_pressure"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.yield",
-            "你忍下一句刺耳话，脸面被踩了一脚，但局面没有失控。",
+            "你垂下眼，忍下那句刺耳的话。周围有轻笑掠过，像冷水一样贴在后颈；局面没有失控，名声却被踩出一道浅痕。今天保住窗口，明天还要背着这道痕走。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "yield"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.argue",
-            "你回了一句，声音不高，却足够让旁人记住这笔账。",
+            "你压低声音回了一句，把话锋挡回去半寸。对方一时找不到借口，旁人却都听见了你的不顺从；争辩没有让你赢，只让账本多了一条“会顶嘴”的注脚。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "argue"],
         ),
         content_narrative(
             "s0.encounter.academy_public_pressure.confront",
-            "你硬撑住对练和羞辱，伤不重，但下一段窗口被压得更窄。",
+            "你硬撑住对练和羞辱，咬牙不退。那一刻没人能说你软弱，身体却替你记下代价，下一段窗口也被压得更窄；公开硬顶能止住一口气，却换不来真正安全。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "encounter", "academy", "confront"],
@@ -6162,7 +6162,7 @@ fn subsystem_resolution(
                 });
                 outcome.ledger_kind = "encounter".to_string();
                 outcome.ledger_text = format!(
-                    "黑市边路有人拦住去路，勒索的风险已经明牌：{}",
+                    "深夜暗口忽然有人堵住退路，勒索先于交易摆到面前：{}",
                     encounter.known_risk
                 );
                 outcome.narrative_id = Some(format!("s0.encounter.{}.trigger", encounter.id));
@@ -6235,12 +6235,12 @@ fn subsystem_resolution(
             } else if target == "merit_notice" {
                 outcome.merit_delta = 1;
                 outcome.remember_clue("rumor_merit_audit");
-                outcome.ledger_text = "你在功绩告示旁核对机会，记下一点可用功绩。".to_string();
+                outcome.ledger_text = "你在功绩告示前停下，记下一点可用功绩，也看见告示旁留给审计的空格。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.merit_notice".to_string());
             } else if target == "infirmary_lane" {
                 outcome.remember_clue("rumor_infirmary_debt");
                 outcome.ledger_text =
-                    "药堂侧巷的价码不只算元石，还算人情和下一次被追索的时机。".to_string();
+                    "药堂侧巷药味发苦，价码挂得冷；恢复门路也会把伤势换成另一页债。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.infirmary_lane".to_string());
             } else if target == "branch_lodging" {
                 outcome.remember_clue("rumor_family_debt");
@@ -6252,19 +6252,19 @@ fn subsystem_resolution(
                 outcome.remember_clue("rumor_blackmarket_tail");
                 outcome.remember_clue("rumor_alley_probe");
                 outcome.ledger_text =
-                    "巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。".to_string();
+                    "山寨巷道里有人提到暗口，又立刻换了称呼；黑市门路有了，尾巴也有了。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.clan_alley_rumor".to_string());
             } else if target == "inheritance_rumor" {
                 outcome.remember_clue("rumor_inheritance_bamboo");
                 outcome.ledger_text =
-                    "传承残线半真半假，能记进账本，但不能当作稳妥出路。".to_string();
+                    "传承残线半真半假，能记进线索页，不能记成收益。".to_string();
                 outcome.narrative_id = Some("s0.action.scout.inheritance_rumor".to_string());
             }
             Ok(outcome)
         }
         ActionIntent::Recover => {
             let mut outcome =
-                SubsystemOutcome::new("action", "你换来一口喘息，也把债写进药堂账页。")
+                SubsystemOutcome::new("action", "药堂压下伤势，也把药堂债和人情债写上账页。")
                     .with_narrative_id("s0.action.recover.default");
             outcome.infirmary_debt_delta = 1;
             outcome.favor_debt_delta = 1;
@@ -6272,13 +6272,13 @@ fn subsystem_resolution(
                 InjuryLevel::Heavy => {
                     outcome.injury_level = Some(InjuryLevel::Light);
                     outcome.injury_ap_penalty_pending = Some(false);
-                    outcome.ledger_text = "药堂处理重伤，伤势降为轻伤，债仍跟着你。".to_string();
+                    outcome.ledger_text = "药堂把重伤压回轻伤，身体能动了，债也被记得更清楚。".to_string();
                     outcome.narrative_id = Some("s0.action.recover.heavy_to_light".to_string());
                 }
                 InjuryLevel::Light => {
                     outcome.injury_level = Some(InjuryLevel::Healthy);
                     outcome.injury_ap_penalty_pending = Some(false);
-                    outcome.ledger_text = "药堂清掉轻伤，又在债账上添了一笔。".to_string();
+                    outcome.ledger_text = "轻伤被处理干净，药资和人情也被记得分明。".to_string();
                     outcome.narrative_id = Some("s0.action.recover.light_to_healthy".to_string());
                 }
                 InjuryLevel::Healthy => {}
@@ -6287,7 +6287,7 @@ fn subsystem_resolution(
         }
         ActionIntent::Trade => {
             let mut outcome =
-                SubsystemOutcome::new("action", "你在暗口换来材料，门路和风险一起上涨。")
+                SubsystemOutcome::new("action", "你在黑市暗口换来材料，交易很短，暴露却跟着上涨。")
                     .with_narrative_id("s0.action.trade.blackmarket_hint");
             outcome.materials_delta = 1;
             outcome.exposure_delta = 2;

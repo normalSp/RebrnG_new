@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 
 import {
   buildMockCandidates,
+  loadTargetsFromFile,
+  normalizeCandidateFromTarget,
   scanRuntimeRedline,
   validateCandidate,
   validateCandidateDirectory,
@@ -54,6 +56,31 @@ test("candidate validation rejects approved status and unsafe archived fields", 
   );
 });
 
+test("network candidate normalization pins target metadata from the requested slot", () => {
+  const [target] = buildMockCandidates().map((candidate) => ({
+    target_content_id: candidate.target_content_id,
+    target_slot: candidate.target_slot,
+    mode: candidate.mode,
+    evidence: candidate.evidence,
+    state_assumptions: candidate.state_assumptions,
+    risk_notes: candidate.risk_notes,
+  }));
+  const candidate = normalizeCandidateFromTarget(
+    {
+      candidate_text: "候选正文只用于离线审校。",
+    },
+    target,
+  );
+
+  assert.equal(candidate.candidate_id, "s0_action_claim_moonlight_gu_action_result_v001");
+  assert.equal(candidate.target_content_id, target.target_content_id);
+  assert.equal(candidate.target_slot, target.target_slot);
+  assert.equal(candidate.mode, target.mode);
+  assert.equal(candidate.evidence, target.evidence);
+  assert.equal(candidate.review_status, "needs_review");
+  assert.doesNotThrow(() => validateCandidate(candidate));
+});
+
 test("writeCandidates writes JSON candidates that validate from a local directory", async () => {
   const dir = await tempDir("deepseek-candidates");
   try {
@@ -68,6 +95,68 @@ test("writeCandidates writes JSON candidates that validate from a local director
     const result = await validateCandidateDirectory(dir);
     assert.equal(result.valid, 2);
     assert.equal(result.invalid, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("writeCandidates uses target slots for stable filenames instead of model candidate ids", async () => {
+  const dir = await tempDir("deepseek-stable-filenames");
+  try {
+    const [first, second] = buildMockCandidates().slice(0, 2);
+    const written = await writeCandidates(
+      [
+        { ...first, candidate_id: "model_returned_duplicate_id" },
+        { ...second, candidate_id: "model_returned_duplicate_id" },
+      ],
+      dir,
+    );
+
+    assert.equal(written.length, 2);
+    assert.equal(new Set(written).size, 2);
+    assert.ok(written[0].endsWith(`${first.target_content_id}_${first.target_slot}.json`.replace(/[^a-zA-Z0-9_.-]+/g, "_")));
+    assert.ok(written[1].endsWith(`${second.target_content_id}_${second.target_slot}.json`.replace(/[^a-zA-Z0-9_.-]+/g, "_")));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("target files drive mock candidates without adding unsafe archived fields", async () => {
+  const dir = await tempDir("deepseek-targets");
+  try {
+    const targetFile = path.join(dir, "targets.json");
+    await writeFile(
+      targetFile,
+      JSON.stringify(
+        {
+          targets: [
+            {
+              target_content_id: "s0.action.scout.merit_notice",
+              target_slot: "action_result",
+              mode: "canon_strict",
+              evidence: "canon_inferred",
+              candidate_text: "功绩告示不是白送的机会，它也把审计视线写进账本。",
+              state_assumptions: ["玩家位于功绩告示处", "本行动只写文本候选，不改功绩规则"],
+              risk_notes: ["不得生成额外奖励", "不得跳过 AP 或窗口代价"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const targets = await loadTargetsFromFile(targetFile);
+    const candidates = buildMockCandidates(targets);
+
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].target_content_id, "s0.action.scout.merit_notice");
+    assert.equal(candidates[0].target_slot, "action_result");
+    assert.equal(candidates[0].candidate_text, "功绩告示不是白送的机会，它也把审计视线写进账本。");
+    assert.equal(candidates[0].review_status, "needs_review");
+    assert.equal(Object.hasOwn(candidates[0], "prompt"), false);
+    assert.doesNotThrow(() => validateCandidate(candidates[0]));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -48,6 +48,7 @@ const CANDIDATE_ARRAY_FIELDS = ["state_assumptions", "risk_notes"];
 const ALLOWED_MODES = new Set(["canon_strict", "sandbox_if"]);
 const ALLOWED_EVIDENCE = new Set(["canon_explicit", "canon_inferred", "project_inferred", "sandbox_if"]);
 const ALLOWED_REVIEW_OVERALL = new Set(["pass", "pass_with_notes", "needs_revision", "fail"]);
+const TARGET_ARRAY_FIELDS = ["state_assumptions", "risk_notes"];
 
 const RUNTIME_REDLINE_MARKERS = [
   "DEEPSEEK_API_KEY",
@@ -160,6 +161,10 @@ function candidateIdFor(target) {
   return `${target.target_content_id}.${target.target_slot}`.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") + "_v001";
 }
 
+function candidateFileName(candidate) {
+  return `${candidate.target_content_id}_${candidate.target_slot}`.replace(/[^a-zA-Z0-9_.-]+/g, "_").replace(/^_|_$/g, "") + ".json";
+}
+
 export function buildMockCandidates(targets = DEFAULT_TARGETS) {
   return targets.map((target) => ({
     candidate_id: candidateIdFor(target),
@@ -167,12 +172,74 @@ export function buildMockCandidates(targets = DEFAULT_TARGETS) {
     target_slot: target.target_slot,
     mode: target.mode ?? "canon_strict",
     evidence: target.evidence,
-    candidate_text: target.candidate_text,
+    candidate_text:
+      target.candidate_text ??
+      `离线 mock 候选：${target.target_content_id} / ${target.target_slot}。此文本只用于校验流程，不能直接入库。`,
     state_assumptions: target.state_assumptions,
     risk_notes: target.risk_notes,
     review_status: "needs_review",
     review_notes: "",
   }));
+}
+
+export function validateTarget(target) {
+  if (!target || typeof target !== "object" || Array.isArray(target)) {
+    throw new Error("target must be an object");
+  }
+  for (const field of ["target_content_id", "target_slot", "mode", "evidence"]) {
+    if (typeof target[field] !== "string" || target[field].trim() === "") {
+      throw new Error(`${field} must be a non-empty string`);
+    }
+  }
+  if (!ALLOWED_MODES.has(target.mode)) {
+    throw new Error("target mode must be canon_strict or sandbox_if");
+  }
+  if (!ALLOWED_EVIDENCE.has(target.evidence)) {
+    throw new Error("target evidence is not allowed");
+  }
+  if (target.candidate_text !== undefined && (typeof target.candidate_text !== "string" || target.candidate_text.trim() === "")) {
+    throw new Error("candidate_text must be a non-empty string when provided");
+  }
+  for (const field of TARGET_ARRAY_FIELDS) {
+    if (!Array.isArray(target[field]) || target[field].some((value) => typeof value !== "string")) {
+      throw new Error(`${field} must be an array of strings`);
+    }
+  }
+  return true;
+}
+
+export function normalizeCandidateFromTarget(candidate, target) {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("candidate must be an object");
+  }
+  validateTarget(target);
+  return {
+    ...candidate,
+    candidate_id:
+      typeof candidate.candidate_id === "string" && candidate.candidate_id.trim() !== ""
+        ? candidate.candidate_id
+        : candidateIdFor(target),
+    target_content_id: target.target_content_id,
+    target_slot: target.target_slot,
+    mode: target.mode,
+    evidence: target.evidence,
+    state_assumptions: Array.isArray(candidate.state_assumptions) ? candidate.state_assumptions : target.state_assumptions,
+    risk_notes: Array.isArray(candidate.risk_notes) ? candidate.risk_notes : target.risk_notes,
+    review_status: "needs_review",
+    review_notes: typeof candidate.review_notes === "string" ? candidate.review_notes : "",
+  };
+}
+
+export async function loadTargetsFromFile(file) {
+  const raw = JSON.parse(await readFile(file, "utf8"));
+  const targets = Array.isArray(raw) ? raw : raw?.targets;
+  if (!Array.isArray(targets)) {
+    throw new Error("targets file must contain an array or a targets array");
+  }
+  for (const target of targets) {
+    validateTarget(target);
+  }
+  return targets;
 }
 
 export function validateCandidate(candidate) {
@@ -254,7 +321,7 @@ export async function writeCandidates(candidates, outDir = DEFAULT_OUT_DIR) {
   const written = [];
   for (const candidate of candidates) {
     validateCandidate(candidate);
-    const file = path.join(outDir, `${candidate.candidate_id}.json`);
+    const file = path.join(outDir, candidateFileName(candidate));
     await writeFile(file, `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
     written.push(file);
   }
@@ -343,21 +410,25 @@ async function exists(file) {
 
 async function generateCommand(options) {
   const outDir = options.out ?? DEFAULT_OUT_DIR;
+  const targets = options.targets ? await loadTargetsFromFile(options.targets) : DEFAULT_TARGETS;
   const allowNetwork = Boolean(options["allow-network"]);
   const mock = Boolean(options.mock) || !allowNetwork || !process.env.DEEPSEEK_API_KEY;
 
   if (mock) {
-    const candidates = buildMockCandidates();
+    const candidates = buildMockCandidates(targets);
     const written = await writeCandidates(candidates, outDir);
     return { mode: "mock", written };
   }
 
-  const candidate = await requestDeepSeekCandidate();
-  const written = await writeCandidates([candidate], outDir);
+  const candidates = [];
+  for (const target of targets) {
+    candidates.push(await requestDeepSeekCandidate(target));
+  }
+  const written = await writeCandidates(candidates, outDir);
   return { mode: "network", written };
 }
 
-async function requestDeepSeekCandidate() {
+async function requestDeepSeekCandidate(target) {
   const baseUrl = process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || DEFAULT_MODEL;
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -373,16 +444,11 @@ async function requestDeepSeekCandidate() {
         {
           role: "system",
           content:
-            "你是 RebrnG 离线候选文本生成助手。只输出 needs_review 候选 JSON，不保存 prompt、response、模型名或思维链。",
+            "你是 RebrnG 离线候选文本生成助手。只输出一个 JSON 对象，字段必须限定为 candidate_id、target_content_id、target_slot、mode、evidence、candidate_text、state_assumptions、risk_notes、review_status、review_notes。review_status 必须是 needs_review。不要输出 prompt、response、model、api_key、reasoning_content 或 thinking_chain。",
         },
         {
           role: "user",
-          content: JSON.stringify({
-            target_content_id: "s0.action.cultivate_moonlight",
-            target_slot: "action_result",
-            mode: "canon_strict",
-            evidence: "canon_inferred",
-          }),
+          content: JSON.stringify(target),
         },
       ],
     }),
@@ -395,7 +461,11 @@ async function requestDeepSeekCandidate() {
   if (typeof content !== "string") {
     throw new Error("DeepSeek response missing JSON content");
   }
-  const candidate = JSON.parse(content);
+  const parsed = JSON.parse(content);
+  const candidate = normalizeCandidateFromTarget(
+    parsed?.candidate && typeof parsed.candidate === "object" ? parsed.candidate : parsed,
+    target,
+  );
   validateCandidate(candidate);
   return candidate;
 }
@@ -470,7 +540,9 @@ async function main(argv = process.argv.slice(2)) {
     console.log(JSON.stringify(result, null, 2));
     return;
   }
-  throw new Error("usage: deepseek-candidates.mjs generate|review|validate|redline [--mock] [--allow-network] [--out DIR] [--dir DIR]");
+  throw new Error(
+    "usage: deepseek-candidates.mjs generate|review|validate|redline [--mock] [--allow-network] [--targets FILE] [--out DIR] [--dir DIR]",
+  );
 }
 
 const currentFile = fileURLToPath(import.meta.url);

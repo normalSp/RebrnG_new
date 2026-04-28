@@ -76,19 +76,19 @@ narratives:
     tags: [narrative, scout, merit]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你在功绩告示旁核对机会，记下一点可用功绩。
+    text: 你在功绩告示前停下，木牌上每一行任务都压着印记：谁领了、谁交了、谁还欠回报。你记下一点可用功绩，也看见告示旁留给审计的空格。制度内的路更稳，却不是没人盯。
   - id: s0.action.scout.merit_audit
     stage: s0
     tags: [narrative, scout, merit, audit]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 功绩告示旁不只写机会，也写着谁会查账、谁会记仇。
+    text: 你顺着功绩告示核对审计缝隙，发现能多记一分机会，也会多留一分痕迹。这里的积累讲规矩，规矩后面是族老、学堂和同辈的眼睛；拿得太急，账会反过来咬人。
   - id: s0.action.scout.infirmary_lane
     stage: s0
     tags: [narrative, scout, infirmary, debt]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 药堂侧巷的价码不只算元石，还算人情和下一次被追索的时机。
+    text: 药堂侧巷药味发苦，价码挂得冷：元石、人情、欠条，哪一种都能治伤，也都会追到后面。你记下恢复门路，同时明白这里不是避风港，只是把伤势换成另一页债。
   - id: s0.action.scout.branch_lodging
     stage: s0
     tags: [narrative, scout, branch, debt]
@@ -100,79 +100,79 @@ narratives:
     tags: [narrative, scout, alley, blackmarket]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 巷道里有人提到暗口，又立刻噤声；门路有了，暴露也跟着有了轮廓。
+    text: 山寨巷道里话音压得很低，有人提到暗口，又立刻换了称呼。你从脚步和眼神里摸到一截黑市门路：不是店铺，不是招牌，是一条会把尾巴带到你身后的缝。
   - id: s0.action.scout.inheritance_rumor
     stage: s0
     tags: [narrative, scout, inheritance, rumor]
     evidence: sandbox_if
     modes: [sandbox_if]
-    text: 传承残线半真半假，能记进账本，但不能当作稳妥出路。
+    text: 你查验传承残线，竹影、旧刻痕和传闻彼此对不上，却又都不像全假。它能记进线索页，不能记成收益；越像机会，越要先问自己有没有命把下一段窗口走完。
   - id: s0.action.recover.default
     stage: s0
     tags: [narrative, recover, infirmary]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你换来一口喘息，也把债写进药堂账页。
+    text: 药堂的药敷上去很快发热，疼痛被压下，账也同时落笔。你换来一口喘息，伤势压力被挪成药堂债和人情债；这不是宽恕，只是把催命声推到后面。
   - id: s0.action.recover.heavy_to_light
     stage: s0
     tags: [narrative, recover, infirmary, injury]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 药堂处理重伤，伤势降为轻伤，债仍跟着你。
+    text: 药堂把重伤压回轻伤，血腥味被药味盖住，身体终于能听你使唤。代价没有消失，药童在账册边角添了一笔，你以后每次经过这里都会被那一眼认出来。
   - id: s0.action.recover.light_to_healthy
     stage: s0
     tags: [narrative, recover, infirmary, injury]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 药堂清掉轻伤，又在债账上添了一笔。
+    text: 轻伤被处理干净，行动重新顺手。药堂没有多问你的来路，只把药资和人情记得分明；账面变整齐了，后面的追索也更清楚了。
   - id: s0.action.trade.blackmarket_hint
     stage: s0
     tags: [narrative, trade, blackmarket]
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
-    text: 你在暗口换来材料，门路和风险一起上涨。
+    text: 你在黑市暗口用元石换来材料，交易短得像一次错身。对方不问姓名，却记住了你的声音和迟疑；材料入袋，暴露也跟着上涨。
   - id: s0.encounter.blackmarket_extortion.trigger
     stage: s0
     tags: [narrative, encounter, blackmarket, extortion]
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
-    text: 黑市边路有人拦住去路，勒索的风险已经明牌。
+    text: 深夜的暗口没有招牌，只有墙根处忽然停下的脚步。两道人影堵住退路，开口不是报价，而是要你交出身上值钱的东西；黑市还没给机会，先把勒索摆到面前。
   - id: s0.encounter.blackmarket_extortion.retreat
     stage: s0
     tags: [narrative, encounter, retreat]
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
-    text: 你选择跑路，丢一点脸面和掩护，保住筋骨。
+    text: 你没有逞强，借巷道阴影抽身后撤。背后传来低笑，脸面和掩护都折了一截，但筋骨还在，月光蛊也还在；活着离开，本身就是这一晚最实在的收益。
   - id: s0.encounter.blackmarket_extortion.confront
     stage: s0
     tags: [narrative, encounter, confront]
     evidence: gameplay_extrapolated
     modes: [canon_strict, sandbox_if]
-    text: 你硬顶勒索，代价落在元石和伤势上。
+    text: 你硬顶勒索，真元和胆气都顶上去，结果换来的不是胜利，而是一记更重的教训。元石被榨去，伤势压进身体，暗口的人也记住你不是好捏的，但这份记住未必是好事。
   - id: s0.encounter.academy_public_pressure.trigger
     stage: s0
     tags: [narrative, encounter, academy, public_pressure]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 月光修行的痕迹一深，学堂里的目光就压了过来。
+    text: 月光修行的痕迹一深，学堂里的目光就开始聚拢。有人故意把话说得很响，逼你在众人面前给出反应；这不是正式惩戒，却比惩戒更容易留下名声。
   - id: s0.encounter.academy_public_pressure.yield
     stage: s0
     tags: [narrative, encounter, academy, yield]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你忍下一句刺耳话，脸面被踩了一脚，但局面没有失控。
+    text: 你垂下眼，忍下那句刺耳的话。周围有轻笑掠过，像冷水一样贴在后颈；局面没有失控，名声却被踩出一道浅痕。今天保住窗口，明天还要背着这道痕走。
   - id: s0.encounter.academy_public_pressure.argue
     stage: s0
     tags: [narrative, encounter, academy, argue]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你回了一句，声音不高，却足够让旁人记住这笔账。
+    text: 你压低声音回了一句，把话锋挡回去半寸。对方一时找不到借口，旁人却都听见了你的不顺从；争辩没有让你赢，只让账本多了一条“会顶嘴”的注脚。
   - id: s0.encounter.academy_public_pressure.confront
     stage: s0
     tags: [narrative, encounter, academy, confront]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你硬撑住对练和羞辱，伤不重，但下一段窗口被压得更窄。
+    text: 你硬撑住对练和羞辱，咬牙不退。那一刻没人能说你软弱，身体却替你记下代价，下一段窗口也被压得更窄；公开硬顶能止住一口气，却换不来真正安全。
   - id: s0.encounter.alley_probe.trigger
     stage: s0
     tags: [narrative, encounter, alley, probe]

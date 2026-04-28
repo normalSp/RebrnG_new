@@ -1,0 +1,247 @@
+{
+  "version": "sprint6-targets-v1",
+  "description": "Sprint 6 四路线沉浸文本扩写候选槽位。DeepSeek 输出只作为本地候选，人工审校后才允许入库。",
+  "targets": [
+    {
+      "target_content_id": "s0.action.check_merit_notice",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家位于功绩告示处",
+        "本行动用于观察制度内资源与审计压力",
+        "不改变既有 AP、功绩或暴露规则"
+      ],
+      "risk_notes": [
+        "不得把功绩写成白送奖励",
+        "不得生成额外资源",
+        "必须体现被登记和被看见的制度压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.audit_merit_notice",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家正在功绩告示处查验审计缝隙",
+        "功绩线是稳健积累路线",
+        "收益必须伴随窗口消耗和被审视压力"
+      ],
+      "risk_notes": [
+        "不得写成钻空子稳定暴富",
+        "不得取消制度审计",
+        "不得暴露隐藏数值"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.ask_infirmary_price",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家位于药堂侧巷",
+        "本行动用于询价和理解恢复代价",
+        "药堂债与人情债仍由现有规则结算"
+      ],
+      "risk_notes": [
+        "不得写成免费治疗",
+        "不得把药堂写成稳定安全区",
+        "必须体现账册、人情和追索感"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.recover",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在药堂节点进行恢复",
+        "恢复会把伤势压力转化为药堂债或人情债",
+        "不改变恢复规则和债务数值"
+      ],
+      "risk_notes": [
+        "不得直接清空长期后果",
+        "不得让药堂成为无代价避风港",
+        "必须写出被记账的恢复"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.listen_clan_alley_rumor",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在山寨巷道听风声",
+        "黑市门路必须先由线索或知识状态解锁",
+        "本行动不直接进入黑市交易"
+      ],
+      "risk_notes": [
+        "不得让黑市开局可见",
+        "不得把黑市写成公开商店",
+        "必须体现尾巴、风声和暴露风险"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.probe_blackmarket_hint",
+      "target_slot": "action_result",
+      "mode": "canon_strict",
+      "evidence": "project_inferred",
+      "state_assumptions": [
+        "玩家已接近黑市暗口",
+        "黑市交易需要门路、时段和风险窗口",
+        "交易结果仍由现有规则控制"
+      ],
+      "risk_notes": [
+        "不得写成宝黄天前身",
+        "不得写成稳定安全交易",
+        "必须体现暗口接触和暴露压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.blackmarket_extortion",
+      "target_slot": "trigger",
+      "mode": "canon_strict",
+      "evidence": "project_inferred",
+      "state_assumptions": [
+        "深夜接近黑市暗口后触发边路勒索",
+        "遭遇不重置 AP",
+        "跑路通常优于硬顶"
+      ],
+      "risk_notes": [
+        "不得写成完整战斗系统",
+        "不得给稳定胜利奖励",
+        "必须体现勒索、暴露和撤退价值"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.blackmarket_extortion.retreat",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "project_inferred",
+      "state_assumptions": [
+        "玩家选择从黑市勒索中跑路",
+        "跑路会付出 AP 或暴露等现有规则代价",
+        "跑路是核心生存技，不是失败按钮"
+      ],
+      "risk_notes": [
+        "不得羞辱玩家跑路",
+        "不得取消跑路代价",
+        "必须体现保命和后续被盯风险"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.blackmarket_extortion.confront",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "project_inferred",
+      "state_assumptions": [
+        "玩家选择硬顶黑市勒索",
+        "硬顶会进入重创可续或资源损失语义",
+        "不改变现有伤势和暴露结算"
+      ],
+      "risk_notes": [
+        "不得写成爽文反杀",
+        "不得给无代价收益",
+        "必须强调重创可续而非立刻死亡"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.verify_inheritance_rumor",
+      "target_slot": "action_result",
+      "mode": "sandbox_if",
+      "evidence": "sandbox_if",
+      "state_assumptions": [
+        "玩家在高风险传承残线处查验半真半假线索",
+        "传承线在 S0 只给线索、诱惑和风险",
+        "不发放稳定奖励"
+      ],
+      "risk_notes": [
+        "不得在 canon_strict 中硬改原著机缘",
+        "不得稳定获得完整传承",
+        "不得绑定方源或改写花酒行者硬事实"
+      ]
+    },
+    {
+      "target_content_id": "s0.action.chase_inheritance_rumor",
+      "target_slot": "action_result",
+      "mode": "sandbox_if",
+      "evidence": "sandbox_if",
+      "state_assumptions": [
+        "玩家被传承传闻诱导，向残线移动",
+        "移动与查验必须消耗窗口或增加风险",
+        "撤退仍应保留不安和线索余波"
+      ],
+      "risk_notes": [
+        "不得写成稳定拿传承",
+        "不得跳过风险窗口",
+        "必须体现半真半假和撤退价值"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure",
+      "target_slot": "trigger",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "月光修行痕迹被学堂秩序或同辈压力看见",
+        "这是制度压迫遭遇，不是完整战斗",
+        "已有线索可缓解部分决断压力"
+      ],
+      "risk_notes": [
+        "不得写成爽文打脸",
+        "不得硬改原著核心人物",
+        "必须体现公开压力和路线代价"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure.yield",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在学堂公开压力中选择忍让",
+        "忍让是保命或降温选择",
+        "不改变既有决断成本"
+      ],
+      "risk_notes": [
+        "不得把忍让写成完全无代价",
+        "不得羞辱玩家选择生存",
+        "必须体现名声或后续视线压力"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure.argue",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在学堂公开压力中选择争辩",
+        "争辩可能缓解当场压力，但更容易被记住",
+        "已有学堂压力线索可提供部分缓解"
+      ],
+      "risk_notes": [
+        "不得写成稳定胜利",
+        "不得让争辩无后果",
+        "必须体现制度内发声的代价"
+      ]
+    },
+    {
+      "target_content_id": "s0.encounter.academy_public_pressure.confront",
+      "target_slot": "decision_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "state_assumptions": [
+        "玩家在学堂公开压力中选择硬顶",
+        "硬顶会带来更强暴露、伤势或后续盯防",
+        "不改变现有遭遇结算"
+      ],
+      "risk_notes": [
+        "不得写成打脸爽点",
+        "不得给稳定收益",
+        "必须体现硬顶后的压迫余波"
+      ]
+    }
+  ]
+}
+
