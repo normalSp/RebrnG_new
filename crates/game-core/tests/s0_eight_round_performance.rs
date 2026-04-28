@@ -21,12 +21,13 @@ fn s0_eight_round_script_reaches_anchor_with_performance_report() {
 
     for (intent, target) in [
         (ActionIntent::Scout, Some("academy_gate")),
+        (ActionIntent::ClaimGu, Some("moonlight_gu")),
+        (ActionIntent::RefineGu, Some("moonlight_gu")),
         (ActionIntent::Cultivate, Some("academy_gate")),
         (ActionIntent::Move, Some("merit_notice")),
         (ActionIntent::Scout, Some("merit_notice")),
         (ActionIntent::Wait, None),
         (ActionIntent::Move, Some("academy_gate")),
-        (ActionIntent::Wait, None),
         (ActionIntent::Move, Some("blackmarket_hint")),
         (ActionIntent::Retreat, Some("blackmarket_extortion")),
         (ActionIntent::Move, Some("infirmary_lane")),
@@ -133,6 +134,20 @@ fn stage_closure_marks_foundation_when_two_moonlight_cultivations_reach_anchor()
     let bundle = starter_content_bundle();
     let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
 
+    state = resolve_action(
+        state,
+        command(ActionIntent::ClaimGu, Some("moonlight_gu")),
+        &bundle,
+    )
+    .expect("claim moonlight gu should resolve")
+    .state;
+    state = resolve_action(
+        state,
+        command(ActionIntent::RefineGu, Some("moonlight_gu")),
+        &bundle,
+    )
+    .expect("refine moonlight gu should resolve")
+    .state;
     state = resolve_action(
         state,
         command(ActionIntent::Cultivate, Some("academy_gate")),

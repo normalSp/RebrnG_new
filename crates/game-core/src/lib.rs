@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 pub const DEFAULT_RUN_ID: &str = "sprint-0-active-run";
-pub const STARTER_CONTENT_VERSION: &str = "s0.3.0";
+pub const STARTER_CONTENT_VERSION: &str = "s0.3.1";
 pub const SAVE_FORMAT_VERSION: &str = "sprint0-save-v2";
-pub const RULES_VERSION: &str = "sprint3-rules-v1";
+pub const RULES_VERSION: &str = "sprint4-rules-v1";
 pub const DEFAULT_RNG_STATE: &str = "sprint_0_deterministic_seed";
 pub const DEFAULT_MIGRATION_STATE: &str = "none";
 
@@ -38,6 +38,9 @@ pub enum ActionIntent {
     Argue,
     Delay,
     Frame,
+    ClaimGu,
+    RefineGu,
+    InspectGu,
     Wait,
 }
 
@@ -244,6 +247,111 @@ impl Default for VitalGuState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GuContainer {
+    Held,
+    Aperture,
+    Lodging,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RefinementState {
+    Unrefined,
+    Refining,
+    Refined,
+    Unstable,
+    ForeignTrace,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FeedingState {
+    Stable,
+    Warning,
+    Starving,
+    SpecialNeed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConditionState {
+    Intact,
+    Damaged,
+    Crippled,
+    NearDestroyed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GuBuildRole {
+    CoreCandidate,
+    Support,
+    Temporary,
+    None,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GuInstance {
+    pub instance_id: String,
+    pub gu_id: String,
+    pub rank: u8,
+    pub container: GuContainer,
+    pub refinement: RefinementState,
+    pub condition: ConditionState,
+    pub feeding: FeedingState,
+    pub build_role: GuBuildRole,
+}
+
+impl GuInstance {
+    fn player_moonlight_unrefined() -> Self {
+        Self {
+            instance_id: "player_moonlight_gu_001".to_string(),
+            gu_id: "moonlight_gu".to_string(),
+            rank: 1,
+            container: GuContainer::Held,
+            refinement: RefinementState::Unrefined,
+            condition: ConditionState::Intact,
+            feeding: FeedingState::Stable,
+            build_role: GuBuildRole::CoreCandidate,
+        }
+    }
+
+    fn is_stably_refined(&self) -> bool {
+        self.refinement == RefinementState::Refined
+            && self.condition != ConditionState::NearDestroyed
+            && self.feeding != FeedingState::Starving
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GuInventoryState {
+    pub instances: Vec<GuInstance>,
+}
+
+impl GuInventoryState {
+    pub fn moonlight_gu(&self) -> Option<&GuInstance> {
+        self.instances.iter().find(|gu| gu.gu_id == "moonlight_gu")
+    }
+
+    fn moonlight_gu_mut(&mut self) -> Option<&mut GuInstance> {
+        self.instances
+            .iter_mut()
+            .find(|gu| gu.gu_id == "moonlight_gu")
+    }
+
+    pub fn has_gu(&self, gu_id: &str) -> bool {
+        self.instances.iter().any(|gu| gu.gu_id == gu_id)
+    }
+
+    pub fn has_refined_gu(&self, gu_id: &str) -> bool {
+        self.instances
+            .iter()
+            .any(|gu| gu.gu_id == gu_id && gu.is_stably_refined())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildState {
     pub survival_route: String,
     pub main_path: Option<String>,
@@ -263,7 +371,7 @@ impl Default for BuildState {
             main_path: None,
             dao_mark_note: None,
             moonlight_cultivation_marks: 0,
-            core_gu: GuSlotState::core("月光蛊线索未稳", "当前路线核心候选"),
+            core_gu: GuSlotState::core("月光蛊（未领取）", "当前路线核心候选"),
             support_gu: GuSlotState::support("暂无", "尚无辅助蛊承托"),
             vital_gu: VitalGuState::default(),
             gap_summary: "缺口：缺稳定资源、缺支撑蛊、缺安全情报".to_string(),
@@ -328,6 +436,8 @@ pub struct GameState {
     pub knowledge: KnowledgeState,
     pub encounters: EncounterState,
     pub build: BuildState,
+    #[serde(default)]
+    pub gu_inventory: GuInventoryState,
     pub ledger: Vec<LedgerEntry>,
     #[serde(default)]
     pub setup_summary: Option<SetupSummary>,
@@ -851,6 +961,18 @@ pub struct BuildLedgerView {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GuLedgerView {
+    pub owned_count: usize,
+    pub moonlight_gu_status: String,
+    pub moonlight_container: String,
+    pub moonlight_condition: String,
+    pub moonlight_feeding: String,
+    pub core_gu_candidate: String,
+    pub vital_gu_status: String,
+    pub entries: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FactionRelationshipView {
     pub family_pressure: String,
     pub infirmary_debt: String,
@@ -986,6 +1108,7 @@ pub struct LedgerViewModel {
     pub build_summary: String,
     pub status_markers: Vec<StatusMarkerView>,
     pub build_view: BuildLedgerView,
+    pub gu_view: GuLedgerView,
     pub relationship_view: FactionRelationshipView,
     pub save_view: SaveLedgerView,
     pub action_choices: Vec<ActionChoiceView>,
@@ -1543,7 +1666,21 @@ impl ContentBundle {
             if let Some(target) = &action.target {
                 let target_is_encounter_decision = is_encounter_decision_intent(&action.intent)
                     && encounter_ids.contains_key(target);
-                if !node_ids.contains_key(target) && !target_is_encounter_decision {
+                let target_is_gu_action =
+                    is_gu_action_intent(&action.intent) && gu_spec_ids.contains_key(target);
+                if is_gu_action_intent(&action.intent) && !target_is_gu_action {
+                    return Err(CommandError::content(
+                        "蛊虫行动目标不存在",
+                        format!(
+                            "action '{}' target gu_spec '{}' not found",
+                            action.id, target
+                        ),
+                    ));
+                }
+                if !node_ids.contains_key(target)
+                    && !target_is_encounter_decision
+                    && !target_is_gu_action
+                {
                     return Err(CommandError::content(
                         "行动目标节点不存在",
                         format!("action '{}' target node '{}' not found", action.id, target),
@@ -2874,6 +3011,33 @@ fn starter_actions() -> Vec<ContentAction> {
             &["action", "scout"],
         ),
         action(
+            "claim_moonlight_gu",
+            "领取月光蛊",
+            ActionIntent::ClaimGu,
+            Some("moonlight_gu"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "gu", "moonlight", "claim"],
+        ),
+        action(
+            "refine_moonlight_gu",
+            "炼化月光蛊",
+            ActionIntent::RefineGu,
+            Some("moonlight_gu"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "gu", "moonlight", "refine"],
+        ),
+        action(
+            "inspect_moonlight_gu_feeding",
+            "检查月光蛊喂养",
+            ActionIntent::InspectGu,
+            Some("moonlight_gu"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "gu", "moonlight", "inspect"],
+        ),
+        action(
             "cultivate_moonlight",
             "月光修行",
             ActionIntent::Cultivate,
@@ -3710,6 +3874,27 @@ fn encounter_decision(
 fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
     vec![
         content_narrative(
+            "s0.gu.moonlight.claim",
+            "你在学堂名册下领到月光蛊。它还只是随身之物，真正可用前仍需炼化归属。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "gu", "moonlight", "claim"],
+        ),
+        content_narrative(
+            "s0.gu.moonlight.refine",
+            "你把真元压入月光蛊，炼化归属初成。它进入空窍，终于能支撑月光修行。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "gu", "moonlight", "refine"],
+        ),
+        content_narrative(
+            "s0.gu.moonlight.inspect",
+            "你检查月光蛊的喂养维护压力：当前稳定，但后续仍要记账。",
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["narrative", "gu", "moonlight", "inspect"],
+        ),
+        content_narrative(
             "s0.scene.opening.academy_gate",
             "你站在学堂门前，清晨的山雾压着木檐，点卯声还没有响。",
             EvidenceLevel::CanonInferred,
@@ -3739,7 +3924,7 @@ fn starter_narratives() -> Vec<ContentNarrativeTemplate> {
         ),
         content_narrative(
             "s0.action.cultivate.moonlight",
-            "你按下杂念运转真元，月光修行痕迹更深。",
+            "你借已炼化的月光蛊运转真元，月光修行痕迹更深，元石也少了一枚。",
             EvidenceLevel::CanonInferred,
             all_modes(),
             &["narrative", "cultivate", "moonlight"],
@@ -4489,6 +4674,7 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
         knowledge: KnowledgeState::default(),
         encounters: EncounterState::default(),
         build: BuildState::default(),
+        gu_inventory: GuInventoryState::default(),
         ledger: vec![LedgerEntry {
             kind: "scene".to_string(),
             text: "开窍大典的余声刚落，你站在学堂门前，清晨山雾压着木檐；空窍已开，真正的家族秩序才刚开始记账。".to_string(),
@@ -4549,6 +4735,7 @@ fn build_projection_from_content(
         build_summary: state.build.survival_route.clone(),
         status_markers: status_markers(state, active_encounter, content_bundle),
         build_view: build_view(state),
+        gu_view: gu_view(state),
         relationship_view: relationship_view(state),
         save_view: save_view(state),
         action_choices,
@@ -4932,7 +5119,12 @@ fn build_view(state: &GameState) -> BuildLedgerView {
 }
 
 fn gu_slot_display(label: &str, slot: &GuSlotState) -> String {
-    format!("{label}：{}", slot.display_name)
+    let canonical_label = match slot.slot {
+        GuSlotKind::Core => "核心蛊",
+        GuSlotKind::Support => "辅助蛊",
+    };
+    let _ = label;
+    format!("{canonical_label}：{}", slot.display_name)
 }
 
 fn vital_gu_display(vital: &VitalGuState) -> String {
@@ -4943,6 +5135,92 @@ fn vital_gu_display(vital: &VitalGuState) -> String {
             .as_ref()
             .map(|id| format!("本命蛊：已绑定 {id}"))
             .unwrap_or_else(|| "本命蛊：已建立，实例未登记".to_string()),
+    }
+}
+
+fn gu_view(state: &GameState) -> GuLedgerView {
+    let moonlight = state.gu_inventory.moonlight_gu();
+    let (
+        moonlight_gu_status,
+        moonlight_container,
+        moonlight_condition,
+        moonlight_feeding,
+        core_gu_candidate,
+    ) = if let Some(gu) = moonlight {
+        let refinement = refinement_label(&gu.refinement);
+        let container = gu_container_label(&gu.container);
+        (
+            format!("月光蛊：{refinement} / {container}"),
+            container.to_string(),
+            condition_label(&gu.condition).to_string(),
+            feeding_label(&gu.feeding).to_string(),
+            match gu.refinement {
+                RefinementState::Refined => "核心蛊候选：月光蛊（已炼化）".to_string(),
+                _ => "核心蛊候选：月光蛊（尚未炼化）".to_string(),
+            },
+        )
+    } else {
+        (
+            "月光蛊：未领取".to_string(),
+            "无".to_string(),
+            "无".to_string(),
+            "无".to_string(),
+            "核心蛊候选：月光蛊（未领取）".to_string(),
+        )
+    };
+
+    let mut entries = Vec::new();
+    entries.push(moonlight_gu_status.clone());
+    entries.push(format!("容器：{moonlight_container}"));
+    entries.push(format!("损伤：{moonlight_condition}"));
+    entries.push(format!("喂养压力：{moonlight_feeding}"));
+    entries.push("本命蛊：未建立".to_string());
+
+    GuLedgerView {
+        owned_count: state.gu_inventory.instances.len(),
+        moonlight_gu_status,
+        moonlight_container,
+        moonlight_condition,
+        moonlight_feeding,
+        core_gu_candidate,
+        vital_gu_status: vital_gu_display(&state.build.vital_gu),
+        entries,
+    }
+}
+
+fn gu_container_label(container: &GuContainer) -> &'static str {
+    match container {
+        GuContainer::Held => "随身",
+        GuContainer::Aperture => "空窍",
+        GuContainer::Lodging => "落脚点",
+    }
+}
+
+fn refinement_label(refinement: &RefinementState) -> &'static str {
+    match refinement {
+        RefinementState::Unrefined => "未炼化",
+        RefinementState::Refining => "炼化中",
+        RefinementState::Refined => "已炼化",
+        RefinementState::Unstable => "控制不稳",
+        RefinementState::ForeignTrace => "异主痕迹",
+    }
+}
+
+fn feeding_label(feeding: &FeedingState) -> &'static str {
+    match feeding {
+        FeedingState::Stable => "稳定",
+        FeedingState::Warning => "需留意",
+        FeedingState::Starving => "断供",
+        FeedingState::SpecialNeed => "特殊需求",
+    }
+}
+
+fn condition_label(condition: &ConditionState) -> &'static str {
+    match condition {
+        ConditionState::Intact => "完好",
+        ConditionState::Damaged => "受损",
+        ConditionState::Crippled => "残蛊",
+        ConditionState::NearDestroyed => "濒毁",
     }
 }
 
@@ -5091,6 +5369,23 @@ fn action_is_projectable(state: &GameState, action: &ContentAction) -> bool {
         return true;
     }
 
+    match action.intent {
+        ActionIntent::ClaimGu => {
+            return state.world.current_node_id == "academy_gate"
+                && !state.gu_inventory.has_gu("moonlight_gu");
+        }
+        ActionIntent::RefineGu => {
+            return state
+                .gu_inventory
+                .moonlight_gu()
+                .is_some_and(|gu| gu.refinement != RefinementState::Refined);
+        }
+        ActionIntent::InspectGu => {
+            return state.gu_inventory.has_gu("moonlight_gu");
+        }
+        _ => {}
+    }
+
     if action_requires_current_node(&action.intent) {
         return action
             .target
@@ -5113,6 +5408,13 @@ fn is_encounter_decision_intent(intent: &ActionIntent) -> bool {
     )
 }
 
+fn is_gu_action_intent(intent: &ActionIntent) -> bool {
+    matches!(
+        intent,
+        ActionIntent::ClaimGu | ActionIntent::RefineGu | ActionIntent::InspectGu
+    )
+}
+
 fn is_blackmarket_tagged(tags: &[String]) -> bool {
     tags.iter().any(|tag| tag == "blackmarket")
 }
@@ -5127,7 +5429,10 @@ fn mode_permitted(mode: &RunMode, modes: &[ModePermit]) -> bool {
 fn action_choice_group(intent: &ActionIntent) -> ActionChoiceGroup {
     match intent {
         ActionIntent::Move => ActionChoiceGroup::Movement,
-        ActionIntent::Cultivate => ActionChoiceGroup::Cultivation,
+        ActionIntent::Cultivate
+        | ActionIntent::ClaimGu
+        | ActionIntent::RefineGu
+        | ActionIntent::InspectGu => ActionChoiceGroup::Cultivation,
         ActionIntent::Scout => ActionChoiceGroup::Information,
         ActionIntent::Recover => ActionChoiceGroup::Recovery,
         ActionIntent::Trade => ActionChoiceGroup::Trade,
@@ -5147,7 +5452,10 @@ fn action_choice_tone(command: &ActionCommand, enabled: bool) -> ActionChoiceTon
     }
 
     match command.intent {
-        ActionIntent::Scout | ActionIntent::Retreat => ActionChoiceTone::Safe,
+        ActionIntent::Scout
+        | ActionIntent::Retreat
+        | ActionIntent::ClaimGu
+        | ActionIntent::InspectGu => ActionChoiceTone::Safe,
         ActionIntent::Move => match command.target.as_deref() {
             Some("blackmarket_hint") | Some("inheritance_rumor") => ActionChoiceTone::Risky,
             _ => ActionChoiceTone::Normal,
@@ -5158,7 +5466,9 @@ fn action_choice_tone(command: &ActionCommand, enabled: bool) -> ActionChoiceTon
         | ActionIntent::Argue
         | ActionIntent::Delay => ActionChoiceTone::Risky,
         ActionIntent::Confront | ActionIntent::Frame => ActionChoiceTone::Danger,
-        ActionIntent::Cultivate | ActionIntent::Wait => ActionChoiceTone::Normal,
+        ActionIntent::Cultivate | ActionIntent::RefineGu | ActionIntent::Wait => {
+            ActionChoiceTone::Normal
+        }
     }
 }
 
@@ -5174,7 +5484,10 @@ fn consequence_hint(id: &str, intent: &ActionIntent, target: Option<&str>) -> St
             Some("inheritance_rumor") => "追索传承残线，高风险且只在 IF 路线成立".to_string(),
             _ => "更换节点，路径风险按 Rust 规则结算".to_string(),
         },
-        ActionIntent::Cultivate => "推进月光修行痕迹，消耗元石与窗口".to_string(),
+        ActionIntent::Cultivate => "借已炼化月光蛊推进修行痕迹，消耗元石与窗口".to_string(),
+        ActionIntent::ClaimGu => "领取制度内月光蛊，建立后续炼化入口".to_string(),
+        ActionIntent::RefineGu => "消耗窗口炼化月光蛊，取得稳定控制权".to_string(),
+        ActionIntent::InspectGu => "查看月光蛊喂养维护压力，不消耗 AP".to_string(),
         ActionIntent::Scout => match target {
             Some("academy_gate") => "记录学堂风声与黑市尾巴线索".to_string(),
             Some("moonlight_corner") => "记录月光角压力线索".to_string(),
@@ -5206,6 +5519,9 @@ fn consequence_hint(id: &str, intent: &ActionIntent, target: Option<&str>) -> St
 fn clean_action_label(action: &ContentAction) -> String {
     if !action.id.is_empty() {
         return match action.id.as_str() {
+            "claim_moonlight_gu" => "领取月光蛊",
+            "refine_moonlight_gu" => "炼化月光蛊",
+            "inspect_moonlight_gu_feeding" => "检查月光蛊喂养",
             "scout_academy" => "观察学堂风声",
             "cultivate_moonlight" => "月光修行",
             "cultivate_moonlight_corner" => "借月光角修行",
@@ -5240,6 +5556,9 @@ fn clean_action_label(action: &ContentAction) -> String {
     }
 
     match action.id.as_str() {
+        "claim_moonlight_gu" => "领取月光蛊",
+        "refine_moonlight_gu" => "炼化月光蛊",
+        "inspect_moonlight_gu_feeding" => "检查月光蛊喂养",
         "scout_academy" => "观察学堂风声",
         "cultivate_moonlight" => "月光修行",
         "cultivate_moonlight_corner" => "借月光角修行",
@@ -5377,41 +5696,12 @@ fn display_disabled_reason(error: &CommandError) -> String {
 }
 
 fn cost_hint(intent: &ActionIntent) -> String {
-    if matches!(
-        intent,
-        ActionIntent::Move
-            | ActionIntent::Cultivate
-            | ActionIntent::Scout
-            | ActionIntent::Recover
-            | ActionIntent::Trade
-            | ActionIntent::Retreat
-            | ActionIntent::Confront
-            | ActionIntent::Yield
-            | ActionIntent::Argue
-            | ActionIntent::Delay
-            | ActionIntent::Frame
-            | ActionIntent::Wait
-    ) {
-        return match intent {
-            ActionIntent::Move => "按路径结算",
-            ActionIntent::Cultivate => "1 AP / 1 元石",
-            ActionIntent::Scout => "1 AP",
-            ActionIntent::Recover => "1-2 AP / 药堂债",
-            ActionIntent::Trade => "1 AP / 1 元石",
-            ActionIntent::Retreat => "1 AP",
-            ActionIntent::Confront => "1 AP / 1 元石",
-            ActionIntent::Yield => "1 AP",
-            ActionIntent::Argue => "1 AP",
-            ActionIntent::Delay => "1 AP",
-            ActionIntent::Frame => "1 AP",
-            ActionIntent::Wait => "吃掉当前窗口",
-        }
-        .to_string();
-    }
-
     match intent {
         ActionIntent::Move => "按路径结算",
         ActionIntent::Cultivate => "1 AP / 1 元石",
+        ActionIntent::ClaimGu => "0 AP",
+        ActionIntent::RefineGu => "1 AP",
+        ActionIntent::InspectGu => "0 AP",
         ActionIntent::Scout => "1 AP",
         ActionIntent::Recover => "1-2 AP / 药堂债",
         ActionIntent::Trade => "1 AP / 1 元石",
@@ -5427,41 +5717,12 @@ fn cost_hint(intent: &ActionIntent) -> String {
 }
 
 fn risk_hint(intent: &ActionIntent) -> String {
-    if matches!(
-        intent,
-        ActionIntent::Move
-            | ActionIntent::Cultivate
-            | ActionIntent::Scout
-            | ActionIntent::Recover
-            | ActionIntent::Trade
-            | ActionIntent::Retreat
-            | ActionIntent::Confront
-            | ActionIntent::Yield
-            | ActionIntent::Argue
-            | ActionIntent::Delay
-            | ActionIntent::Frame
-            | ActionIntent::Wait
-    ) {
-        return match intent {
-            ActionIntent::Move => "移动风险随路径变化",
-            ActionIntent::Cultivate => "资源压力",
-            ActionIntent::Scout => "低风险，换取情报",
-            ActionIntent::Recover => "债务与人情",
-            ActionIntent::Trade => "暴露上升",
-            ActionIntent::Retreat => "少量暴露，保命优先",
-            ActionIntent::Confront => "重创可续，高暴露",
-            ActionIntent::Yield => "压低冲突，脸面受损",
-            ActionIntent::Argue => "暴露上升，换取余地",
-            ActionIntent::Delay => "拖出缝隙，消耗窗口",
-            ActionIntent::Frame => "嫁祸脱身，后患更深",
-            ActionIntent::Wait => "错过窗口",
-        }
-        .to_string();
-    }
-
     match intent {
         ActionIntent::Move => "移动风险随路径变化",
         ActionIntent::Cultivate => "资源压力",
+        ActionIntent::ClaimGu => "低风险，制度内领取",
+        ActionIntent::RefineGu => "窗口压力，炼化归属",
+        ActionIntent::InspectGu => "低风险，确认维护压力",
         ActionIntent::Scout => "低风险，换取情报",
         ActionIntent::Recover => "债务与人情",
         ActionIntent::Trade => "暴露上升",
@@ -5579,6 +5840,8 @@ struct SubsystemOutcome {
     injury_level: Option<InjuryLevel>,
     injury_ap_penalty_pending: Option<bool>,
     reveal_blackmarket_route: bool,
+    claim_moonlight_gu: bool,
+    refine_moonlight_gu: bool,
     clue_ids: Vec<String>,
 }
 
@@ -5604,6 +5867,8 @@ impl SubsystemOutcome {
             injury_level: None,
             injury_ap_penalty_pending: None,
             reveal_blackmarket_route: false,
+            claim_moonlight_gu: false,
+            refine_moonlight_gu: false,
             clue_ids: Vec::new(),
         }
     }
@@ -5643,6 +5908,12 @@ fn availability_check(
         ));
     }
 
+    if command.intent == ActionIntent::Cultivate
+        && !state.gu_inventory.has_refined_gu("moonlight_gu")
+    {
+        return Err(CommandError::validation("月光蛊尚未炼化，不能稳定修行"));
+    }
+
     if let Some(active) = &state.encounters.active {
         if !is_encounter_decision_intent(&command.intent) {
             return Err(CommandError::validation(
@@ -5676,6 +5947,47 @@ fn availability_check(
     }
 
     if command.intent == ActionIntent::Wait {
+        return Ok(());
+    }
+
+    if is_gu_action_intent(&command.intent) {
+        let gu_id = command
+            .target
+            .as_deref()
+            .ok_or_else(|| CommandError::validation("蛊虫行动缺少目标"))?;
+        let gu_spec = gu_spec_by_id(gu_id, content_bundle)?;
+        require_mode(&state.mode, &gu_spec.modes, "gu_spec", &gu_spec.id)?;
+        let action = action_by_intent_target(command.intent.clone(), Some(gu_id), content_bundle)?;
+        require_mode(&state.mode, &action.modes, "action", &action.id)?;
+        if gu_id != "moonlight_gu" {
+            return Err(CommandError::validation("Sprint 4 当前只支持月光蛊"));
+        }
+        match command.intent {
+            ActionIntent::ClaimGu => {
+                if !state.character.aperture_opened {
+                    return Err(CommandError::validation("空窍未开，暂不能接触月光蛊"));
+                }
+                if state.world.current_node_id != "academy_gate" {
+                    return Err(CommandError::validation("领取月光蛊需要在学堂前院"));
+                }
+                if state.gu_inventory.has_gu("moonlight_gu") {
+                    return Err(CommandError::validation("月光蛊已经领取"));
+                }
+            }
+            ActionIntent::RefineGu => {
+                let Some(gu) = state.gu_inventory.moonlight_gu() else {
+                    return Err(CommandError::validation("尚未拥有月光蛊"));
+                };
+                if gu.refinement == RefinementState::Refined {
+                    return Err(CommandError::validation("月光蛊已经炼化"));
+                }
+            }
+            ActionIntent::InspectGu if !state.gu_inventory.has_gu("moonlight_gu") => {
+                return Err(CommandError::validation("尚未拥有月光蛊"));
+            }
+            ActionIntent::InspectGu => {}
+            _ => {}
+        }
         return Ok(());
     }
 
@@ -5752,6 +6064,9 @@ fn cost_reservation(
             (edge.ap_cost, 0, false)
         }
         ActionIntent::Cultivate => (1, 1, false),
+        ActionIntent::ClaimGu => (0, 0, false),
+        ActionIntent::RefineGu => (1, 0, false),
+        ActionIntent::InspectGu => (0, 0, false),
         ActionIntent::Scout => (1, 0, false),
         ActionIntent::Recover => (recover_ap_cost(&state.character.injury.level), 0, false),
         ActionIntent::Trade => (1, 1, false),
@@ -5863,6 +6178,31 @@ fn subsystem_resolution(
             }
             Ok(outcome)
         }
+        ActionIntent::ClaimGu => {
+            let mut outcome = SubsystemOutcome::new(
+                "gu",
+                "你在学堂名册下领到月光蛊。它还只是随身之物，真正可用前仍需炼化归属。",
+            )
+            .with_narrative_id("s0.gu.moonlight.claim");
+            outcome.claim_moonlight_gu = true;
+            outcome.survival_route = Some("月光蛊接触：制度内修行入口".to_string());
+            Ok(outcome)
+        }
+        ActionIntent::RefineGu => {
+            let mut outcome = SubsystemOutcome::new(
+                "gu",
+                "你把真元压入月光蛊，炼化归属初成。它进入空窍，终于能支撑月光修行。",
+            )
+            .with_narrative_id("s0.gu.moonlight.refine");
+            outcome.refine_moonlight_gu = true;
+            outcome.survival_route = Some("月光蛊炼化：制度内根基".to_string());
+            Ok(outcome)
+        }
+        ActionIntent::InspectGu => Ok(SubsystemOutcome::new(
+            "gu",
+            "你检查月光蛊的喂养维护压力：当前稳定，但后续仍要记账。",
+        )
+        .with_narrative_id("s0.gu.moonlight.inspect")),
         ActionIntent::Scout => {
             let mut outcome = SubsystemOutcome::new("action", "你没有急着下注，先听风声、记人脸。")
                 .with_narrative_id("s0.action.scout.default");
@@ -6015,6 +6355,29 @@ fn effect_commit(
         .build
         .moonlight_cultivation_marks
         .saturating_add(outcome.moonlight_cultivation_delta);
+
+    if outcome.claim_moonlight_gu && !state.gu_inventory.has_gu("moonlight_gu") {
+        state
+            .gu_inventory
+            .instances
+            .push(GuInstance::player_moonlight_unrefined());
+        state.build.core_gu.display_name = "月光蛊（未炼化）".to_string();
+        state.build.core_gu.instance_id = Some("player_moonlight_gu_001".to_string());
+        state.build.maintenance_pressure = "月光蛊喂养：稳定（S0 占位）".to_string();
+    }
+
+    if outcome.refine_moonlight_gu {
+        if let Some(gu) = state.gu_inventory.moonlight_gu_mut() {
+            gu.refinement = RefinementState::Refined;
+            gu.container = GuContainer::Aperture;
+            gu.condition = ConditionState::Intact;
+            gu.feeding = FeedingState::Stable;
+            gu.build_role = GuBuildRole::CoreCandidate;
+            state.build.core_gu.display_name = "月光蛊（已炼化）".to_string();
+            state.build.core_gu.instance_id = Some(gu.instance_id.clone());
+            state.build.maintenance_pressure = "月光蛊喂养：稳定（S0 占位）".to_string();
+        }
+    }
 
     if let Some(target_node_id) = &outcome.target_node_id {
         state.world.current_node_id = target_node_id.clone();
@@ -6175,6 +6538,18 @@ fn encounter_by_id<'a>(
             CommandError::validation(format!("encounter '{encounter_id}' is not in bundle"))
         })?;
     Ok(&content_bundle.encounters[*index])
+}
+
+fn gu_spec_by_id<'a>(
+    gu_id: &str,
+    content_bundle: &'a ContentBundle,
+) -> Result<&'a ContentGuSpec, CommandError> {
+    let index = content_bundle
+        .indexes
+        .gu_spec_ids
+        .get(gu_id)
+        .ok_or_else(|| CommandError::validation(format!("gu_spec '{gu_id}' is not in bundle")))?;
+    Ok(&content_bundle.gu_specs[*index])
 }
 
 fn narrative_by_id<'a>(
@@ -6372,7 +6747,8 @@ mod tests {
         assert_eq!(state.build.vital_gu.instance_id, None);
         assert_eq!(state.build.vital_gu.binding_scope, "未绑定");
         assert_eq!(state.build.vital_gu.binding_risk, "未暴露");
-        assert_eq!(projection.build_view.core_gu, "核心蛊：月光蛊线索未稳");
+        assert!(projection.build_view.core_gu.contains("核心蛊"));
+        assert!(projection.build_view.core_gu.contains("未领取"));
         assert_eq!(projection.build_view.support_gu, "辅助蛊：暂无");
         assert_eq!(projection.build_view.vital_gu, "本命蛊：未建立");
         assert_ne!(
@@ -6387,6 +6763,193 @@ mod tests {
             .status_markers
             .iter()
             .any(|marker| marker.label == "AP" && marker.value == "2"));
+    }
+
+    #[test]
+    fn sprint4_initial_state_requires_refined_moonlight_gu_before_cultivation() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        assert!(state.gu_inventory.instances.is_empty());
+        assert!(!state.gu_inventory.has_refined_gu("moonlight_gu"));
+
+        let projection = build_projection_with_content(&state, &bundle);
+        assert_eq!(projection.gu_view.owned_count, 0);
+        assert_eq!(projection.gu_view.moonlight_gu_status, "月光蛊：未领取");
+        let cultivate = projection
+            .action_choices
+            .iter()
+            .find(|choice| choice.id == "cultivate_moonlight")
+            .expect("cultivation action remains visible");
+        assert!(!cultivate.enabled);
+        assert_eq!(
+            cultivate.disabled_reason.as_deref(),
+            Some("月光蛊尚未炼化，不能稳定修行")
+        );
+
+        let error = resolve_action(
+            state,
+            command(ActionIntent::Cultivate, Some("academy_gate")),
+            &bundle,
+        )
+        .expect_err("cultivation without refined moonlight gu must fail");
+        assert_eq!(error.kind, CommandErrorKind::Validation);
+        assert!(error.message.contains("月光蛊尚未炼化"));
+    }
+
+    #[test]
+    fn sprint4_claim_and_refine_moonlight_gu_updates_inventory_and_build_projection() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+
+        let claimed = resolve_action(
+            state,
+            command(ActionIntent::ClaimGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect("claiming moonlight gu should resolve");
+        assert_eq!(claimed.state.time.ap, 2);
+        let moonlight = claimed
+            .state
+            .gu_inventory
+            .moonlight_gu()
+            .expect("moonlight gu instance should exist");
+        assert_eq!(moonlight.instance_id, "player_moonlight_gu_001");
+        assert_eq!(moonlight.gu_id, "moonlight_gu");
+        assert_eq!(moonlight.rank, 1);
+        assert_eq!(moonlight.container, GuContainer::Held);
+        assert_eq!(moonlight.refinement, RefinementState::Unrefined);
+        assert_eq!(moonlight.condition, ConditionState::Intact);
+        assert_eq!(moonlight.feeding, FeedingState::Stable);
+        assert_eq!(moonlight.build_role, GuBuildRole::CoreCandidate);
+        assert!(claimed
+            .response
+            .projection
+            .recent_feedback
+            .as_ref()
+            .expect("claim feedback")
+            .summary
+            .contains("月光蛊"));
+
+        let duplicate = resolve_action(
+            claimed.state.clone(),
+            command(ActionIntent::ClaimGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect_err("claiming a second moonlight gu should fail");
+        assert_eq!(duplicate.kind, CommandErrorKind::Validation);
+
+        let refined = resolve_action(
+            claimed.state,
+            command(ActionIntent::RefineGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect("refining moonlight gu should resolve");
+        assert_eq!(refined.state.time.ap, 1);
+        assert_eq!(refined.state.resources.primeval_stones, 3);
+        let moonlight = refined
+            .state
+            .gu_inventory
+            .moonlight_gu()
+            .expect("moonlight gu remains present");
+        assert_eq!(moonlight.container, GuContainer::Aperture);
+        assert_eq!(moonlight.refinement, RefinementState::Refined);
+        assert!(refined.state.gu_inventory.has_refined_gu("moonlight_gu"));
+        assert_eq!(
+            refined.response.projection.build_view.core_gu,
+            "核心蛊：月光蛊（已炼化）"
+        );
+        assert_eq!(
+            refined.response.projection.gu_view.moonlight_gu_status,
+            "月光蛊：已炼化 / 空窍"
+        );
+    }
+
+    #[test]
+    fn sprint4_refined_moonlight_gu_enables_cultivation_and_save_round_trip() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let claimed = resolve_action(
+            state,
+            command(ActionIntent::ClaimGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect("claim moonlight gu")
+        .state;
+        let refined = resolve_action(
+            claimed,
+            command(ActionIntent::RefineGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect("refine moonlight gu")
+        .state;
+
+        let cultivated = resolve_action(
+            refined,
+            command(ActionIntent::Cultivate, Some("academy_gate")),
+            &bundle,
+        )
+        .expect("refined moonlight gu should allow cultivation");
+        assert_eq!(cultivated.state.build.moonlight_cultivation_marks, 1);
+        assert_eq!(cultivated.state.resources.primeval_stones, 2);
+        assert!(cultivated
+            .response
+            .projection
+            .dialogue
+            .latest_ledger_delta
+            .as_deref()
+            .unwrap_or_default()
+            .contains("月光蛊"));
+
+        let envelope = SaveEnvelope::from_state("slot_0", cultivated.state.clone());
+        let encoded = serde_json::to_string(&envelope).expect("save serializes");
+        let decoded: SaveEnvelope = serde_json::from_str(&encoded).expect("save deserializes");
+        decoded
+            .validate_for_load("slot_0", STARTER_CONTENT_VERSION)
+            .expect("sprint4 save should validate");
+        let moonlight = decoded
+            .snapshot
+            .gu_inventory
+            .moonlight_gu()
+            .expect("moonlight gu survives save");
+        assert_eq!(moonlight.refinement, RefinementState::Refined);
+        assert_eq!(moonlight.container, GuContainer::Aperture);
+        assert_eq!(
+            decoded.snapshot.build.vital_gu.status,
+            VitalGuStatus::NotEstablished
+        );
+    }
+
+    #[test]
+    fn sprint4_inspect_moonlight_gu_feeding_is_zero_ap_feedback_only() {
+        let bundle = starter_content_bundle();
+        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let claimed = resolve_action(
+            state,
+            command(ActionIntent::ClaimGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect("claim moonlight gu")
+        .state;
+        let ap_before = claimed.time.ap;
+
+        let inspected = resolve_action(
+            claimed,
+            command(ActionIntent::InspectGu, Some("moonlight_gu")),
+            &bundle,
+        )
+        .expect("inspect moonlight gu should resolve");
+
+        assert_eq!(inspected.state.time.ap, ap_before);
+        assert_eq!(inspected.state.build.moonlight_cultivation_marks, 0);
+        assert!(inspected
+            .response
+            .projection
+            .recent_feedback
+            .as_ref()
+            .expect("inspect feedback")
+            .summary
+            .contains("喂养"));
     }
 
     #[test]
@@ -6916,6 +7479,7 @@ mod tests {
     fn phase4_projection_groups_tones_and_consequence_hints_cover_core_actions() {
         let bundle = starter_content_bundle();
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        grant_refined_moonlight(&mut state);
         state.knowledge.blackmarket_route_known = true;
         state.time.period = "清晨".to_string();
         state.time.ap = 0;
@@ -6961,6 +7525,7 @@ mod tests {
     fn phase4_projection_exposes_recent_feedback_and_clue_ledger() {
         let bundle = starter_content_bundle();
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        grant_refined_moonlight(&mut state);
         state.knowledge.blackmarket_route_known = true;
         state.knowledge.record_clue("rumor_blackmarket_tail");
         state.knowledge.record_clue("rumor_academy_pressure");
@@ -7640,6 +8205,28 @@ mod tests {
     }
 
     #[test]
+    fn content_bundle_rejects_gu_action_target_outside_gu_spec_index() {
+        let mut source = valid_content_source();
+        source.actions.push(action(
+            "claim_missing_gu",
+            "领取不存在的蛊",
+            ActionIntent::ClaimGu,
+            Some("missing_gu"),
+            EvidenceLevel::CanonInferred,
+            all_modes(),
+            &["action", "gu", "claim"],
+        ));
+
+        let error = ContentBundle::from_source(source).expect_err("missing gu target should fail");
+
+        assert_eq!(error.kind, CommandErrorKind::Content);
+        assert!(error
+            .diagnostics
+            .unwrap_or_default()
+            .contains("target gu_spec 'missing_gu' not found"));
+    }
+
+    #[test]
     fn canon_strict_critical_content_requires_canon_evidence() {
         let mut source = valid_content_source();
         source.actions[0].importance = ContentImportance::Critical;
@@ -7867,7 +8454,7 @@ mod tests {
         let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
         let result = resolve_action(
             state,
-            command(ActionIntent::Cultivate, Some("academy_gate")),
+            command(ActionIntent::ClaimGu, Some("moonlight_gu")),
             &bundle,
         )
         .expect("local rules and local narrative should not require AI config");
@@ -8182,7 +8769,8 @@ mod tests {
     #[test]
     fn action_costs_are_computed_by_rust_not_declared_cost() {
         let bundle = starter_content_bundle();
-        let state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        grant_refined_moonlight(&mut state);
         let mut cultivate = command(ActionIntent::Cultivate, Some("academy_gate"));
         cultivate.declared_cost = DeclaredCost {
             ap: 0,
@@ -8197,6 +8785,7 @@ mod tests {
         assert!(result.state.build.survival_route.contains("月光"));
 
         let mut broke = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        grant_refined_moonlight(&mut broke);
         broke.resources.primeval_stones = 0;
         let error = resolve_action(
             broke,
@@ -8254,6 +8843,7 @@ mod tests {
     fn blackmarket_deep_night_movement_triggers_extortion_without_resetting_ap() {
         let bundle = starter_content_bundle();
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        grant_refined_moonlight(&mut state);
         state.knowledge.blackmarket_route_known = true;
         set_deep_night(&mut state);
 
@@ -8406,6 +8996,7 @@ mod tests {
 
     fn state_at_blackmarket_extortion(bundle: &ContentBundle) -> GameState {
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
+        grant_refined_moonlight(&mut state);
         state.knowledge.blackmarket_route_known = true;
         set_deep_night(&mut state);
         resolve_action(
@@ -8420,6 +9011,7 @@ mod tests {
     fn state_at_academy_pressure_without_clue(bundle: &ContentBundle) -> GameState {
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
         state.world.current_node_id = "moonlight_corner".to_string();
+        grant_refined_moonlight(&mut state);
         state.build.moonlight_cultivation_marks = 1;
         resolve_action(
             state,
@@ -8433,6 +9025,7 @@ mod tests {
     fn state_at_academy_pressure_with_clue(bundle: &ContentBundle) -> GameState {
         let mut state = create_run(RunMode::CanonStrict, STARTER_CONTENT_VERSION);
         state.world.current_node_id = "moonlight_corner".to_string();
+        grant_refined_moonlight(&mut state);
         state.knowledge.record_clue("rumor_academy_pressure");
         state.build.moonlight_cultivation_marks = 1;
         resolve_action(
@@ -8454,6 +9047,25 @@ mod tests {
         )
         .expect("high exposure alley movement should trigger probe")
         .state
+    }
+
+    fn grant_refined_moonlight(state: &mut GameState) {
+        if !state.gu_inventory.has_gu("moonlight_gu") {
+            state
+                .gu_inventory
+                .instances
+                .push(GuInstance::player_moonlight_unrefined());
+        }
+        if let Some(gu) = state.gu_inventory.moonlight_gu_mut() {
+            gu.refinement = RefinementState::Refined;
+            gu.container = GuContainer::Aperture;
+            gu.condition = ConditionState::Intact;
+            gu.feeding = FeedingState::Stable;
+            gu.build_role = GuBuildRole::CoreCandidate;
+            state.build.core_gu.display_name = "月光蛊（已炼化）".to_string();
+            state.build.core_gu.instance_id = Some(gu.instance_id.clone());
+            state.build.maintenance_pressure = "月光蛊喂养：稳定（S0 占位）".to_string();
+        }
     }
 
     fn command(intent: ActionIntent, target: Option<&str>) -> ActionCommand {

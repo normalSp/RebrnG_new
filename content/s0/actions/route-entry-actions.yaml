@@ -1,4 +1,31 @@
 actions:
+  - id: claim_moonlight_gu
+    label: 领取月光蛊
+    intent: claim_gu
+    target: moonlight_gu
+    stage: s0
+    tags: [action, gu, moonlight, claim]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: critical
+  - id: refine_moonlight_gu
+    label: 炼化月光蛊
+    intent: refine_gu
+    target: moonlight_gu
+    stage: s0
+    tags: [action, gu, moonlight, refine]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: critical
+  - id: inspect_moonlight_gu_feeding
+    label: 检查月光蛊喂养
+    intent: inspect_gu
+    target: moonlight_gu
+    stage: s0
+    tags: [action, gu, moonlight, inspect]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    importance: standard
   - id: move_moonlight_corner
     label: 去学堂月光角
     intent: move

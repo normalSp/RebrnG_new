@@ -1,4 +1,22 @@
 narratives:
+  - id: s0.gu.moonlight.claim
+    stage: s0
+    tags: [narrative, gu, moonlight, claim]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你在学堂名册下领到月光蛊。它还只是随身之物，真正可用前仍需炼化归属。
+  - id: s0.gu.moonlight.refine
+    stage: s0
+    tags: [narrative, gu, moonlight, refine]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你把真元压入月光蛊，炼化归属初成。它进入空窍，终于能支撑月光修行。
+  - id: s0.gu.moonlight.inspect
+    stage: s0
+    tags: [narrative, gu, moonlight, inspect]
+    evidence: canon_inferred
+    modes: [canon_strict, sandbox_if]
+    text: 你检查月光蛊的喂养维护压力：当前稳定，但后续仍要记账。
   - id: s0.scene.opening.academy_gate
     stage: s0
     tags: [narrative, opening, academy]
@@ -28,7 +46,7 @@ narratives:
     tags: [narrative, cultivate, moonlight]
     evidence: canon_inferred
     modes: [canon_strict, sandbox_if]
-    text: 你按下杂念运转真元，月光修行痕迹更深。
+    text: 你借已炼化的月光蛊运转真元，月光修行痕迹更深，元石也少了一枚。
   - id: s0.action.cultivate.moonlight_corner
     stage: s0
     tags: [narrative, cultivate, moonlight]

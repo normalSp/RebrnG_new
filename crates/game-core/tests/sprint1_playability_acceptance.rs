@@ -153,6 +153,8 @@ fn sprint1_moonlight_foundation_path_has_real_ap_and_resource_tradeoff() {
     let mut run = AcceptanceRun::new(RunMode::CanonStrict);
 
     run.act(ActionIntent::Scout, Some("academy_gate"));
+    run.act(ActionIntent::ClaimGu, Some("moonlight_gu"));
+    run.act(ActionIntent::RefineGu, Some("moonlight_gu"));
     run.act(ActionIntent::Cultivate, Some("academy_gate"));
     run.act(ActionIntent::Move, Some("moonlight_corner"));
     run.act(ActionIntent::Cultivate, Some("moonlight_corner"));

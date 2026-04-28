@@ -24,6 +24,9 @@ export type ActionIntent =
   | "argue"
   | "delay"
   | "frame"
+  | "claim_gu"
+  | "refine_gu"
+  | "inspect_gu"
   | "wait";
 
 export type InjuryLevel = "healthy" | "light" | "heavy";
@@ -61,6 +64,17 @@ export interface BuildLedgerView {
   vital_gu: string;
   maintenance_pressure: string;
   gap_summary: string;
+}
+
+export interface GuLedgerView {
+  owned_count: number;
+  moonlight_gu_status: string;
+  moonlight_container: string;
+  moonlight_condition: string;
+  moonlight_feeding: string;
+  core_gu_candidate: string;
+  vital_gu_status: string;
+  entries: string[];
 }
 
 export interface FactionRelationshipView {
@@ -289,6 +303,7 @@ export interface LedgerViewModel {
   build_summary: string;
   status_markers: StatusMarkerView[];
   build_view: BuildLedgerView;
+  gu_view: GuLedgerView;
   relationship_view: FactionRelationshipView;
   save_view: SaveLedgerView;
   action_choices: ActionChoiceView[];

@@ -190,6 +190,8 @@ fn sprint3_setup_moonlight_foundation_reaches_anchor() {
     let mut run = SetupAcceptanceRun::canon();
 
     run.act(ActionIntent::Scout, Some("academy_gate"));
+    run.act(ActionIntent::ClaimGu, Some("moonlight_gu"));
+    run.act(ActionIntent::RefineGu, Some("moonlight_gu"));
     run.act(ActionIntent::Cultivate, Some("academy_gate"));
     run.act(ActionIntent::Move, Some("moonlight_corner"));
     run.act(ActionIntent::Cultivate, Some("moonlight_corner"));
