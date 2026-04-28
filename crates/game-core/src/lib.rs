@@ -301,6 +301,19 @@ pub struct LedgerEntry {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupSummary {
+    pub origin_id: String,
+    pub origin_title: String,
+    pub talent_ids: Vec<String>,
+    pub talent_titles: Vec<String>,
+    pub attributes: BTreeMap<String, i32>,
+    pub opening_rite_outcome_id: String,
+    pub opening_rite_outcome_title: String,
+    pub resource_package_ids: Vec<String>,
+    pub attention_delta: i32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameState {
     pub run_id: String,
     pub mode: RunMode,
@@ -316,6 +329,8 @@ pub struct GameState {
     pub encounters: EncounterState,
     pub build: BuildState,
     pub ledger: Vec<LedgerEntry>,
+    #[serde(default)]
+    pub setup_summary: Option<SetupSummary>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -694,6 +709,104 @@ pub struct ActionCommand {
     pub declared_cost: DeclaredCost,
     #[serde(default)]
     pub context_note: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RunSetupState {
+    pub run_id: String,
+    pub mode: RunMode,
+    pub content_version: String,
+    pub selected_origin_id: Option<String>,
+    pub selected_talent_ids: Vec<String>,
+    pub attribute_values: BTreeMap<String, i32>,
+    pub opening_rite_outcome_id: String,
+    pub completed: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SetupIntent {
+    SelectOrigin,
+    ToggleTalent,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupCommand {
+    pub intent: SetupIntent,
+    pub target_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupCandidateView {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub selected: bool,
+    pub enabled: bool,
+    pub disabled_reason: Option<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupTalentCandidateView {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub intensity: TalentIntensity,
+    pub selected: bool,
+    pub enabled: bool,
+    pub disabled_reason: Option<String>,
+    pub pressure_note: String,
+    pub route_tags: Vec<String>,
+    pub evidence: EvidenceLevel,
+    pub modes: Vec<ModePermit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupAttributeView {
+    pub id: String,
+    pub label: String,
+    pub summary: String,
+    pub value: i32,
+    pub min: i32,
+    pub max: i32,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupResourcePreview {
+    pub primeval_stones: i32,
+    pub materials: i32,
+    pub merit: i32,
+    pub infirmary_debt: i32,
+    pub favor_debt: i32,
+    pub organization_debt: i32,
+    pub trading_credit: i32,
+    pub exposure: i32,
+    pub resource_package_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupViewModel {
+    pub mode: RunMode,
+    pub content_version: String,
+    pub origin_candidates: Vec<SetupCandidateView>,
+    pub talent_candidates: Vec<SetupTalentCandidateView>,
+    pub attributes: Vec<SetupAttributeView>,
+    pub resource_preview: SetupResourcePreview,
+    pub selected_origin_id: Option<String>,
+    pub selected_talent_ids: Vec<String>,
+    pub opening_rite_outcome_id: String,
+    pub opening_rite_title: String,
+    pub opening_rite_summary: String,
+    pub confirm_enabled: bool,
+    pub confirm_blockers: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SetupResponse {
+    pub setup: RunSetupState,
+    pub view: SetupViewModel,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -3726,6 +3839,418 @@ fn content_narrative(
     }
 }
 
+pub fn create_setup_run(
+    mode: RunMode,
+    content_bundle: &ContentBundle,
+) -> Result<RunSetupState, CommandError> {
+    let profile = setup_attribute_profile(content_bundle)?;
+    let opening = setup_opening_rite(content_bundle)?;
+
+    Ok(RunSetupState {
+        run_id: DEFAULT_RUN_ID.to_string(),
+        mode,
+        content_version: content_bundle.manifest.version.clone(),
+        selected_origin_id: None,
+        selected_talent_ids: Vec::new(),
+        attribute_values: base_attribute_values(profile),
+        opening_rite_outcome_id: opening.id.clone(),
+        completed: false,
+    })
+}
+
+pub fn setup_command(intent: SetupIntent, target_id: impl Into<String>) -> SetupCommand {
+    SetupCommand {
+        intent,
+        target_id: target_id.into(),
+    }
+}
+
+pub fn resolve_setup_choice(
+    mut setup: RunSetupState,
+    command: SetupCommand,
+    content_bundle: &ContentBundle,
+) -> Result<SetupResponse, CommandError> {
+    if setup.completed {
+        return Err(CommandError::validation("设置已完成，不能继续修改"));
+    }
+
+    match command.intent {
+        SetupIntent::SelectOrigin => {
+            let origin = setup_origin_by_id(content_bundle, &command.target_id)?;
+            require_mode(&setup.mode, &origin.modes, "origin", &origin.id)?;
+            setup.selected_origin_id = Some(origin.id.clone());
+        }
+        SetupIntent::ToggleTalent => {
+            let talent = setup_talent_by_id(content_bundle, &command.target_id)?;
+            require_setup_talent_allowed(&setup.mode, talent)?;
+
+            if let Some(position) = setup
+                .selected_talent_ids
+                .iter()
+                .position(|selected| selected == &talent.id)
+            {
+                setup.selected_talent_ids.remove(position);
+            } else {
+                if setup.selected_talent_ids.len() >= 3 {
+                    return Err(CommandError::validation("最多选择 3 个天赋"));
+                }
+                setup.selected_talent_ids.push(talent.id.clone());
+            }
+        }
+    }
+
+    setup.attribute_values = calculate_setup_attributes(&setup, content_bundle)?;
+    let view = build_setup_view(&setup, content_bundle)?;
+    Ok(SetupResponse { setup, view })
+}
+
+pub fn build_setup_view(
+    setup: &RunSetupState,
+    content_bundle: &ContentBundle,
+) -> Result<SetupViewModel, CommandError> {
+    let opening = setup_opening_rite_by_id(content_bundle, &setup.opening_rite_outcome_id)?;
+    let attributes = setup_attribute_profile(content_bundle)?
+        .attributes
+        .iter()
+        .map(|attribute| SetupAttributeView {
+            id: attribute.id.clone(),
+            label: attribute.label.clone(),
+            summary: attribute.summary.clone(),
+            value: *setup
+                .attribute_values
+                .get(&attribute.id)
+                .unwrap_or(&attribute.base),
+            min: attribute.min,
+            max: attribute.max,
+        })
+        .collect::<Vec<_>>();
+
+    let origin_candidates = content_bundle
+        .origins
+        .iter()
+        .filter(|origin| setup_mode_permitted(&setup.mode, &origin.modes))
+        .map(|origin| SetupCandidateView {
+            id: origin.id.clone(),
+            title: origin.title.clone(),
+            summary: origin.summary.clone(),
+            selected: setup.selected_origin_id.as_deref() == Some(origin.id.as_str()),
+            enabled: true,
+            disabled_reason: None,
+            evidence: origin.evidence.clone(),
+            modes: origin.modes.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    let talent_candidates = content_bundle
+        .talents
+        .iter()
+        .filter(|talent| setup_talent_visible(&setup.mode, talent))
+        .map(|talent| {
+            let selected = setup.selected_talent_ids.iter().any(|id| id == &talent.id);
+            let enabled = selected || setup.selected_talent_ids.len() < 3;
+            SetupTalentCandidateView {
+                id: talent.id.clone(),
+                title: talent.title.clone(),
+                summary: talent.summary.clone(),
+                intensity: talent.intensity.clone(),
+                selected,
+                enabled,
+                disabled_reason: if enabled {
+                    None
+                } else {
+                    Some("最多选择 3 个天赋".to_string())
+                },
+                pressure_note: talent.pressure_note.clone(),
+                route_tags: talent.route_tags.clone(),
+                evidence: talent.evidence.clone(),
+                modes: talent.modes.clone(),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let resource_preview = calculate_setup_resource_preview(setup, content_bundle)?;
+    let confirm_blockers = setup_confirm_blockers(setup);
+    let confirm_enabled = confirm_blockers.is_empty();
+
+    Ok(SetupViewModel {
+        mode: setup.mode.clone(),
+        content_version: setup.content_version.clone(),
+        origin_candidates,
+        talent_candidates,
+        attributes,
+        resource_preview,
+        selected_origin_id: setup.selected_origin_id.clone(),
+        selected_talent_ids: setup.selected_talent_ids.clone(),
+        opening_rite_outcome_id: opening.id.clone(),
+        opening_rite_title: opening.title.clone(),
+        opening_rite_summary: opening.summary.clone(),
+        confirm_enabled,
+        confirm_blockers,
+    })
+}
+
+pub fn confirm_setup_run(
+    mut setup: RunSetupState,
+    content_bundle: &ContentBundle,
+) -> Result<GameState, CommandError> {
+    let blockers = setup_confirm_blockers(&setup);
+    if !blockers.is_empty() {
+        return Err(CommandError::validation(blockers.join("；")));
+    }
+
+    setup.attribute_values = calculate_setup_attributes(&setup, content_bundle)?;
+    setup.completed = true;
+
+    let origin = setup_origin_by_id(
+        content_bundle,
+        setup
+            .selected_origin_id
+            .as_deref()
+            .ok_or_else(|| CommandError::validation("必须选择 1 个出身"))?,
+    )?;
+    let opening = setup_opening_rite_by_id(content_bundle, &setup.opening_rite_outcome_id)?;
+    let resource_preview = calculate_setup_resource_preview(&setup, content_bundle)?;
+    let talent_titles = setup
+        .selected_talent_ids
+        .iter()
+        .map(|id| setup_talent_by_id(content_bundle, id).map(|talent| talent.title.clone()))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut state = create_run(setup.mode.clone(), setup.content_version.clone());
+    state.resources = ResourceState {
+        primeval_stones: resource_preview.primeval_stones,
+        materials: resource_preview.materials,
+        merit: resource_preview.merit,
+    };
+    state.debts_and_credit = DebtAndCreditState {
+        infirmary_debt: resource_preview.infirmary_debt,
+        favor_debt: resource_preview.favor_debt,
+        organization_debt: resource_preview.organization_debt,
+        trading_credit: resource_preview.trading_credit,
+    };
+    state.risk.exposure =
+        resource_preview.exposure + origin.attention_delta + opening.attention_delta;
+    state.character.aperture_opened = opening.aperture_opened;
+    state.setup_summary = Some(SetupSummary {
+        origin_id: origin.id.clone(),
+        origin_title: origin.title.clone(),
+        talent_ids: setup.selected_talent_ids.clone(),
+        talent_titles,
+        attributes: setup.attribute_values.clone(),
+        opening_rite_outcome_id: opening.id.clone(),
+        opening_rite_outcome_title: opening.title.clone(),
+        resource_package_ids: resource_preview.resource_package_ids.clone(),
+        attention_delta: origin.attention_delta + opening.attention_delta,
+    });
+
+    let talent_text = state
+        .setup_summary
+        .as_ref()
+        .map(|summary| summary.talent_titles.join("、"))
+        .unwrap_or_else(|| "无".to_string());
+    state.ledger.insert(
+        0,
+        LedgerEntry {
+            kind: "setup".to_string(),
+            text: format!(
+                "开窍大典落定：你以「{}」身份入账，天赋为「{}」，结果为「{}」。空窍已开，但资源、人情和关注度仍按账本结算。",
+                origin.title, talent_text, opening.title
+            ),
+        },
+    );
+
+    Ok(state)
+}
+
+fn setup_confirm_blockers(setup: &RunSetupState) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if setup.selected_origin_id.is_none() {
+        blockers.push("需要选择 1 个出身".to_string());
+    }
+    if setup.selected_talent_ids.len() != 3 {
+        blockers.push(format!(
+            "需要选择 3 个天赋，当前已选 {} 个",
+            setup.selected_talent_ids.len()
+        ));
+    }
+    blockers
+}
+
+fn setup_attribute_profile(
+    content_bundle: &ContentBundle,
+) -> Result<&ContentAttributeProfile, CommandError> {
+    content_bundle
+        .attribute_profiles
+        .first()
+        .ok_or_else(|| CommandError::content("缺少设置层属性面板", "attribute_profiles is empty"))
+}
+
+fn setup_opening_rite(
+    content_bundle: &ContentBundle,
+) -> Result<&ContentOpeningRiteOutcome, CommandError> {
+    content_bundle
+        .opening_rite_outcomes
+        .first()
+        .ok_or_else(|| CommandError::content("缺少开窍大典结果", "opening_rite_outcomes is empty"))
+}
+
+fn setup_opening_rite_by_id<'a>(
+    content_bundle: &'a ContentBundle,
+    id: &str,
+) -> Result<&'a ContentOpeningRiteOutcome, CommandError> {
+    content_bundle
+        .opening_rite_outcomes
+        .iter()
+        .find(|outcome| outcome.id == id)
+        .ok_or_else(|| CommandError::validation(format!("未知开窍大典结果：{id}")))
+}
+
+fn setup_origin_by_id<'a>(
+    content_bundle: &'a ContentBundle,
+    id: &str,
+) -> Result<&'a ContentOriginSpec, CommandError> {
+    content_bundle
+        .origins
+        .iter()
+        .find(|origin| origin.id == id)
+        .ok_or_else(|| CommandError::validation(format!("未知出身：{id}")))
+}
+
+fn setup_talent_by_id<'a>(
+    content_bundle: &'a ContentBundle,
+    id: &str,
+) -> Result<&'a ContentTalentSpec, CommandError> {
+    content_bundle
+        .talents
+        .iter()
+        .find(|talent| talent.id == id)
+        .ok_or_else(|| CommandError::validation(format!("未知天赋：{id}")))
+}
+
+fn setup_resource_package_by_id<'a>(
+    content_bundle: &'a ContentBundle,
+    id: &str,
+) -> Result<&'a ContentInitialResourcePackage, CommandError> {
+    content_bundle
+        .initial_resource_packages
+        .iter()
+        .find(|package| package.id == id)
+        .ok_or_else(|| CommandError::validation(format!("未知初始资源包：{id}")))
+}
+
+fn base_attribute_values(profile: &ContentAttributeProfile) -> BTreeMap<String, i32> {
+    profile
+        .attributes
+        .iter()
+        .map(|attribute| (attribute.id.clone(), attribute.base))
+        .collect()
+}
+
+fn calculate_setup_attributes(
+    setup: &RunSetupState,
+    content_bundle: &ContentBundle,
+) -> Result<BTreeMap<String, i32>, CommandError> {
+    let profile = setup_attribute_profile(content_bundle)?;
+    let mut values = base_attribute_values(profile);
+
+    if let Some(origin_id) = setup.selected_origin_id.as_deref() {
+        let origin = setup_origin_by_id(content_bundle, origin_id)?;
+        apply_attribute_modifiers(&mut values, &origin.attribute_modifiers);
+    }
+
+    for talent_id in &setup.selected_talent_ids {
+        let talent = setup_talent_by_id(content_bundle, talent_id)?;
+        require_setup_talent_allowed(&setup.mode, talent)?;
+        apply_attribute_modifiers(&mut values, &talent.attribute_modifiers);
+    }
+
+    for attribute in &profile.attributes {
+        if let Some(value) = values.get_mut(&attribute.id) {
+            *value = (*value).clamp(attribute.min, attribute.max);
+        }
+    }
+
+    Ok(values)
+}
+
+fn apply_attribute_modifiers(
+    values: &mut BTreeMap<String, i32>,
+    modifiers: &BTreeMap<String, i32>,
+) {
+    for (attribute_id, delta) in modifiers {
+        *values.entry(attribute_id.clone()).or_insert(0) += delta;
+    }
+}
+
+fn calculate_setup_resource_preview(
+    setup: &RunSetupState,
+    content_bundle: &ContentBundle,
+) -> Result<SetupResourcePreview, CommandError> {
+    let mut preview = SetupResourcePreview::default();
+    let mut package_ids = Vec::<String>::new();
+
+    if let Some(origin_id) = setup.selected_origin_id.as_deref() {
+        package_ids.push(
+            setup_origin_by_id(content_bundle, origin_id)?
+                .resource_package_id
+                .clone(),
+        );
+    }
+    package_ids.push(
+        setup_opening_rite_by_id(content_bundle, &setup.opening_rite_outcome_id)?
+            .resource_package_id
+            .clone(),
+    );
+
+    for package_id in package_ids {
+        if preview
+            .resource_package_ids
+            .iter()
+            .any(|id| id == &package_id)
+        {
+            continue;
+        }
+        let package = setup_resource_package_by_id(content_bundle, &package_id)?;
+        preview.primeval_stones += package.primeval_stones;
+        preview.materials += package.materials;
+        preview.merit += package.merit;
+        preview.infirmary_debt += package.infirmary_debt;
+        preview.favor_debt += package.favor_debt;
+        preview.organization_debt += package.organization_debt;
+        preview.trading_credit += package.trading_credit;
+        preview.exposure += package.exposure;
+        preview.resource_package_ids.push(package_id);
+    }
+
+    Ok(preview)
+}
+
+fn setup_talent_visible(mode: &RunMode, talent: &ContentTalentSpec) -> bool {
+    setup_mode_permitted(mode, &talent.modes)
+        && (*mode != RunMode::CanonStrict || talent.intensity == TalentIntensity::Mild)
+}
+
+fn require_setup_talent_allowed(
+    mode: &RunMode,
+    talent: &ContentTalentSpec,
+) -> Result<(), CommandError> {
+    require_mode(mode, &talent.modes, "talent", &talent.id)?;
+    if *mode == RunMode::CanonStrict && talent.intensity != TalentIntensity::Mild {
+        return Err(CommandError::validation(format!(
+            "严谨模式不能选择强 IF 天赋：{}",
+            talent.title
+        )));
+    }
+    Ok(())
+}
+
+fn setup_mode_permitted(mode: &RunMode, modes: &[ModePermit]) -> bool {
+    match mode {
+        RunMode::CanonStrict => modes.contains(&ModePermit::CanonStrict),
+        RunMode::SandboxIf => modes.contains(&ModePermit::SandboxIf),
+    }
+}
+
 pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameState {
     GameState {
         run_id: DEFAULT_RUN_ID.to_string(),
@@ -3745,6 +4270,7 @@ pub fn create_run(mode: RunMode, content_version: impl Into<String>) -> GameStat
             kind: "scene".to_string(),
             text: "开窍大典的余声刚落，你站在学堂门前，清晨山雾压着木檐；空窍已开，真正的家族秩序才刚开始记账。".to_string(),
         }],
+        setup_summary: None,
     }
 }
 
@@ -6353,6 +6879,174 @@ mod tests {
             .diagnostics
             .unwrap_or_default()
             .contains("resource package 'missing_package' not found"));
+    }
+
+    #[test]
+    fn sprint3_create_setup_run_filters_strong_if_talents_in_canon_strict() {
+        let bundle = starter_content_bundle();
+        let setup = create_setup_run(RunMode::CanonStrict, &bundle).expect("create setup run");
+        let view = build_setup_view(&setup, &bundle).expect("build setup view");
+
+        assert_eq!(setup.mode, RunMode::CanonStrict);
+        assert_eq!(setup.content_version, STARTER_CONTENT_VERSION);
+        assert_eq!(view.talent_candidates.len(), 7);
+        assert!(view
+            .talent_candidates
+            .iter()
+            .all(|talent| talent.intensity == TalentIntensity::Mild));
+        assert!(view
+            .talent_candidates
+            .iter()
+            .all(|talent| talent.id != "reborn_memory_fragment"));
+        assert!(!view.confirm_enabled);
+        assert!(view
+            .confirm_blockers
+            .iter()
+            .any(|blocker| blocker.contains("选择 1 个出身")));
+    }
+
+    #[test]
+    fn sprint3_setup_talent_selection_requires_exactly_three_and_toggles() {
+        let bundle = starter_content_bundle();
+        let mut setup = create_setup_run(RunMode::CanonStrict, &bundle).expect("create setup run");
+
+        setup = resolve_setup_choice(
+            setup,
+            setup_command(SetupIntent::SelectOrigin, "academy_plain_child"),
+            &bundle,
+        )
+        .expect("select origin")
+        .setup;
+
+        for talent_id in ["steady_mind", "quiet_observer", "frugal_hands"] {
+            setup = resolve_setup_choice(
+                setup,
+                setup_command(SetupIntent::ToggleTalent, talent_id),
+                &bundle,
+            )
+            .expect("toggle talent")
+            .setup;
+        }
+
+        let fourth = resolve_setup_choice(
+            setup.clone(),
+            setup_command(SetupIntent::ToggleTalent, "bitter_bone"),
+            &bundle,
+        )
+        .expect_err("fourth talent must be rejected");
+        assert_eq!(fourth.kind, CommandErrorKind::Validation);
+        assert!(fourth.message.contains("最多选择 3 个天赋"));
+
+        let toggled = resolve_setup_choice(
+            setup,
+            setup_command(SetupIntent::ToggleTalent, "frugal_hands"),
+            &bundle,
+        )
+        .expect("toggle selected talent off");
+        assert_eq!(
+            toggled.setup.selected_talent_ids,
+            vec!["steady_mind".to_string(), "quiet_observer".to_string()]
+        );
+        assert!(!toggled.view.confirm_enabled);
+    }
+
+    #[test]
+    fn sprint3_sandbox_if_can_select_strong_if_without_granting_hard_rewards() {
+        let bundle = starter_content_bundle();
+        let mut setup = create_setup_run(RunMode::SandboxIf, &bundle).expect("create setup run");
+        let view = build_setup_view(&setup, &bundle).expect("build setup view");
+        assert!(view
+            .talent_candidates
+            .iter()
+            .any(|talent| talent.id == "reborn_memory_fragment"));
+        assert!(view
+            .talent_candidates
+            .iter()
+            .any(|talent| talent.id == "vital_gu_omen"));
+
+        setup = resolve_setup_choice(
+            setup,
+            setup_command(SetupIntent::SelectOrigin, "qingmao_branch_child"),
+            &bundle,
+        )
+        .expect("select origin")
+        .setup;
+        for talent_id in [
+            "reborn_memory_fragment",
+            "inheritance_scent",
+            "vital_gu_omen",
+        ] {
+            setup = resolve_setup_choice(
+                setup,
+                setup_command(SetupIntent::ToggleTalent, talent_id),
+                &bundle,
+            )
+            .expect("select sandbox talent")
+            .setup;
+        }
+
+        let state = confirm_setup_run(setup, &bundle).expect("confirm setup run");
+        let summary = state.setup_summary.expect("setup summary");
+        assert_eq!(summary.talent_ids.len(), 3);
+        assert!(summary
+            .talent_ids
+            .contains(&"reborn_memory_fragment".to_string()));
+        assert_eq!(state.build.vital_gu.status, VitalGuStatus::NotEstablished);
+        assert_eq!(state.build.vital_gu.instance_id, None);
+        assert!(state
+            .ledger
+            .iter()
+            .all(|entry| !entry.text.contains("完整传承")));
+        assert!(state
+            .ledger
+            .iter()
+            .all(|entry| !entry.text.contains("方源")));
+    }
+
+    #[test]
+    fn sprint3_confirm_setup_generates_s0_state_with_summary_and_deduped_resources() {
+        let bundle = starter_content_bundle();
+        let mut setup = create_setup_run(RunMode::CanonStrict, &bundle).expect("create setup run");
+
+        setup = resolve_setup_choice(
+            setup,
+            setup_command(SetupIntent::SelectOrigin, "academy_plain_child"),
+            &bundle,
+        )
+        .expect("select origin")
+        .setup;
+        for talent_id in ["steady_mind", "quiet_observer", "moonlight_pacing"] {
+            setup = resolve_setup_choice(
+                setup,
+                setup_command(SetupIntent::ToggleTalent, talent_id),
+                &bundle,
+            )
+            .expect("select talent")
+            .setup;
+        }
+
+        let state = confirm_setup_run(setup, &bundle).expect("confirm setup");
+        let summary = state.setup_summary.as_ref().expect("setup summary");
+
+        assert!(state.character.aperture_opened);
+        assert_eq!(state.resources.primeval_stones, 3);
+        assert_eq!(state.risk.exposure, 2);
+        assert_eq!(summary.origin_id, "academy_plain_child");
+        assert_eq!(
+            summary.resource_package_ids,
+            vec!["s0_opening_plain_supplies".to_string()]
+        );
+        assert_eq!(summary.attributes.get("aptitude"), Some(&7));
+        assert_eq!(summary.attributes.get("wit"), Some(&7));
+        assert_eq!(summary.attributes.get("luck"), Some(&6));
+        assert!(state
+            .ledger
+            .iter()
+            .any(|entry| entry.text.contains("开窍大典")));
+        assert!(state
+            .ledger
+            .iter()
+            .any(|entry| entry.text.contains("学堂普通子弟")));
     }
 
     #[test]

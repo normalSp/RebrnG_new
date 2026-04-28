@@ -2,6 +2,16 @@ export type CommandErrorKind = "validation" | "content" | "save" | "io" | "inter
 
 export type WindowType = "free" | "anchor";
 
+export type RunMode = "canon_strict" | "sandbox_if";
+
+export type EvidenceLevel =
+  | "canon_explicit"
+  | "canon_inferred"
+  | "gameplay_extrapolated"
+  | "sandbox_if";
+
+export type ModePermit = "canon_strict" | "sandbox_if";
+
 export type ActionIntent =
   | "move"
   | "cultivate"
@@ -19,6 +29,10 @@ export type ActionIntent =
 export type InjuryLevel = "healthy" | "light" | "heavy";
 
 export type EncounterType = "extortion" | "public_pressure" | "probe";
+
+export type TalentIntensity = "mild" | "strong_if";
+
+export type SetupIntent = "select_origin" | "toggle_talent";
 
 export interface PerformanceMetrics {
   resolve_action_ms: number;
@@ -159,6 +173,89 @@ export interface ActionCommand {
   target?: string | null;
   declared_cost: DeclaredCost;
   context_note?: string | null;
+}
+
+export interface SetupCommand {
+  intent: SetupIntent;
+  target_id: string;
+}
+
+export interface RunSetupState {
+  run_id: string;
+  mode: RunMode;
+  content_version: string;
+  selected_origin_id?: string | null;
+  selected_talent_ids: string[];
+  attribute_values: Record<string, number>;
+  opening_rite_outcome_id: string;
+  completed: boolean;
+}
+
+export interface SetupCandidateView {
+  id: string;
+  title: string;
+  summary: string;
+  selected: boolean;
+  enabled: boolean;
+  disabled_reason?: string | null;
+  evidence: EvidenceLevel;
+  modes: ModePermit[];
+}
+
+export interface SetupTalentCandidateView {
+  id: string;
+  title: string;
+  summary: string;
+  intensity: TalentIntensity;
+  selected: boolean;
+  enabled: boolean;
+  disabled_reason?: string | null;
+  pressure_note: string;
+  route_tags: string[];
+  evidence: EvidenceLevel;
+  modes: ModePermit[];
+}
+
+export interface SetupAttributeView {
+  id: string;
+  label: string;
+  summary: string;
+  value: number;
+  min: number;
+  max: number;
+}
+
+export interface SetupResourcePreview {
+  primeval_stones: number;
+  materials: number;
+  merit: number;
+  infirmary_debt: number;
+  favor_debt: number;
+  organization_debt: number;
+  trading_credit: number;
+  exposure: number;
+  resource_package_ids: string[];
+}
+
+export interface SetupViewModel {
+  mode: RunMode;
+  content_version: string;
+  origin_candidates: SetupCandidateView[];
+  talent_candidates: SetupTalentCandidateView[];
+  attributes: SetupAttributeView[];
+  resource_preview: SetupResourcePreview;
+  selected_origin_id?: string | null;
+  selected_talent_ids: string[];
+  opening_rite_outcome_id: string;
+  opening_rite_title: string;
+  opening_rite_summary: string;
+  confirm_enabled: boolean;
+  confirm_blockers: string[];
+}
+
+export interface SetupResponse {
+  setup: RunSetupState;
+  view: SetupViewModel;
 }
 
 export interface LedgerViewModel {

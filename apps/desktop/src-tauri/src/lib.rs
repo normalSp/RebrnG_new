@@ -1,8 +1,11 @@
 use rebrng_game_core::{
     build_projection_with_content as core_build_projection_with_content,
-    create_run as core_create_run, resolve_action as core_resolve_action, starter_content_bundle,
-    ActionCommand, ActionResponse, CommandError, ContentBundle, ContentManifest, GameState,
-    LedgerViewModel, PerformanceMetrics, RunMode, SaveEnvelope, SaveWriteResult,
+    confirm_setup_run as core_confirm_setup_run, create_run as core_create_run,
+    create_setup_run as core_create_setup_run, resolve_action as core_resolve_action,
+    resolve_setup_choice as core_resolve_setup_choice, starter_content_bundle, ActionCommand,
+    ActionResponse, CommandError, ContentBundle, ContentManifest, GameState, LedgerViewModel,
+    PerformanceMetrics, RunMode, RunSetupState, SaveEnvelope, SaveWriteResult, SetupCommand,
+    SetupResponse,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,6 +15,7 @@ use tauri::Manager;
 
 struct ActiveRunState {
     active_run: Mutex<Option<GameState>>,
+    active_setup: Mutex<Option<RunSetupState>>,
     content_bundle: ContentBundle,
 }
 
@@ -19,6 +23,7 @@ impl Default for ActiveRunState {
     fn default() -> Self {
         Self {
             active_run: Mutex::new(None),
+            active_setup: Mutex::new(None),
             content_bundle: starter_content_bundle(),
         }
     }
@@ -28,6 +33,36 @@ impl Default for ActiveRunState {
 fn create_run(
     mode: Option<String>,
     runtime: tauri::State<'_, ActiveRunState>,
+) -> Result<ActionResponse, CommandError> {
+    create_run_in_runtime(mode, runtime.inner())
+}
+
+#[tauri::command]
+fn create_setup_run(
+    mode: Option<String>,
+    runtime: tauri::State<'_, ActiveRunState>,
+) -> Result<SetupResponse, CommandError> {
+    create_setup_run_in_runtime(mode, runtime.inner())
+}
+
+#[tauri::command]
+fn resolve_setup_choice(
+    command: SetupCommand,
+    runtime: tauri::State<'_, ActiveRunState>,
+) -> Result<SetupResponse, CommandError> {
+    resolve_setup_choice_in_runtime(command, runtime.inner())
+}
+
+#[tauri::command]
+fn confirm_setup_run(
+    runtime: tauri::State<'_, ActiveRunState>,
+) -> Result<ActionResponse, CommandError> {
+    confirm_setup_run_in_runtime(runtime.inner())
+}
+
+fn create_run_in_runtime(
+    mode: Option<String>,
+    runtime: &ActiveRunState,
 ) -> Result<ActionResponse, CommandError> {
     let run_mode = parse_mode(mode)?;
     let state = core_create_run(run_mode, runtime.content_bundle.manifest.version.clone());
@@ -44,6 +79,112 @@ fn create_run(
         )
     })?;
     *active_run = Some(state);
+
+    let mut active_setup = runtime.active_setup.lock().map_err(|error| {
+        CommandError::internal(
+            "运行态锁定失败",
+            format!("active_setup mutex poisoned: {error}"),
+        )
+    })?;
+    *active_setup = None;
+
+    Ok(response)
+}
+
+fn create_setup_run_in_runtime(
+    mode: Option<String>,
+    runtime: &ActiveRunState,
+) -> Result<SetupResponse, CommandError> {
+    let run_mode = parse_mode(mode)?;
+    let setup = core_create_setup_run(run_mode, &runtime.content_bundle)?;
+    let view = rebrng_game_core::build_setup_view(&setup, &runtime.content_bundle)?;
+    let response = SetupResponse {
+        setup: setup.clone(),
+        view,
+    };
+
+    let mut active_run = runtime.active_run.lock().map_err(|error| {
+        CommandError::internal(
+            "运行态锁定失败",
+            format!("active_run mutex poisoned: {error}"),
+        )
+    })?;
+    *active_run = None;
+
+    let mut active_setup = runtime.active_setup.lock().map_err(|error| {
+        CommandError::internal(
+            "运行态锁定失败",
+            format!("active_setup mutex poisoned: {error}"),
+        )
+    })?;
+    *active_setup = Some(setup);
+
+    Ok(response)
+}
+
+fn resolve_setup_choice_in_runtime(
+    command: SetupCommand,
+    runtime: &ActiveRunState,
+) -> Result<SetupResponse, CommandError> {
+    let current = {
+        let active_setup = runtime.active_setup.lock().map_err(|error| {
+            CommandError::internal(
+                "运行态锁定失败",
+                format!("active_setup mutex poisoned: {error}"),
+            )
+        })?;
+        active_setup
+            .clone()
+            .ok_or_else(|| CommandError::validation("当前没有 setup run，请先进入人生重开设置"))?
+    };
+
+    let response = core_resolve_setup_choice(current, command, &runtime.content_bundle)?;
+    let mut active_setup = runtime.active_setup.lock().map_err(|error| {
+        CommandError::internal(
+            "运行态锁定失败",
+            format!("active_setup mutex poisoned: {error}"),
+        )
+    })?;
+    *active_setup = Some(response.setup.clone());
+
+    Ok(response)
+}
+
+fn confirm_setup_run_in_runtime(runtime: &ActiveRunState) -> Result<ActionResponse, CommandError> {
+    let setup = {
+        let active_setup = runtime.active_setup.lock().map_err(|error| {
+            CommandError::internal(
+                "运行态锁定失败",
+                format!("active_setup mutex poisoned: {error}"),
+            )
+        })?;
+        active_setup
+            .clone()
+            .ok_or_else(|| CommandError::validation("当前没有 setup run，请先进入人生重开设置"))?
+    };
+
+    let state = core_confirm_setup_run(setup, &runtime.content_bundle)?;
+    let response = response_from_state(
+        &state,
+        &runtime.content_bundle,
+        PerformanceMetrics::default(),
+    )?;
+
+    let mut active_run = runtime.active_run.lock().map_err(|error| {
+        CommandError::internal(
+            "运行态锁定失败",
+            format!("active_run mutex poisoned: {error}"),
+        )
+    })?;
+    *active_run = Some(state);
+
+    let mut active_setup = runtime.active_setup.lock().map_err(|error| {
+        CommandError::internal(
+            "运行态锁定失败",
+            format!("active_setup mutex poisoned: {error}"),
+        )
+    })?;
+    *active_setup = None;
 
     Ok(response)
 }
@@ -297,6 +438,9 @@ pub fn run() {
         .manage(ActiveRunState::default())
         .invoke_handler(tauri::generate_handler![
             create_run,
+            create_setup_run,
+            resolve_setup_choice,
+            confirm_setup_run,
             resolve_action,
             build_projection,
             get_content_manifest,
@@ -310,7 +454,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rebrng_game_core::STARTER_CONTENT_VERSION;
+    use rebrng_game_core::{CommandErrorKind, STARTER_CONTENT_VERSION};
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -358,6 +502,104 @@ mod tests {
         assert_eq!(loaded.metadata.slot_id, "slot_0");
 
         fs::remove_dir_all(root).expect("cleanup temp save root");
+    }
+
+    #[test]
+    fn setup_commands_require_active_setup_before_choice_or_confirm() {
+        let runtime = ActiveRunState::default();
+
+        let choice_error = resolve_setup_choice_in_runtime(
+            rebrng_game_core::setup_command(
+                rebrng_game_core::SetupIntent::SelectOrigin,
+                "academy_plain_child",
+            ),
+            &runtime,
+        )
+        .expect_err("choice without setup should fail");
+        assert_eq!(choice_error.kind, CommandErrorKind::Validation);
+        assert!(choice_error.message.contains("当前没有 setup run"));
+
+        let confirm_error =
+            confirm_setup_run_in_runtime(&runtime).expect_err("confirm without setup should fail");
+        assert_eq!(confirm_error.kind, CommandErrorKind::Validation);
+        assert!(confirm_error.message.contains("当前没有 setup run"));
+    }
+
+    #[test]
+    fn setup_command_flow_confirms_active_run_and_clears_setup() {
+        let runtime = ActiveRunState::default();
+
+        let created = create_setup_run_in_runtime(Some("canon_strict".to_string()), &runtime)
+            .expect("create setup");
+        assert!(!created.view.confirm_enabled);
+        assert!(runtime
+            .active_run
+            .lock()
+            .expect("active run lock")
+            .is_none());
+
+        resolve_setup_choice_in_runtime(
+            rebrng_game_core::setup_command(
+                rebrng_game_core::SetupIntent::SelectOrigin,
+                "academy_plain_child",
+            ),
+            &runtime,
+        )
+        .expect("select origin");
+        for talent_id in ["steady_mind", "quiet_observer", "moonlight_pacing"] {
+            resolve_setup_choice_in_runtime(
+                rebrng_game_core::setup_command(
+                    rebrng_game_core::SetupIntent::ToggleTalent,
+                    talent_id,
+                ),
+                &runtime,
+            )
+            .expect("select talent");
+        }
+
+        let response = confirm_setup_run_in_runtime(&runtime).expect("confirm setup");
+        assert!(response.projection.scene_text.contains("开窍大典"));
+        assert!(runtime
+            .active_setup
+            .lock()
+            .expect("active setup lock")
+            .is_none());
+        let active_run = runtime
+            .active_run
+            .lock()
+            .expect("active run lock")
+            .clone()
+            .expect("active run");
+        assert!(active_run.setup_summary.is_some());
+        assert_eq!(active_run.resources.primeval_stones, 3);
+    }
+
+    #[test]
+    fn default_create_run_clears_setup_flow() {
+        let runtime = ActiveRunState::default();
+        create_setup_run_in_runtime(Some("canon_strict".to_string()), &runtime)
+            .expect("create setup");
+        assert!(runtime
+            .active_setup
+            .lock()
+            .expect("active setup lock")
+            .is_some());
+
+        let response = create_run_in_runtime(Some("canon_strict".to_string()), &runtime)
+            .expect("create default run");
+        assert_eq!(response.projection.current_node_id, "academy_gate");
+        assert!(runtime
+            .active_setup
+            .lock()
+            .expect("active setup lock")
+            .is_none());
+        let active_run = runtime
+            .active_run
+            .lock()
+            .expect("active run lock")
+            .clone()
+            .expect("active run");
+        assert!(active_run.setup_summary.is_none());
     }
 
     fn unique_temp_dir() -> PathBuf {
