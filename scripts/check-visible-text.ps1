@@ -5,6 +5,7 @@ $TargetRoots = @(
     "crates/game-core/src",
     "packages/ui-ledger/src",
     "apps/desktop/src",
+    "apps/desktop/src-tauri/src",
     "content/s0",
     "docs/superpowers/specs",
     "docs/superpowers/plans",
@@ -27,7 +28,16 @@ $ForbiddenFragments = @(
     @{ Name = "known mojibake marker U+947D"; Value = [string][char]0x947D },
     @{ Name = "legacy mojibake compatibility marker U+535E"; Value = [string][char]0x535E },
     @{ Name = "known mojibake marker U+59DD"; Value = [string][char]0x59DD },
-    @{ Name = "known mojibake marker U+5FAD"; Value = [string][char]0x5FAD }
+    @{ Name = "known mojibake marker U+5FAD"; Value = [string][char]0x5FAD },
+    @{ Name = "known mojibake marker U+6769"; Value = [string][char]0x6769 },
+    @{ Name = "known mojibake marker U+8926"; Value = [string][char]0x8926 },
+    @{ Name = "known mojibake marker U+701B"; Value = [string][char]0x701B },
+    @{ Name = "known mojibake marker U+93C3"; Value = [string][char]0x93C3 },
+    @{ Name = "known mojibake marker U+93C7"; Value = [string][char]0x93C7 },
+    @{ Name = "known mojibake marker U+93BB"; Value = [string][char]0x93BB },
+    @{ Name = "known mojibake marker U+7487"; Value = [string][char]0x7487 },
+    @{ Name = "known mojibake marker U+7459"; Value = [string][char]0x7459 },
+    @{ Name = "known mojibake marker U+6434"; Value = [string][char]0x6434 }
 )
 
 $Hits = New-Object System.Collections.Generic.List[string]
