@@ -5,6 +5,8 @@ const SOURCE_MAP_PATH = "docs/superpowers/data/canon/first-volume-source-map.jso
 const CANON_INDEX_PATH = "docs/superpowers/data/canon/first-volume-canon-index.json";
 const STORY_BEATS_PATH = "docs/superpowers/data/first-volume-story-beats.json";
 const SPRINT7_TARGETS_PATH = "docs/superpowers/data/sprint7-narrative-targets.json";
+const SPRINT10_TARGETS_PATH =
+  "docs/superpowers/data/sprint10-liquor-worm-flower-wine-targets.json";
 const REQUIRED_FACT_FIELDS = [
   "fact_id",
   "volume",
@@ -88,6 +90,7 @@ async function main() {
   const canonIndex = await readJson(CANON_INDEX_PATH);
   const storyBeats = await readJson(STORY_BEATS_PATH);
   const sprint7Targets = await readJson(SPRINT7_TARGETS_PATH);
+  const sprint10Targets = await readJson(SPRINT10_TARGETS_PATH);
 
   ensure(sourceMap.entries?.length === 199, "第一卷 source map 必须覆盖 199 节");
   ensure(sourceMap.source?.raw_sha256, "source map 必须记录原始文件 hash");
@@ -124,6 +127,11 @@ async function main() {
   const targetRefs = collectBeatRefs(sprint7Targets);
   for (const ref of targetRefs) {
     ensure(factIds.has(ref), `Sprint 7 目标槽位引用了不存在的事实卡：${ref}`);
+  }
+
+  const sprint10Refs = collectBeatRefs(sprint10Targets);
+  for (const ref of sprint10Refs) {
+    ensure(factIds.has(ref), `Sprint 10 目标槽位引用了不存在的事实卡：${ref}`);
   }
 
   console.log(

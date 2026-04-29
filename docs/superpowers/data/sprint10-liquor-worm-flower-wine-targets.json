@@ -1,0 +1,200 @@
+{
+  "schema_version": "sprint10-liquor-worm-flower-wine-targets-v1",
+  "content_version_candidate": "s0.9.0",
+  "rules_version_candidate": "sprint10-rules-v1",
+  "description": "Sprint 10 酒虫与花酒外围残线的 DeepSeek 离线候选槽位。所有候选只作为人工审校输入，不直接入库。",
+  "targets": [
+    {
+      "target_content_id": "s10.public_flower_wine_lesson",
+      "target_slot": "academy_lore_rumor",
+      "mode": "canon_strict",
+      "evidence": "canon_explicit",
+      "canon_index_refs": [
+        "flower_wine_public_clan_story"
+      ],
+      "state_assumptions": [
+        "玩家已完成开窍大典",
+        "玩家仍在学堂与家族秩序内活动",
+        "玩家尚未接触花酒核心真相"
+      ],
+      "risk_notes": [
+        "只能呈现家族公开版本和制度压力",
+        "不能揭示后续核心真相"
+      ],
+      "redlines": [
+        "不得写成玩家验证花酒历史真相",
+        "不得让玩家获得花酒遗藏入口",
+        "不得把公开传闻写成绝对真相"
+      ]
+    },
+    {
+      "target_content_id": "s10.liquor_worm_rumor_unlock",
+      "target_slot": "rumor_unlock",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "canon_index_refs": [
+        "fang_yuan_rebirth_liquor_worm_memory",
+        "liquor_worm_future_drunk_discovery_rumor"
+      ],
+      "state_assumptions": [
+        "玩家通过风声听到酒香、醉酒蛊师或夜探传闻",
+        "玩家不知道方源前世记忆",
+        "玩家不知道精确地点"
+      ],
+      "risk_notes": [
+        "应强调传闻不完整",
+        "应产生资源与时间诱惑"
+      ],
+      "redlines": [
+        "不得把方源的重生记忆转交给玩家",
+        "不得给出精确坐标",
+        "不得生成酒虫实例"
+      ]
+    },
+    {
+      "target_content_id": "s10.qingzhu_wine_probe",
+      "target_slot": "resource_probe",
+      "mode": "canon_strict",
+      "evidence": "canon_explicit",
+      "canon_index_refs": [
+        "qingzhu_wine_lure_attempt",
+        "primeval_stone_refill_and_resource_pressure"
+      ],
+      "state_assumptions": [
+        "玩家可选择消耗元石买酒试探",
+        "玩家仍需要元石支持月光蛊修行",
+        "夜探会增加暴露或错失窗口"
+      ],
+      "risk_notes": [
+        "买酒应与修行资源冲突",
+        "失败也应有可读反馈"
+      ],
+      "redlines": [
+        "不得把买酒写成稳定召唤酒虫",
+        "不得免除元石压力",
+        "不得跳过夜探风险"
+      ]
+    },
+    {
+      "target_content_id": "s10.night_lure_false_trace",
+      "target_slot": "night_search_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "canon_index_refs": [
+        "qingzhu_wine_lure_attempt",
+        "liquor_worm_behavior_and_capture_window"
+      ],
+      "state_assumptions": [
+        "玩家在深夜节点使用酒香试探",
+        "玩家没有足够信息锁定酒虫",
+        "酒虫线仍受锚点保护"
+      ],
+      "risk_notes": [
+        "常见结果应为空手、误导、被盯或资源亏损",
+        "可让玩家感到接近但不稳定"
+      ],
+      "redlines": [
+        "不得让玩家直接捕获酒虫",
+        "不得让酒虫主动投靠玩家",
+        "不得揭示核心洞口"
+      ]
+    },
+    {
+      "target_content_id": "s10.outer_cave_pressure",
+      "target_slot": "outer_trail_pressure",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "canon_index_refs": [
+        "flower_wine_outer_cave_danger",
+        "flower_wine_recorded_truth_redline"
+      ],
+      "state_assumptions": [
+        "玩家接近山寨外缘或湿壁岩缝",
+        "玩家只能接触外围环境压力",
+        "核心密洞仍被原著锚点保护"
+      ],
+      "risk_notes": [
+        "应突出水路、岩缝、夜色、撤退成本",
+        "应让玩家理解继续深入会出事"
+      ],
+      "redlines": [
+        "不得进入核心密洞",
+        "不得取得骨骸、留影或核心证据",
+        "不得让玩家替代方源发现遗藏"
+      ]
+    },
+    {
+      "target_content_id": "s10.retreat_from_outer_trail",
+      "target_slot": "retreat_result",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "canon_index_refs": [
+        "fang_yuan_rebirth_liquor_worm_memory",
+        "flower_wine_outer_cave_danger"
+      ],
+      "state_assumptions": [
+        "玩家意识到自身信息不足",
+        "玩家选择撤退保留月光蛊修行节奏",
+        "玩家可能留下被人记住的夜探痕迹"
+      ],
+      "risk_notes": [
+        "撤退应是合理生存选择",
+        "撤退也可以留下后续风声或小债"
+      ],
+      "redlines": [
+        "不得把撤退写成失败羞辱",
+        "不得给核心奖励补偿",
+        "不得清空所有风险痕迹"
+      ]
+    },
+    {
+      "target_content_id": "s10.sandbox_if_liquor_worm_glimpse",
+      "target_slot": "sandbox_if_glimpse",
+      "mode": "sandbox_if",
+      "evidence": "gameplay_extrapolated",
+      "canon_index_refs": [
+        "liquor_worm_behavior_and_capture_window",
+        "flower_wine_outer_cave_danger"
+      ],
+      "state_assumptions": [
+        "玩家处于高自由 IF 模式",
+        "玩家已付出元石、深夜窗口、暴露或伤势代价",
+        "锚点压力允许短暂外围偏移"
+      ],
+      "risk_notes": [
+        "可以看到疑似酒虫或酒香残影",
+        "必须产生追索、暴露、资源亏损或路线断裂"
+      ],
+      "redlines": [
+        "不得无代价获得酒虫",
+        "不得稳定炼化酒虫",
+        "不得改写方源核心机缘",
+        "不得跳过花酒核心红线"
+      ]
+    },
+    {
+      "target_content_id": "s10.core_truth_blocked_feedback",
+      "target_slot": "anchor_block_feedback",
+      "mode": "canon_strict",
+      "evidence": "canon_inferred",
+      "canon_index_refs": [
+        "flower_wine_public_clan_story",
+        "flower_wine_recorded_truth_redline"
+      ],
+      "state_assumptions": [
+        "玩家触碰到公开历史与真实历史之间的裂缝",
+        "玩家没有足够实力和资格承受真相",
+        "主线锚点需要保护核心证据"
+      ],
+      "risk_notes": [
+        "反馈应克制、危险、留有余味",
+        "让玩家知道被挡住的是锚点而不是 UI 错误"
+      ],
+      "redlines": [
+        "不得直出花酒历史真相",
+        "不得提供核心证据",
+        "不得把锚点保护写成系统硬弹窗"
+      ]
+    }
+  ]
+}

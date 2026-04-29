@@ -465,6 +465,209 @@
         "不能把酒虫写成新手礼包。",
         "不能把本命蛊概念写成开局可随意绑定的技能槽。"
       ]
+    },
+    {
+      "fact_id": "flower_wine_public_clan_story",
+      "volume": 1,
+      "chapter_no": 7,
+      "chapter_title": "第七节 蛊师有九转，花酒留遗藏",
+      "line_start": 1011,
+      "line_end": 1029,
+      "fact_type": "public_history",
+      "canon_summary": "学堂和家族公开叙述中，花酒行者被当作危害山寨的外来魔道形象，四代古月被包装成护族强者。这个公开版本服务家族秩序，后续会被核心遗藏线复杂化。",
+      "game_design_use": "用于学堂传闻、族史教育、制度压力和花酒线外层风声。玩家在早期只能听到公开版本，不能直接验证真相。",
+      "mechanic_hooks": [
+        "academy_lore",
+        "clan_history_pressure",
+        "rumor_source",
+        "anchor_protection"
+      ],
+      "narrative_hooks": [
+        "师长用花酒旧事警告少年不要接近魔道传闻",
+        "玩家从公开讲述中感到历史被写成家族账册",
+        "花酒线最初以禁忌传闻而不是奖励入口出现"
+      ],
+      "canon_strict_rule": "严谨模式只能让玩家听到公开版本或外围疑点，不能提前证明公开历史是伪造叙事。",
+      "sandbox_if_allowance": "IF 模式可以出现旁证、矛盾传闻或旧人低语，但仍不能直接给核心证据。",
+      "forbidden_misreadings": [
+        "把公开传闻写成已被玩家证实的历史真相",
+        "把花酒行者包装成开局可拜师对象",
+        "把族史课堂直接变成花酒遗藏入口"
+      ]
+    },
+    {
+      "fact_id": "fang_yuan_rebirth_liquor_worm_memory",
+      "volume": 1,
+      "chapter_no": 7,
+      "chapter_title": "第七节 蛊师有九转，花酒留遗藏",
+      "line_start": 1031,
+      "line_end": 1049,
+      "fact_type": "rebirth_memory_anchor",
+      "canon_summary": "方源追查酒虫依靠的是重生后掌握的未来传闻。他知道后续会有人因酒香引出酒虫并牵出花酒遗藏，但并不知道精确地点，只能买酒、夜探和反复试探。",
+      "game_design_use": "用于解释为什么方源能靠近这条机缘，也用于限制玩家不能天然获得同等信息优势。",
+      "mechanic_hooks": [
+        "guarded_npc_anchor",
+        "liquor_worm_route_lock",
+        "information_asymmetry",
+        "timeline_pressure"
+      ],
+      "narrative_hooks": [
+        "玩家可感到方源夜间行动异常",
+        "酒虫线被呈现为有人抢先布局的暗流",
+        "玩家追查只能从风声和资源试探开始"
+      ],
+      "canon_strict_rule": "玩家不是方源，不能继承方源的重生记忆，不能知道酒虫精确位置或核心路径。",
+      "sandbox_if_allowance": "IF 模式可以给玩家梦兆、错位风声或更强直觉，但必须伴随锚点压力和失败代价。",
+      "forbidden_misreadings": [
+        "让玩家凭空知道方源前世记忆",
+        "把酒虫线写成公开任务",
+        "让玩家在严谨模式稳定截胡方源主机缘"
+      ]
+    },
+    {
+      "fact_id": "liquor_worm_future_drunk_discovery_rumor",
+      "volume": 1,
+      "chapter_no": 13,
+      "chapter_title": "第十三节 月下竹林，一点珠雪",
+      "line_start": 1887,
+      "line_end": 1907,
+      "fact_type": "timeline_anchor",
+      "canon_summary": "原时间线中，酒虫被后续某位醉酒蛊师的酒香引出，并进一步牵出隐秘空间。方源掌握的传闻并不完整，他自己也在判断真伪和隐藏细节。",
+      "game_design_use": "用于酒虫传闻解锁、醉酒风声、错误时间感和严谨模式的锚点保护。游戏内暂不硬写具体月份，避免不同来源范围表述冲突。",
+      "mechanic_hooks": [
+        "rumor_unlock",
+        "wine_lure_anchor",
+        "false_or_partial_information",
+        "anchor_pressure"
+      ],
+      "narrative_hooks": [
+        "风声只说醉酒和酒香，不说准确地点",
+        "玩家听到的版本带有二手传闻感",
+        "追查越深越容易意识到有人比自己知道得更多"
+      ],
+      "canon_strict_rule": "严谨模式可让玩家听到醉酒与酒香相关风声，但不能让玩家获得完整未来事件链。",
+      "sandbox_if_allowance": "IF 模式可以让玩家听到更早的醉酒异动或疑似目击，但必须消耗窗口和提高暴露。",
+      "forbidden_misreadings": [
+        "直写精确月份并作为稳定玩法条件",
+        "把醉酒蛊师的未来发现改成玩家必得奖励",
+        "忽略传闻本身的不完整性"
+      ]
+    },
+    {
+      "fact_id": "qingzhu_wine_lure_attempt",
+      "volume": 1,
+      "chapter_no": 13,
+      "chapter_title": "第十三节 月下竹林，一点珠雪",
+      "line_start": 1936,
+      "line_end": 1973,
+      "fact_type": "search_method",
+      "canon_summary": "追查酒虫需要买酒和夜间试探。青竹酒能作为酒香诱引，但会消耗元石；连续失败会挤压炼化月光蛊和日常修行所需资源。",
+      "game_design_use": "用于把酒虫外围线设计成资源诱惑，而不是免费探索。玩家可以花元石试探，但常见结果应是压力、误导或撤退。",
+      "mechanic_hooks": [
+        "wine_purchase_cost",
+        "night_search",
+        "primeval_stone_pressure",
+        "failure_feedback"
+      ],
+      "narrative_hooks": [
+        "青竹酒香与夜色形成强氛围",
+        "元石减少让玩家意识到追查机缘会伤害修行节奏",
+        "空手而归也应有因果反馈"
+      ],
+      "canon_strict_rule": "严谨模式可允许玩家买酒试探，但不能把买酒变成稳定召唤酒虫。",
+      "sandbox_if_allowance": "IF 模式可让酒香引来更强异动，但必须附带追索、暴露或资源亏损。",
+      "forbidden_misreadings": [
+        "买一次酒就稳定找到酒虫",
+        "无视元石成本",
+        "让酒虫像商店商品一样出现"
+      ]
+    },
+    {
+      "fact_id": "liquor_worm_behavior_and_capture_window",
+      "volume": 1,
+      "chapter_no": 14,
+      "chapter_title": "第十四节 山缝之中藏玄机",
+      "line_start": 2038,
+      "line_end": 2096,
+      "fact_type": "gu_behavior",
+      "canon_summary": "酒虫警觉、嗜酒、会飞，并不会因为闻到酒香就轻易被抓。更合理的窗口是让它饮酒后行动迟缓，再进行跟踪或捕捉。",
+      "game_design_use": "用于禁止玩家直接抓取酒虫，也用于设计酒香、等待、跟踪、失败和锚点压力。",
+      "mechanic_hooks": [
+        "gu_behavior",
+        "lure_and_wait",
+        "capture_denied",
+        "tracking_window"
+      ],
+      "narrative_hooks": [
+        "酒虫出现应像危险机缘一闪而过",
+        "玩家可看到白点或酒香异动，但抓不住",
+        "等待和撤退都应是合理选择"
+      ],
+      "canon_strict_rule": "严谨模式不能让玩家稳定捕获酒虫；即使出现疑似踪迹，也只能是外围反馈。",
+      "sandbox_if_allowance": "IF 模式可以允许短暂目击或追踪失败，但不允许无代价持有酒虫。",
+      "forbidden_misreadings": [
+        "把酒虫写成普通采集物",
+        "让玩家直接点击获得酒虫实例",
+        "忽略酒虫警觉和诱饮条件"
+      ]
+    },
+    {
+      "fact_id": "flower_wine_outer_cave_danger",
+      "volume": 1,
+      "chapter_no": 14,
+      "chapter_title": "第十四节 山缝之中藏玄机",
+      "line_start": 2122,
+      "line_end": 2212,
+      "fact_type": "inheritance_outer_space",
+      "canon_summary": "酒虫线牵向隐秘岩缝、水流和危险狭窄空间，外围环境本身就带有迷路、跌落、被水声遮蔽和无法回头的风险。核心空间内存在更高价值证据与遗留物。",
+      "game_design_use": "用于设计花酒外围残线、假入口、撤退选择和高风险移动。严谨模式只开放外围压力，不开放核心密洞。",
+      "mechanic_hooks": [
+        "outer_trail_node",
+        "high_risk_movement",
+        "retreat_choice",
+        "inheritance_redline"
+      ],
+      "narrative_hooks": [
+        "湿壁、岩缝、水声和夜路构成压迫感",
+        "玩家能感觉附近藏着东西，但不具备拿走它的资格",
+        "继续深入会引发伤势、暴露或路线断裂"
+      ],
+      "canon_strict_rule": "玩家可以接触似是而非的外围迹象，但不能进入核心密洞或取得核心遗物。",
+      "sandbox_if_allowance": "IF 模式可以出现残线入口、坍塌缝隙或错位痕迹，但必须以高代价和不稳定结果呈现。",
+      "forbidden_misreadings": [
+        "把外围山缝写成稳定副本入口",
+        "让玩家直接抵达核心遗藏",
+        "无代价探索危险水路"
+      ]
+    },
+    {
+      "fact_id": "flower_wine_recorded_truth_redline",
+      "volume": 1,
+      "chapter_no": 15,
+      "chapter_title": "第十五节 历史由胜利者书写",
+      "line_start": 2240,
+      "line_end": 2296,
+      "fact_type": "forbidden_core_truth",
+      "canon_summary": "花酒核心证据会动摇家族公开历史版本，属于第一卷早期最危险的真相之一。它不仅是奖励，也是政治与生存风险。",
+      "game_design_use": "用于定义严谨模式红线：玩家不能提前取得留影、骨骸、核心证据或完整历史真相。",
+      "mechanic_hooks": [
+        "core_truth_lock",
+        "clan_suppression",
+        "anchor_pressure",
+        "high_value_evidence"
+      ],
+      "narrative_hooks": [
+        "核心真相附近应有压迫和不可承受感",
+        "外围文本可以暗示公开历史有裂缝",
+        "锚点阻断要像世界反应，而不是系统弹窗"
+      ],
+      "canon_strict_rule": "严谨模式必须保护核心真相，不能让玩家提前获得或公开核心证据。",
+      "sandbox_if_allowance": "IF 模式可出现残缺影像、被抹去的字迹或真相余波，但必须伴随追杀、组织压力或锚点偏移。",
+      "forbidden_misreadings": [
+        "把花酒核心真相写成早期普通线索",
+        "让玩家公开推翻家族历史且无代价",
+        "让玩家替代方源完成核心发现"
+      ]
     }
   ]
 }
